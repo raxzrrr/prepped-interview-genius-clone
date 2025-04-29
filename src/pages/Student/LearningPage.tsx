@@ -133,6 +133,13 @@ const LearningPage: React.FC = () => {
   
   const inProgressCourses = courses.filter(course => course.progress !== undefined && course.progress > 0);
 
+  const handleBrowseCourses = () => {
+    const allCoursesTab = document.querySelector('[data-value="all-courses"]');
+    if (allCoursesTab instanceof HTMLElement) {
+      allCoursesTab.click();
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -170,7 +177,7 @@ const LearningPage: React.FC = () => {
           <TabsContent value="all-courses">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredCourses.map((course) => (
-                <CourseCar key={course.id} {...course} />
+                <CourseCard key={course.id} {...course} />
               ))}
             </div>
           </TabsContent>
@@ -185,7 +192,7 @@ const LearningPage: React.FC = () => {
                 <div className="col-span-full p-8 text-center">
                   <h3 className="mb-2 text-lg font-medium">No courses in progress</h3>
                   <p className="mb-4 text-gray-600">Start learning by enrolling in one of our courses.</p>
-                  <Button onClick={() => document.querySelector('[data-value="all-courses"]')?.click()}>
+                  <Button onClick={handleBrowseCourses}>
                     Browse Courses
                   </Button>
                 </div>
