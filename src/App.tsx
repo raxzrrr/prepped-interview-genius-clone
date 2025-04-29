@@ -11,6 +11,7 @@ import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/AuthPages/LoginPage";
 import RegisterPage from "@/pages/AuthPages/RegisterPage";
 import NotFound from "@/pages/NotFound";
+import Index from "@/pages/Index";
 
 // Student Pages
 import Dashboard from "@/pages/Student/Dashboard";
@@ -23,6 +24,11 @@ import SettingsPage from "@/pages/Student/SettingsPage";
 // Admin Pages
 import AdminDashboard from "@/pages/Admin/AdminDashboard";
 import UsersPage from "@/pages/Admin/UsersPage";
+import AdminContentPage from "@/pages/Admin/AdminContentPage";
+import AdminCouponsPage from "@/pages/Admin/AdminCouponsPage";
+import AdminPaymentsPage from "@/pages/Admin/AdminPaymentsPage";
+import AdminCertificatesPage from "@/pages/Admin/AdminCertificatesPage";
+import AdminSettingsPage from "@/pages/Admin/AdminSettingsPage";
 
 const queryClient = new QueryClient();
 
