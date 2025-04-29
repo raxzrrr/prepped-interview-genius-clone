@@ -50,6 +50,11 @@ const App = () => (
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<UsersPage />} />
+            <Route path="/admin/content" element={<AdminContentPage />} />
+            <Route path="/admin/coupons" element={<AdminCouponsPage />} />
+            <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+            <Route path="/admin/certificates" element={<AdminCertificatesPage />} />
+            <Route path="/admin/settings" element={<AdminSettingsPage />} />
             
             {/* Catch-all / 404 route */}
             <Route path="*" element={<NotFound />} />

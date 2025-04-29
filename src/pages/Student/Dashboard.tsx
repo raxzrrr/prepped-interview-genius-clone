@@ -7,8 +7,9 @@ import InterviewReport from '@/components/Dashboard/InterviewReport';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Video, Clock, Activity } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { FileText, Video, Clock, Activity } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Dashboard: React.FC = () => {
   const { user, isStudent } = useAuth();

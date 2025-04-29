@@ -134,6 +134,7 @@ const LearningPage: React.FC = () => {
   const inProgressCourses = courses.filter(course => course.progress !== undefined && course.progress > 0);
 
   const handleBrowseCourses = () => {
+    // Use querySelector with the proper attribute selector
     const allCoursesTab = document.querySelector('[data-value="all-courses"]');
     if (allCoursesTab instanceof HTMLElement) {
       allCoursesTab.click();
