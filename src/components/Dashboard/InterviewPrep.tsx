@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -9,7 +8,7 @@ import {
   CardHeader,
   CardTitle 
 } from '@/components/ui/card';
-import { Mic, Video, PlayCircle, StopCircle, Download, ArrowRight } from 'lucide-react';
+import { Mic, Video, PlayCircle, StopCircle, Download, ArrowRight, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface InterviewPrepProps {
