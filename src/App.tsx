@@ -16,6 +16,9 @@ import NotFound from "@/pages/NotFound";
 import Dashboard from "@/pages/Student/Dashboard";
 import InterviewsPage from "@/pages/Student/InterviewsPage";
 import LearningPage from "@/pages/Student/LearningPage";
+import ReportsPage from "@/pages/Student/ReportsPage";
+import CertificatesPage from "@/pages/Student/CertificatesPage";
+import SettingsPage from "@/pages/Student/SettingsPage";
 
 // Admin Pages
 import AdminDashboard from "@/pages/Admin/AdminDashboard";
@@ -40,6 +43,9 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/interviews" element={<InterviewsPage />} />
             <Route path="/learning" element={<LearningPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/certificates" element={<CertificatesPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminDashboard />} />
