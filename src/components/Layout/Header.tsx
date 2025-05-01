@@ -2,11 +2,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 
 const Header: React.FC = () => {
-  const { user, logout, isAdmin, isStudent, profile } = useAuth();
+  const { user, profile, isAdmin, isStudent } = useAuth();
   const navigate = useNavigate();
+  
+  const logout = () => {
+    // This will be handled by Clerk's SignOutButton
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
@@ -73,7 +78,7 @@ const Header: React.FC = () => {
               </span>
               <Button 
                 variant="outline" 
-                onClick={() => logout()}
+                onClick={logout}
               >
                 Logout
               </Button>

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -24,9 +24,14 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { user, logout, isAdmin, isStudent, profile } = useAuth();
+  const { user, profile, isAdmin, isStudent } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const logout = () => {
+    // This will be handled by Clerk's SignOutButton
+    navigate('/login');
+  };
 
   if (!user) {
     navigate('/login');
@@ -99,14 +104,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium text-white">{profile?.full_name || 'User'}</p>
-                  <p className="text-xs text-gray-400">{user.email}</p>
+                  <p className="text-xs text-gray-400">{user.primaryEmailAddress?.emailAddress}</p>
                 </div>
               </div>
             </div>
             <Button
               variant="ghost"
               className="flex items-center w-full px-4 py-2 text-sm text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
-              onClick={() => logout()}
+              onClick={logout}
             >
               <LogOut className="w-5 h-5 mr-3" />
               Logout
