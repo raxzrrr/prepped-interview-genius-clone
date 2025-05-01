@@ -11,17 +11,20 @@ import {
 } from '@/components/ui/card';
 import { Upload, FileText, Check, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useInterviewApi } from '@/services/api';
 
 interface ResumeUploadProps {
   onAnalysisComplete: (questions: string[]) => void;
+  onResumeAnalysis?: (analysis: any) => void;
 }
 
-const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete }) => {
+const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete, onResumeAnalysis }) => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
   const { toast } = useToast();
+  const { generateInterviewQuestions, analyzeResume } = useInterviewApi();
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -43,48 +46,63 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete }) => {
     
     setUploading(true);
     
-    // Simulate upload
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setUploading(false);
-    setUploadComplete(true);
-    setAnalyzing(true);
-    
-    // Simulate AI analysis
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setAnalyzing(false);
-    
-    // Generate mock interview questions
-    const mockQuestions = [
-      "Tell me about your experience with React and how you've used it in previous projects.",
-      "Describe a challenging problem you faced in your last role and how you solved it.",
-      "How do you handle tight deadlines and competing priorities?",
-      "What attracted you to apply for this position?",
-      "Can you walk me through your process for implementing new features?",
-      "How do you stay updated with the latest industry trends and technologies?",
-      "Describe your experience working in agile development environments.",
-      "Tell me about a time when you had to learn a new technology quickly.",
-      "How do you approach testing and ensuring code quality?",
-      "Where do you see yourself professionally in 5 years?",
-      "What is your greatest professional achievement?",
-      "How do you handle constructive criticism?",
-      "Describe your communication style when working with cross-functional teams.",
-      "What motivates you in your work?",
-      "Tell me about a time when you had to make a difficult decision with limited information."
-    ];
-    
-    onAnalysisComplete(mockQuestions);
-    
-    toast({
-      title: "Analysis Complete",
-      description: "Your resume has been analyzed and interview questions have been generated!",
-    });
+    try {
+      // Convert file to base64 for processing
+      const base64File = await convertFileToBase64(file);
+      setUploading(false);
+      setUploadComplete(true);
+      setAnalyzing(true);
+      
+      // First, analyze the resume
+      const resumeAnalysis = await analyzeResume(base64File);
+      
+      if (onResumeAnalysis && resumeAnalysis) {
+        onResumeAnalysis(resumeAnalysis);
+      }
+      
+      // Generate interview questions based on the resume content
+      const jobRole = resumeAnalysis?.suggested_role || "Software Engineer";
+      const questions = await generateInterviewQuestions(jobRole);
+      const questionTexts = questions.map(q => q.question);
+      
+      setAnalyzing(false);
+      
+      if (questionTexts.length === 0) {
+        throw new Error('Failed to generate questions');
+      }
+      
+      onAnalysisComplete(questionTexts);
+      
+      toast({
+        title: "Analysis Complete",
+        description: "Your resume has been analyzed and interview questions have been generated!",
+      });
+    } catch (error) {
+      console.error('Error processing resume:', error);
+      setUploading(false);
+      setAnalyzing(false);
+      
+      toast({
+        title: "Processing Error",
+        description: "There was an error processing your resume. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const resetUpload = () => {
     setFile(null);
     setUploadComplete(false);
+  };
+
+  // Convert file to base64
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
   };
 
   return (
@@ -164,7 +182,17 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete }) => {
           disabled={!file || uploading || analyzing || uploadComplete}
           className="w-full"
         >
-          {uploading ? 'Uploading...' : analyzing ? 'Analyzing Resume...' : 'Upload & Analyze'}
+          {uploading ? (
+            <>
+              <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+              Uploading...
+            </>
+          ) : analyzing ? (
+            <>
+              <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+              Analyzing Resume...
+            </>
+          ) : 'Upload & Analyze'}
         </Button>
       </CardFooter>
     </Card>

@@ -1,57 +1,55 @@
 
 import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Button } from '@/components/ui/button';
-import { Award, Download, Share2, CheckCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { FileText, Download, Award, CheckCircle, XCircle, BookOpen, LockIcon } from 'lucide-react';
 
 const CertificatesPage: React.FC = () => {
-  const { user } = useAuth();
-  const [showTestDialog, setShowTestDialog] = useState(false);
+  const { user, isStudent, profile } = useAuth();
+  const [downloadingCourse, setDownloadingCourse] = useState(false);
+  const [downloadingAssessment, setDownloadingAssessment] = useState(false);
   
-  // Dummy data for certificates
-  const certificates = [
-    {
-      id: '1',
-      title: 'Course Completion Certificate',
-      description: 'Certificate of completing the Interview Preparation course',
-      issueDate: 'April 20, 2025',
-      credentialId: 'COURSE-COMP-1234',
-      imageUrl: 'https://images.unsplash.com/photo-1569017388730-020b5f80a004?auto=format&fit=crop&w=500&q=60'
+  // Redirect if not logged in or not a student
+  if (!user || !isStudent()) {
+    return <Navigate to="/login" />;
+  }
+
+  // Mock data for certificates
+  const certificates = {
+    course: {
+      name: 'Interview Mastery Course',
+      issued: '2025-04-15',
+      available: true,
+      prerequisites: ['Complete all course modules', 'Score 70% or higher on final quiz'],
+      completed: [true, false]
     },
-    {
-      id: '2',
-      title: 'Assessment Certificate',
-      description: 'Certificate of passing the internship-level assessment',
-      issueDate: 'May 15, 2025',
-      credentialId: 'ASSESS-INT-5678',
-      imageUrl: 'https://images.unsplash.com/photo-1580894894513-541e068a3e2b?auto=format&fit=crop&w=500&q=60',
-      requiresTest: true,
-      completed: false
+    assessment: {
+      name: 'Technical Interview Assessment',
+      issued: null,
+      available: false,
+      prerequisites: ['Complete Assessment Test', 'Score 80% or higher'],
+      completed: [false, false]
     }
-  ];
-
-  const handleDownloadCertificate = (id: string) => {
-    console.log(`Downloading certificate with ID: ${id}`);
-    // This would trigger the PDF download
   };
 
-  const handleShareCertificate = (id: string) => {
-    console.log(`Sharing certificate with ID: ${id}`);
-    // This would open a share dialog
-  };
-
-  const startAssessmentTest = () => {
-    setShowTestDialog(true);
+  const downloadCertificate = (type: 'course' | 'assessment') => {
+    if (type === 'course') {
+      setDownloadingCourse(true);
+      // Simulate download
+      setTimeout(() => {
+        setDownloadingCourse(false);
+      }, 2000);
+    } else {
+      setDownloadingAssessment(true);
+      // Simulate download
+      setTimeout(() => {
+        setDownloadingAssessment(false);
+      }, 2000);
+    }
   };
 
   return (
@@ -63,118 +61,173 @@ const CertificatesPage: React.FC = () => {
             View and download your earned certificates
           </p>
         </div>
-
+        
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {certificates.map((certificate) => (
-            <Card key={certificate.id} className="overflow-hidden">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-yellow-500" />
-                  {certificate.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="aspect-[4/3] rounded-md overflow-hidden mb-4">
-                  <img 
-                    src={certificate.imageUrl} 
-                    alt={certificate.title}
-                    className="w-full h-full object-cover"
-                  />
+          {/* Course Completion Certificate */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-xl">Course Completion Certificate</CardTitle>
+                {certificates.course.available ? (
+                  <Badge className="bg-green-500">Available</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-amber-500 border-amber-500">
+                    In Progress
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>
+                Certifies completion of the Interview Mastery Course
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-white border rounded-md p-6 mb-4 flex items-center justify-center">
+                <div className="text-center">
+                  <Award className="w-20 h-20 text-brand-purple mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">
+                    {profile?.full_name || 'Student'}
+                  </h3>
+                  <p className="text-gray-600 text-sm">
+                    Has successfully completed
+                  </p>
+                  <p className="font-medium mt-2">{certificates.course.name}</p>
+                  {certificates.course.issued && (
+                    <p className="text-gray-500 text-sm mt-4">
+                      Issued on {new Date(certificates.course.issued).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
-                <p className="mb-4 text-sm text-gray-600">
-                  {certificate.description}
-                </p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Issued On</span>
-                    <span>{certificate.issueDate}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Credential ID</span>
-                    <span className="font-mono">{certificate.credentialId}</span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between border-t pt-4">
-                {certificate.requiresTest && !certificate.completed ? (
-                  <Button 
-                    variant="default"
-                    onClick={startAssessmentTest}
-                    className="w-full"
-                  >
-                    Take Assessment Test
-                  </Button>
+              </div>
+              
+              <div className="mt-6">
+                <h4 className="text-sm font-medium mb-2">Requirements</h4>
+                <ul className="space-y-2">
+                  {certificates.course.prerequisites.map((req, index) => (
+                    <li key={index} className="flex items-start">
+                      {certificates.course.completed[index] ? (
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                      )}
+                      <span className="text-sm">{req}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full"
+                disabled={!certificates.course.available || downloadingCourse}
+                onClick={() => downloadCertificate('course')}
+              >
+                {downloadingCourse ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+                    Downloading...
+                  </>
                 ) : (
                   <>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center" 
-                      onClick={() => handleDownloadCertificate(certificate.id)}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center" 
-                      onClick={() => handleShareCertificate(certificate.id)}
-                    >
-                      <Share2 className="mr-2 h-4 w-4" />
-                      Share
-                    </Button>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Certificate
                   </>
                 )}
-              </CardFooter>
-            </Card>
-          ))}
+              </Button>
+            </CardFooter>
+          </Card>
+          
+          {/* Assessment Certificate */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-xl">Assessment Certificate</CardTitle>
+                {certificates.assessment.available ? (
+                  <Badge className="bg-green-500">Available</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-amber-500 border-amber-500">
+                    Locked
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>
+                Certifies successful completion of internship-level technical assessment
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-white border rounded-md p-6 mb-4 flex items-center justify-center border-dashed">
+                <div className="text-center">
+                  {certificates.assessment.available ? (
+                    <>
+                      <Award className="w-20 h-20 text-brand-purple mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold">
+                        {profile?.full_name || 'Student'}
+                      </h3>
+                      <p className="text-gray-600 text-sm">
+                        Has successfully completed
+                      </p>
+                      <p className="font-medium mt-2">{certificates.assessment.name}</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 rounded-full border-2 border-gray-300 inline-block mb-4">
+                        <LockIcon className="w-12 h-12 text-gray-300" />
+                      </div>
+                      <p className="text-gray-500">
+                        Complete all requirements to unlock
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <h4 className="text-sm font-medium mb-2">Requirements</h4>
+                <ul className="space-y-2">
+                  {certificates.assessment.prerequisites.map((req, index) => (
+                    <li key={index} className="flex items-start">
+                      {certificates.assessment.completed[index] ? (
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                      )}
+                      <span className="text-sm">{req}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-2">
+              <Button 
+                className="w-full"
+                disabled={!certificates.assessment.available || downloadingAssessment}
+                onClick={() => downloadCertificate('assessment')}
+              >
+                {downloadingAssessment ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Certificate
+                  </>
+                )}
+              </Button>
+              
+              {!certificates.assessment.available && (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => window.location.href = '/learning'}
+                >
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Take Assessment Test
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
         </div>
-
-        <Dialog open={showTestDialog} onOpenChange={setShowTestDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Assessment Test</DialogTitle>
-              <DialogDescription>
-                Take this test to earn your Assessment Certificate. You need to pass an MSQ test that validates internship-level skills.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-4 py-4">
-              <p className="text-sm text-gray-600">
-                This multiple-choice assessment contains 30 questions covering various technical and soft skills topics relevant for internship positions. You'll have 45 minutes to complete the test.
-              </p>
-              <div className="flex items-start space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" /> 
-                <p className="text-sm">You can pause and resume the test as needed</p>
-              </div>
-              <div className="flex items-start space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" /> 
-                <p className="text-sm">A score of 70% or higher is required to pass</p>
-              </div>
-              <div className="flex items-start space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" /> 
-                <p className="text-sm">Upon completion, your certificate will be issued immediately</p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowTestDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                Start Assessment
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {certificates.length === 0 && (
-          <div className="text-center py-12">
-            <Award className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium">No certificates yet</h3>
-            <p className="mt-2 text-gray-600">Complete courses to earn certificates.</p>
-            <Button className="mt-4">Browse Courses</Button>
-          </div>
-        )}
       </div>
     </DashboardLayout>
   );

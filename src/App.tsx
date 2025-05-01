@@ -4,7 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { ClerkProvider } from "@clerk/clerk-react";
+import { ClerkAuthProvider } from "@/contexts/ClerkAuthContext";
+import ProtectedRoute from "@/components/Auth/ProtectedRoute";
 
 // Public Pages
 import HomePage from "@/pages/HomePage";
@@ -32,45 +34,104 @@ import AdminCertificatesPage from "@/pages/Admin/AdminCertificatesPage";
 import AdminSettingsPage from "@/pages/Admin/AdminSettingsPage";
 
 const queryClient = new QueryClient();
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "";
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            
-            {/* Student Routes */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/interviews" element={<InterviewsPage />} />
-            <Route path="/custom-interviews" element={<CustomInterviewsPage />} />
-            <Route path="/learning" element={<LearningPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/certificates" element={<CertificatesPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<UsersPage />} />
-            <Route path="/admin/content" element={<AdminContentPage />} />
-            <Route path="/admin/coupons" element={<AdminCouponsPage />} />
-            <Route path="/admin/payments" element={<AdminPaymentsPage />} />
-            <Route path="/admin/certificates" element={<AdminCertificatesPage />} />
-            <Route path="/admin/settings" element={<AdminSettingsPage />} />
-            
-            {/* Catch-all / 404 route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <ClerkProvider publishableKey={clerkPubKey}>
+    <QueryClientProvider client={queryClient}>
+      <ClerkAuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              
+              {/* Student Routes */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute requiredRole="student">
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/interviews" element={
+                <ProtectedRoute requiredRole="student">
+                  <InterviewsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/custom-interviews" element={
+                <ProtectedRoute requiredRole="student">
+                  <CustomInterviewsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/learning" element={
+                <ProtectedRoute requiredRole="student">
+                  <LearningPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute requiredRole="student">
+                  <ReportsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/certificates" element={
+                <ProtectedRoute requiredRole="student">
+                  <CertificatesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute requiredRole="student">
+                  <SettingsPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin Routes */}
+              <Route path="/admin" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/users" element={
+                <ProtectedRoute requiredRole="admin">
+                  <UsersPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/content" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminContentPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/coupons" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminCouponsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/payments" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminPaymentsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/certificates" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminCertificatesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminSettingsPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Catch-all / 404 route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ClerkAuthProvider>
+    </QueryClientProvider>
+  </ClerkProvider>
 );
 
 export default App;

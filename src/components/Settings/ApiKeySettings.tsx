@@ -14,21 +14,30 @@ interface ApiKeySettingsProps {
 
 const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
   const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [googleTTSApiKey, setGoogleTTSApiKey] = useState('');
+  const [showApiKeys, setShowApiKeys] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedKey = envService.get('GEMINI_API_KEY');
-    if (storedKey) {
-      setGeminiApiKey(storedKey);
+    const storedGeminiKey = envService.get('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY || '';
+    const storedTTSKey = envService.get('GOOGLE_TTS_API_KEY') || '';
+    
+    if (storedGeminiKey) {
+      setGeminiApiKey(storedGeminiKey);
+    }
+    
+    if (storedTTSKey) {
+      setGoogleTTSApiKey(storedTTSKey);
     }
   }, []);
 
   const handleSave = () => {
     envService.set('GEMINI_API_KEY', geminiApiKey);
+    envService.set('GOOGLE_TTS_API_KEY', googleTTSApiKey);
+    
     toast({
-      title: "API Key Saved",
-      description: "Your Gemini API key has been saved successfully.",
+      title: "API Keys Saved",
+      description: "Your API keys have been saved successfully.",
     });
     
     if (onComplete) {
@@ -36,8 +45,8 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
     }
   };
 
-  const toggleShowApiKey = () => {
-    setShowApiKey(!showApiKey);
+  const toggleShowApiKeys = () => {
+    setShowApiKeys(!showApiKeys);
   };
 
   return (
@@ -57,7 +66,7 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
           <div className="flex">
             <Input
               id="gemini-api-key"
-              type={showApiKey ? "text" : "password"}
+              type={showApiKeys ? "text" : "password"}
               placeholder="Enter your Google Gemini API key"
               value={geminiApiKey}
               onChange={(e) => setGeminiApiKey(e.target.value)}
@@ -66,10 +75,10 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
             <Button 
               variant="outline" 
               size="icon" 
-              onClick={toggleShowApiKey}
+              onClick={toggleShowApiKeys}
               className="ml-2"
             >
-              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showApiKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
           </div>
           <p className="text-sm text-gray-500">
@@ -81,6 +90,31 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
               className="text-brand-purple hover:underline"
             >
               Google AI Studio
+            </a>
+          </p>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="google-tts-api-key">Google Text-to-Speech API Key</Label>
+          <div className="flex">
+            <Input
+              id="google-tts-api-key"
+              type={showApiKeys ? "text" : "password"}
+              placeholder="Enter your Google Text-to-Speech API key"
+              value={googleTTSApiKey}
+              onChange={(e) => setGoogleTTSApiKey(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+          <p className="text-sm text-gray-500">
+            Get your API key from{' '}
+            <a 
+              href="https://console.cloud.google.com/apis/credentials" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-brand-purple hover:underline"
+            >
+              Google Cloud Console
             </a>
           </p>
         </div>

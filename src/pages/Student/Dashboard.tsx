@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
 import ResumeUpload from '@/components/Dashboard/ResumeUpload';
+import ResumeAnalysisResults from '@/components/Dashboard/ResumeAnalysisResults';
 import { Button } from '@/components/ui/button';
 import { 
   Card,
@@ -23,7 +25,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/components/ui/use-toast';
 import { BriefcaseIcon, Clock, Users, PlayCircle, CheckCircle, BarChart3 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
 import envService from '@/services/env';
@@ -36,6 +38,7 @@ const Dashboard: React.FC = () => {
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
   const [interviewAnswers, setInterviewAnswers] = useState<string[]>([]);
   const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
+  const [resumeAnalysis, setResumeAnalysis] = useState<any>(null);
   const [stage, setStage] = useState<'select' | 'interview' | 'report'>('select');
   const [isGenerating, setIsGenerating] = useState(false);
   const [interviewId, setInterviewId] = useState<string | undefined>();
@@ -48,7 +51,8 @@ const Dashboard: React.FC = () => {
 
   // Check if API key is configured when component mounts
   useEffect(() => {
-    if (!envService.isConfigured('GEMINI_API_KEY')) {
+    const geminiApiKey = envService.get('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY;
+    if (!geminiApiKey) {
       setShowApiSettings(true);
     }
     
@@ -166,6 +170,8 @@ const Dashboard: React.FC = () => {
     setInterviewAnswers([]);
     setFacialAnalysis([]);
     setInterviewId(undefined);
+    setResumeAnalysis(null);
+    fetchUserInterviewUsage(); // Refresh usage data
   };
 
   const handleApiSetupComplete = () => {
@@ -179,6 +185,10 @@ const Dashboard: React.FC = () => {
   const handleResumeAnalysisComplete = (questions: string[]) => {
     setInterviewQuestions(questions);
     setStage('interview');
+  };
+  
+  const handleResumeAnalysisResults = (analysis: any) => {
+    setResumeAnalysis(analysis);
   };
 
   if (showApiSettings) {
@@ -211,23 +221,42 @@ const Dashboard: React.FC = () => {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center">
                   <Clock className="mr-2 h-5 w-5 text-gray-500" />
-                  Recent Activity
+                  Monthly Limits
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Interviews Completed</span>
-                    <span className="text-lg font-semibold">3</span>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">Custom Interviews</span>
+                      <span className={`text-sm font-medium ${usageData.custom_interviews >= 2 ? 'text-red-500' : 'text-green-500'}`}>
+                        {usageData.custom_interviews}/2
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${usageData.custom_interviews >= 2 ? 'bg-red-500' : 'bg-green-500'}`} 
+                        style={{ width: `${(usageData.custom_interviews / 2) * 100}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Last Interview</span>
-                    <span className="text-sm">2 days ago</span>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">Resume Interviews</span>
+                      <span className={`text-sm font-medium ${usageData.resume_interviews >= 2 ? 'text-red-500' : 'text-green-500'}`}>
+                        {usageData.resume_interviews}/2
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${usageData.resume_interviews >= 2 ? 'bg-red-500' : 'bg-green-500'}`} 
+                        style={{ width: `${(usageData.resume_interviews / 2) * 100}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Average Score</span>
-                    <span className="text-lg font-semibold text-brand-purple">84%</span>
-                  </div>
+                </div>
+                <div className="mt-4 text-xs text-gray-500 pt-2 border-t border-gray-100">
+                  <p>Limits reset every 30 days</p>
                 </div>
               </CardContent>
             </Card>
@@ -360,17 +389,26 @@ const Dashboard: React.FC = () => {
             </CardFooter>
           </Card>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Resume Analysis</CardTitle>
-              <CardDescription>
-                Upload your resume to receive AI-powered feedback and suggestions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResumeUpload onAnalysisComplete={handleResumeAnalysisComplete} />
-            </CardContent>
-          </Card>
+          {resumeAnalysis && (
+            <ResumeAnalysisResults analysis={resumeAnalysis} />
+          )}
+          
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-1">
+            <Card>
+              <CardHeader>
+                <CardTitle>Resume Analysis</CardTitle>
+                <CardDescription>
+                  Upload your resume to receive AI-powered feedback and suggestions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResumeUpload 
+                  onAnalysisComplete={handleResumeAnalysisComplete} 
+                  onResumeAnalysis={handleResumeAnalysisResults}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
       

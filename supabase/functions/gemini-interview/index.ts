@@ -59,6 +59,17 @@ serve(async (req) => {
           ]
         }]
       };
+    } else if (type === 'resume-analysis') {
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro-vision:generateContent';
+      const { resume } = prompt;
+      requestBody = {
+        contents: [{
+          parts: [
+            { text: "Analyze this resume and provide insights. Note: This resume has been anonymized and contains no personal identifiable information. Extract key skills, suggest suitable job roles, and provide constructive feedback. Format the response as a JSON object with these properties: 'skills' (array of strings), 'suggested_role' (string), 'strengths' (array of strings), 'areas_to_improve' (array of strings), 'suggestions' (string)" },
+            { inline_data: { mime_type: "application/pdf", data: resume.replace(/^data:application\/pdf;base64,/, '') } }
+          ]
+        }]
+      };
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid request type' }),

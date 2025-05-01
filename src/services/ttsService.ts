@@ -1,79 +1,127 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
+import envService from "./env";
+
+interface TTSOptions {
+  voice?: string;
+  language?: string;
+  pitch?: number;
+  speakingRate?: number;
+}
 
 class TTSService {
   private static instance: TTSService;
-  private audioCache: Map<string, string>;
-
-  private constructor() {
-    this.audioCache = new Map();
-  }
-
+  private audioContext: AudioContext | null = null;
+  private audio: HTMLAudioElement | null = null;
+  
+  private constructor() {}
+  
   public static getInstance(): TTSService {
     if (!TTSService.instance) {
       TTSService.instance = new TTSService();
     }
     return TTSService.instance;
   }
-
-  public async textToSpeech(text: string, voice: string = 'en-US-Neural2-F'): Promise<string> {
-    // Check if we have this text cached
-    const cacheKey = `${text}_${voice}`;
-    if (this.audioCache.has(cacheKey)) {
-      return this.audioCache.get(cacheKey)!;
+  
+  private getAudioContext(): AudioContext {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-
+    return this.audioContext;
+  }
+  
+  public async speak(text: string, options: TTSOptions = {}): Promise<void> {
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text, voice }
+        body: { 
+          text,
+          voice: options.voice || 'en-US-Neural2-F'
+        }
       });
-
+      
       if (error) {
-        throw new Error(error.message);
+        throw new Error(`TTS API Error: ${error.message}`);
       }
-
-      if (data && data.audioContent) {
-        // Cache the result
-        this.audioCache.set(cacheKey, data.audioContent);
-        return data.audioContent;
-      } else {
-        throw new Error('No audio data received');
+      
+      if (data?.audioContent) {
+        await this.playAudio(data.audioContent);
+        return;
       }
+      
+      throw new Error('No audio content received');
     } catch (error) {
-      console.error('Error in text-to-speech conversion:', error);
-      throw error;
+      console.error('TTS error:', error);
+      // Fallback to browser's TTS if available
+      this.speakWithBrowserTTS(text, options);
     }
   }
-
-  public async speakText(text: string, voice: string = 'en-US-Neural2-F'): Promise<void> {
-    try {
-      const audioContent = await this.textToSpeech(text, voice);
-      
-      // Create audio element and play
-      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
-      await audio.play();
-      
-      return new Promise((resolve) => {
-        audio.onended = () => resolve();
-      });
-    } catch (error) {
-      console.error('Error playing audio:', error);
-      // Fallback to browser's native TTS if available
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        speechSynthesis.speak(utterance);
-        
-        return new Promise((resolve) => {
-          utterance.onend = () => resolve();
-        });
+  
+  private async playAudio(base64Audio: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Stop any currently playing audio
+      if (this.audio) {
+        this.audio.pause();
+        this.audio.currentTime = 0;
       }
-      throw error;
+      
+      // Create a new audio element
+      this.audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+      
+      // Set up event handlers
+      this.audio.onended = () => resolve();
+      this.audio.onerror = (e) => reject(e);
+      
+      // Play the audio
+      this.audio.play().catch(reject);
+    });
+  }
+  
+  private speakWithBrowserTTS(text: string, options: TTSOptions = {}): void {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Set language if specified
+      if (options.language) {
+        utterance.lang = options.language;
+      }
+      
+      // Set voice if specified and available
+      if (options.voice) {
+        const voices = window.speechSynthesis.getVoices();
+        const selectedVoice = voices.find(voice => voice.name === options.voice);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+      }
+      
+      // Set pitch and rate if specified
+      if (options.pitch !== undefined) {
+        utterance.pitch = options.pitch;
+      }
+      
+      if (options.speakingRate !== undefined) {
+        utterance.rate = options.speakingRate;
+      }
+      
+      // Speak the text
+      window.speechSynthesis.speak(utterance);
+    } else {
+      console.warn('Browser TTS not available');
     }
   }
-
-  // Method to clear the cache
-  public clearCache(): void {
-    this.audioCache.clear();
+  
+  public stop(): void {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+    }
+    
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
   }
 }
 

@@ -22,11 +22,20 @@ interface FacialAnalysis {
   observations: string[];
 }
 
+interface ResumeAnalysis {
+  skills: string[];
+  suggested_role: string;
+  strengths: string[];
+  areas_to_improve: string[];
+  suggestions: string;
+}
+
 export const useInterviewApi = () => {
   const { toast } = useToast();
 
   const checkApiKey = (): boolean => {
-    if (!envService.isConfigured('GEMINI_API_KEY')) {
+    const geminiApiKey = envService.get('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY;
+    if (!geminiApiKey) {
       toast({
         title: "API Key Required",
         description: "Please set up your Gemini API key in Settings to use this feature.",
@@ -110,6 +119,30 @@ export const useInterviewApi = () => {
       toast({
         title: "Error",
         description: "Failed to analyze facial expressions. Please try again later.",
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
+  const analyzeResume = async (resumeBase64: string): Promise<ResumeAnalysis | null> => {
+    if (!checkApiKey()) return null;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { 
+          type: 'resume-analysis', 
+          prompt: { resume: resumeBase64 } 
+        }
+      });
+
+      if (error) throw new Error(error.message);
+      return data;
+    } catch (error) {
+      console.error('Error analyzing resume:', error);
+      toast({
+        title: "Error",
+        description: "Failed to analyze resume. Please try again later.",
         variant: "destructive"
       });
       return null;
@@ -201,6 +234,7 @@ export const useInterviewApi = () => {
     generateInterviewQuestions,
     getAnswerFeedback,
     analyzeFacialExpression,
+    analyzeResume,
     saveInterview,
     updateInterview,
     getInterviews,

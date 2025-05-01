@@ -1,16 +1,22 @@
 
 interface EnvConfig {
   GEMINI_API_KEY: string | null;
+  GOOGLE_TTS_API_KEY: string | null;
 }
 
 class EnvService {
   private static instance: EnvService;
   private config: EnvConfig = {
-    GEMINI_API_KEY: null
+    GEMINI_API_KEY: null,
+    GOOGLE_TTS_API_KEY: null
   };
 
   private constructor() {
     this.loadFromLocalStorage();
+    // Get from environment if available
+    if (import.meta.env.VITE_GEMINI_API_KEY) {
+      this.config.GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+    }
   }
 
   public static getInstance(): EnvService {

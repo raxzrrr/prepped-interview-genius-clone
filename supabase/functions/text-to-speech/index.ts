@@ -19,12 +19,16 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
+    const apiKey = Deno.env.get('GOOGLE_TTS_API_KEY');
+    if (!apiKey) {
+      throw new Error('TTS API key not configured')
+    }
+
     // Generate speech from text using the Google TTS API
-    // Google Cloud TTS requires a valid API key
     const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${Deno.env.get('GOOGLE_TTS_API_KEY')}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

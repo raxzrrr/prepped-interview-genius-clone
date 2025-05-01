@@ -1,460 +1,468 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
-import { Mic, Video, PlayCircle, StopCircle, Download, ArrowRight, Check } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
+import ttsService from '@/services/ttsService';
+import { Mic, MicOff, Video, VideoOff, ArrowRight } from 'lucide-react';
 
 interface InterviewPrepProps {
   questions: string[];
   interviewId?: string;
-  onInterviewComplete: (answers: string[], facialExpressions: any[]) => void;
+  onInterviewComplete: (answers: string[], facialData: any[]) => void;
 }
 
 const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, onInterviewComplete }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
-  const [micEnabled, setMicEnabled] = useState(false);
-  const [cameraEnabled, setCameraEnabled] = useState(false);
-  const [answers, setAnswers] = useState<string[]>(new Array(questions.length).fill(''));
-  const [facialExpressions, setFacialExpressions] = useState<any[]>([]);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [facialData, setFacialData] = useState<any[]>([]);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [audioData, setAudioData] = useState<Blob[]>([]);
-  const { analyzeFacialExpression, updateInterview } = useInterviewApi();
-
-  const currentQuestion = questions[currentQuestionIndex];
+  const { getAnswerFeedback, analyzeFacialExpression, updateInterview } = useInterviewApi();
   
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Ask the current question when it changes
   useEffect(() => {
-    // Cleanup function to stop all media streams when component unmounts
+    if (questions.length > 0 && currentQuestionIndex < questions.length) {
+      speakQuestion();
+    }
+  }, [currentQuestionIndex, questions]);
+
+  // Clean up on unmount
+  useEffect(() => {
     return () => {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
+      stopMediaStream();
     };
   }, []);
 
-  const toggleMic = async () => {
+  const speakQuestion = async () => {
     try {
-      if (micEnabled) {
-        // Turn off microphone
-        if (mediaStreamRef.current) {
-          mediaStreamRef.current.getAudioTracks().forEach(track => track.stop());
-        }
-        setMicEnabled(false);
-        toast({
-          title: "Microphone Disabled",
-          description: "Your microphone has been turned off.",
-        });
-      } else {
-        // Turn on microphone
-        const audioStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: true 
-        });
-        
-        mediaStreamRef.current = mediaStreamRef.current 
-          ? new MediaStream([
-              ...mediaStreamRef.current.getVideoTracks(),
-              ...audioStream.getAudioTracks()
-            ])
-          : audioStream;
-            
-        setMicEnabled(true);
-        toast({
-          title: "Microphone Enabled",
-          description: "Your microphone is now active.",
-        });
-      }
+      const currentQuestion = questions[currentQuestionIndex];
+      setIsSpeaking(true);
+      await ttsService.speak(currentQuestion);
+      setIsSpeaking(false);
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      console.error('Error speaking question:', error);
+      setIsSpeaking(false);
+    }
+  }
+
+  const requestMediaPermissions = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true, 
+        video: true 
+      });
+      
+      setMediaStream(stream);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      
+      return stream;
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
       toast({
-        title: "Error",
-        description: "Could not access your microphone. Please check your browser permissions.",
+        title: "Permission Required",
+        description: "Please allow access to your camera and microphone to continue.",
         variant: "destructive",
       });
+      return null;
     }
   };
-  
-  const toggleCamera = async () => {
-    try {
-      if (cameraEnabled) {
-        // Turn off camera
-        if (mediaStreamRef.current) {
-          mediaStreamRef.current.getVideoTracks().forEach(track => track.stop());
-        }
-        setCameraEnabled(false);
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-        toast({
-          title: "Camera Disabled",
-          description: "Your camera has been turned off.",
-        });
-      } else {
-        // Turn on camera
-        const videoStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user'
-          } 
-        });
-        
-        mediaStreamRef.current = mediaStreamRef.current 
-          ? new MediaStream([
-              ...mediaStreamRef.current.getAudioTracks(),
-              ...videoStream.getVideoTracks()
-            ])
-          : videoStream;
-          
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStreamRef.current;
-        }
-        
-        setCameraEnabled(true);
-        toast({
-          title: "Camera Enabled",
-          description: "Your camera is now active.",
-        });
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      toast({
-        title: "Error",
-        description: "Could not access your camera. Please check your browser permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  const captureFacialExpression = async () => {
-    if (!cameraEnabled || !canvasRef.current || !videoRef.current) return null;
-    
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    const context = canvas.getContext('2d');
-    
-    if (!context) return null;
-    
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // Draw the current video frame onto the canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    // Convert the canvas to a data URL (base64)
-    const imageBase64 = canvas.toDataURL('image/jpeg');
-    
-    return imageBase64;
-  };
-  
+
   const startRecording = async () => {
-    if (!micEnabled || !cameraEnabled) {
-      toast({
-        title: "Enable Devices",
-        description: "Please enable both microphone and camera to start the interview.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Reset audio blob
+    setAudioBlob(null);
     
-    if (!mediaStreamRef.current) {
-      toast({
-        title: "Error",
-        description: "Media stream not available. Please try enabling your devices again.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Request permissions if needed
+    const stream = mediaStream || await requestMediaPermissions();
+    if (!stream) return;
     
-    setIsRecording(true);
-    setAudioData([]);
-    
-    const options = { mimeType: 'audio/webm' };
-    const mediaRecorder = new MediaRecorder(mediaStreamRef.current, options);
-    
-    mediaRecorderRef.current = mediaRecorder;
-    
-    const chunks: Blob[] = [];
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunks.push(e.data);
-      }
-    };
-    
-    mediaRecorder.onstop = () => {
-      setAudioData(chunks);
-    };
-    
-    mediaRecorder.start();
-    
-    toast({
-      title: "Recording Started",
-      description: "You are now recording your answer. Speak clearly into your microphone.",
-    });
-    
-    // Start capturing facial expressions periodically
-    const captureInterval = setInterval(async () => {
-      const imageBase64 = await captureFacialExpression();
-      if (imageBase64) {
-        try {
-          const analysis = await analyzeFacialExpression(imageBase64);
-          if (analysis) {
-            setFacialExpressions(prev => [...prev, analysis]);
-          }
-        } catch (error) {
-          console.error('Error analyzing facial expression:', error);
+    try {
+      // Start recording audio
+      const audioChunks: BlobPart[] = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
         }
-      }
-    }, 5000); // Capture every 5 seconds
-    
-    // Stop after 2 minutes maximum
-    setTimeout(() => {
-      if (isRecording) {
-        clearInterval(captureInterval);
-        stopRecording();
-      }
-    }, 120000);
-    
-    return captureInterval;
-  };
-  
-  const stopRecording = () => {
-    setIsRecording(false);
-    
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    
-    // Simulate transcription with a mock answer
-    setTimeout(() => {
-      const mockAnswers = [
-        "I have extensive experience with React, having used it for the past three years in professional settings. I've built several responsive web applications with complex state management using Redux and Context API. In my previous role, I led the migration from a legacy framework to React, which improved load times by 40%.",
-        "In my last role, we faced a critical performance issue with our e-commerce platform during peak traffic. I identified that our database queries weren't optimized, leading to slow page loads. I implemented database indexing and query caching, reducing load times by 60%.",
-        "I handle tight deadlines by first breaking down the work into manageable tasks and prioritizing them. I focus on delivering the core functionality first and communicate clearly with stakeholders if timelines might be affected. I'm comfortable putting in extra hours when necessary but also value work-life balance.",
-        "I'm excited about this position because it aligns perfectly with my career goals of working with cutting-edge technologies in a collaborative environment. I'm particularly interested in your company's focus on AI-powered solutions, which matches my experience and passion.",
-        "My process for implementing new features starts with understanding the requirements thoroughly. I then create a design document, discuss it with team members for feedback, and break down the implementation into small, testable increments. I'm a strong believer in writing tests before code when possible.",
-        "I stay updated with industry trends through a combination of online courses, tech blogs, and participating in developer communities. I dedicate at least 5 hours weekly to learning new technologies and attend industry conferences when possible.",
-        "I've worked in agile environments for most of my career. In my last role, I served as a SCRUM master for a team of 8 developers. I'm experienced with sprint planning, daily stand-ups, retrospectives, and adapting to changing requirements.",
-        "When our team needed to implement a new GraphQL API, I had to learn the technology quickly. I immersed myself in documentation, completed a crash course, and paired with a more experienced colleague. Within two weeks, I was able to contribute meaningfully to the project.",
-        "I'm a strong advocate for automated testing. I typically aim for at least 80% code coverage with unit tests and supplement with integration and end-to-end tests. I also value code reviews and static analysis tools to catch issues early.",
-        "In 5 years, I see myself in a technical leadership role where I can mentor junior developers while still maintaining hands-on coding skills. I'm interested in architectural decisions and helping shape the technical direction of products.",
-        "My greatest achievement was leading a project to redesign our company's main product interface, which increased user engagement by 35% and reduced customer support tickets by 40%. The project was delivered on time and under budget despite significant technical challenges.",
-        "I view constructive criticism as an opportunity for growth. I listen carefully, ask clarifying questions if needed, and take time to reflect on the feedback without being defensive. I've regularly sought feedback from colleagues and managers throughout my career.",
-        "I believe in clear, concise communication when working with cross-functional teams. I adapt my communication style based on the audience - using technical terms with engineers but focusing on business outcomes when speaking with product or business teams.",
-        "I'm motivated by solving complex problems and seeing the direct impact of my work on users. I find great satisfaction in optimizing processes and creating elegant solutions that make people's lives easier.",
-        "When our team had to decide whether to refactor a critical component or build a new one from scratch, we had limited data on the technical debt in the existing code. I initiated a spike to assess the most problematic areas, consulted with stakeholders, and ultimately recommended a phased refactoring approach that minimized risk while improving the codebase."
-      ];
+      };
       
-      const newAnswers = [...answers];
-      newAnswers[currentQuestionIndex] = mockAnswers[currentQuestionIndex % mockAnswers.length];
-      setAnswers(newAnswers);
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        setAudioBlob(audioBlob);
+        
+        // Convert to base64 for API if needed
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          // Here you could send the base64 audio to an API
+          // const base64Audio = reader.result as string;
+        };
+      };
       
-      // Save progress if interview ID is available
-      if (interviewId) {
-        updateInterview(interviewId, {
-          answers: newAnswers,
-          facial_analysis: facialExpressions,
-          updated_at: new Date().toISOString()
-        }).catch(console.error);
-      }
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecordingAudio(true);
       
+      // Also start video recording
+      startVideoAnalysis(stream);
+      
+    } catch (error) {
+      console.error('Error starting recording:', error);
       toast({
-        title: "Recording Processed",
-        description: "Your answer has been recorded and transcribed.",
-      });
-    }, 1500);
-  };
-  
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setFacialExpressions([]);
-    } else {
-      // Interview completed
-      onInterviewComplete(answers, facialExpressions);
-      toast({
-        title: "Interview Completed",
-        description: "Congratulations! You've completed all the questions.",
+        title: "Recording Error",
+        description: "Failed to start recording. Please try again.",
+        variant: "destructive",
       });
     }
   };
 
+  const startVideoAnalysis = (stream: MediaStream) => {
+    setIsRecordingVideo(true);
+    
+    // Set up canvas for facial analysis snapshots
+    if (canvasRef.current && videoRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      // Take snapshots periodically for facial analysis
+      const analysisInterval = setInterval(() => {
+        if (canvas && video) {
+          const context = canvas.getContext('2d');
+          if (context) {
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to base64 for API
+            const imageBase64 = canvas.toDataURL('image/jpeg');
+            
+            // Send to facial analysis API (throttled to avoid too many requests)
+            analyzeFace(imageBase64);
+          }
+        }
+      }, 5000); // every 5 seconds
+      
+      // Clean up on stop
+      return () => clearInterval(analysisInterval);
+    }
+  };
+  
+  // Throttled facial analysis to avoid too many API calls
+  const lastAnalysisTime = useRef(0);
+  const analyzeFace = async (imageBase64: string) => {
+    const now = Date.now();
+    if (now - lastAnalysisTime.current < 5000) {
+      return; // Skip if less than 5 seconds since last analysis
+    }
+    
+    lastAnalysisTime.current = now;
+    
+    try {
+      const analysis = await analyzeFacialExpression(imageBase64);
+      if (analysis) {
+        setFacialData(prevData => [...prevData, analysis]);
+      }
+    } catch (error) {
+      console.error('Facial analysis error:', error);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecordingAudio) {
+      mediaRecorderRef.current.stop();
+      setIsRecordingAudio(false);
+    }
+    
+    setIsRecordingVideo(false);
+  };
+
+  const stopMediaStream = () => {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      setMediaStream(null);
+    }
+  };
+  
+  const handleSkipQuestion = () => {
+    // Stop TTS if it's currently speaking
+    ttsService.stop();
+    setIsSpeaking(false);
+    
+    // Add empty answer for skipped question
+    setAnswers(prev => [...prev, "Question skipped"]);
+    
+    // Move to next question or finish
+    moveToNextQuestion();
+  };
+
+  const handleNextQuestion = async () => {
+    // Stop recording if active
+    if (isRecordingAudio) {
+      stopRecording();
+    }
+
+    // Use a placeholder for now (in a real app, you'd use the actual transcribed answer)
+    const currentAnswer = "Sample answer for question " + (currentQuestionIndex + 1);
+    const updatedAnswers = [...answers, currentAnswer];
+    setAnswers(updatedAnswers);
+    
+    // Update the interview in the database
+    if (interviewId) {
+      await updateInterview(interviewId, {
+        answers: updatedAnswers,
+        current_question: currentQuestionIndex + 1
+      });
+    }
+    
+    // Get feedback for the answer (simulated)
+    try {
+      const feedback = await getAnswerFeedback(
+        questions[currentQuestionIndex],
+        currentAnswer
+      );
+      console.log('Answer feedback:', feedback);
+    } catch (error) {
+      console.error('Error getting feedback:', error);
+    }
+    
+    // Move to next question or finish
+    moveToNextQuestion();
+  };
+  
+  const moveToNextQuestion = () => {
+    // Stop TTS if it's currently speaking
+    ttsService.stop();
+    setIsSpeaking(false);
+    
+    const nextIndex = currentQuestionIndex + 1;
+    
+    if (nextIndex < questions.length) {
+      setCurrentQuestionIndex(nextIndex);
+      setAudioBlob(null); // Reset audio for next question
+    } else {
+      // Interview complete
+      finishInterview();
+    }
+  };
+  
+  const finishInterview = async () => {
+    // Stop all recording and media
+    stopRecording();
+    stopMediaStream();
+    
+    // Mark interview as completed in database
+    if (interviewId) {
+      await updateInterview(interviewId, {
+        status: 'completed',
+        completed_at: new Date().toISOString()
+      });
+    }
+    
+    // Call the completion callback with results
+    onInterviewComplete(answers, facialData);
+  };
+  
+  const repeatQuestion = () => {
+    // Stop TTS if it's currently speaking
+    ttsService.stop();
+    setIsSpeaking(false);
+    
+    // Speak the question again
+    speakQuestion();
+  };
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Interview Practice</CardTitle>
-        <CardDescription>
-          Answer the AI-generated questions as if you're in a real interview
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
-          <h3 className="mb-2 text-sm font-medium text-gray-500">Question {currentQuestionIndex + 1} of {questions.length}</h3>
-          <p className="text-lg font-medium text-gray-900">{currentQuestion}</p>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="flex flex-col p-4 border rounded-lg">
-            <h3 className="mb-4 text-sm font-medium text-gray-900">Camera Preview</h3>
-            <div className={`relative aspect-video rounded-lg overflow-hidden ${cameraEnabled ? 'bg-gray-800' : 'bg-gray-200'}`}>
-              {!cameraEnabled ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <Video className="w-8 h-8 mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-500">Camera disabled</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Interview in Progress</h1>
+        <p className="mt-2 text-gray-600">
+          Question {currentQuestionIndex + 1} of {questions.length}
+        </p>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <Card className="h-full flex flex-col">
+            <CardHeader className="bg-gray-50 border-b">
+              <h2 className="text-xl font-medium">
+                Question {currentQuestionIndex + 1}:
+              </h2>
+              <p className={`mt-2 text-lg ${isSpeaking ? 'text-brand-purple font-medium' : ''}`}>
+                {questions[currentQuestionIndex]}
+              </p>
+              {isSpeaking && (
+                <div className="mt-3 flex items-center">
+                  <span className="mr-2 inline-block w-2 h-2 bg-brand-purple rounded-full animate-pulse"></span>
+                  <span className="text-sm text-gray-500">AI is speaking...</span>
                 </div>
-              ) : (
-                <video 
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
               )}
-            </div>
-            
-            <div className="flex justify-between mt-4">
-              <Button
-                variant={cameraEnabled ? "default" : "outline"}
-                size="sm"
-                onClick={toggleCamera}
-                className={cameraEnabled ? "bg-brand-purple" : ""}
-              >
-                <Video className="w-4 h-4 mr-2" />
-                {cameraEnabled ? 'Camera On' : 'Enable Camera'}
-              </Button>
-              
-              <Button
-                variant={micEnabled ? "default" : "outline"}
-                size="sm"
-                onClick={toggleMic}
-                className={micEnabled ? "bg-brand-purple" : ""}
-              >
-                <Mic className="w-4 h-4 mr-2" />
-                {micEnabled ? 'Mic On' : 'Enable Mic'}
-              </Button>
-            </div>
-          </div>
-          
-          <div className="flex flex-col p-4 border rounded-lg">
-            <h3 className="mb-4 text-sm font-medium text-gray-900">Recording Controls</h3>
-            
-            <div className="flex-grow flex flex-col items-center justify-center mb-4">
-              {isRecording ? (
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col items-center justify-center p-6">
+              {!mediaStream ? (
                 <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-red-100">
-                    <div className="w-4 h-4 bg-red-600 rounded-full animate-pulse"></div>
+                  <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <Video className="h-10 w-10 text-gray-400" />
                   </div>
-                  <p className="text-sm font-medium text-red-600">Recording...</p>
+                  <h3 className="text-lg font-medium mb-2">Camera Access Required</h3>
+                  <p className="text-gray-500 mb-6">
+                    We need access to your camera and microphone to record your interview responses.
+                  </p>
+                  <Button onClick={requestMediaPermissions}>
+                    Enable Camera & Microphone
+                  </Button>
                 </div>
               ) : (
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-gray-100">
-                    {answers[currentQuestionIndex] ? (
-                      <Check className="w-8 h-8 text-green-600" />
-                    ) : (
-                      <Mic className="w-8 h-8 text-gray-400" />
+                <div className="w-full">
+                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video mb-6">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-full"
+                    ></video>
+                    <canvas ref={canvasRef} className="hidden"></canvas>
+                    
+                    {/* Recording indicator */}
+                    {(isRecordingAudio || isRecordingVideo) && (
+                      <div className="absolute top-4 right-4 flex items-center bg-black bg-opacity-50 text-white px-3 py-1 rounded-full">
+                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2 animate-pulse"></div>
+                        <span className="text-sm">Recording</span>
+                      </div>
                     )}
                   </div>
-                  <p className="text-sm font-medium text-gray-700">
-                    {answers[currentQuestionIndex] ? 'Answer Recorded' : 'Ready to Record'}
-                  </p>
+                  
+                  <div className="flex justify-center space-x-3 mb-4">
+                    <Button 
+                      variant={isRecordingAudio ? "destructive" : "outline"} 
+                      onClick={isRecordingAudio ? stopRecording : startRecording}
+                    >
+                      {isRecordingAudio ? (
+                        <>
+                          <MicOff className="mr-2 h-4 w-4" />
+                          Stop Recording
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="mr-2 h-4 w-4" />
+                          Start Recording
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={repeatQuestion}
+                      disabled={isSpeaking}
+                    >
+                      Repeat Question
+                    </Button>
+                  </div>
                 </div>
               )}
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              {isRecording ? (
+            </CardContent>
+            <CardFooter className="bg-gray-50 border-t flex justify-between">
+              <Button 
+                variant="ghost"
+                disabled={currentQuestionIndex === 0}
+                onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+              >
+                Previous
+              </Button>
+              <div className="flex space-x-2">
                 <Button 
-                  variant="destructive" 
-                  onClick={stopRecording}
-                  className="col-span-2"
+                  variant="outline"
+                  onClick={handleSkipQuestion}
                 >
-                  <StopCircle className="w-4 h-4 mr-2" />
-                  Stop Recording
+                  Skip
                 </Button>
-              ) : (
                 <Button 
-                  onClick={startRecording}
-                  disabled={!micEnabled || !cameraEnabled || !!answers[currentQuestionIndex]}
-                  className="col-span-2"
+                  onClick={handleNextQuestion}
                 >
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  Start Recording
+                  {currentQuestionIndex < questions.length - 1 ? (
+                    <>
+                      Next <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  ) : (
+                    'Finish Interview'
+                  )}
                 </Button>
-              )}
-            </div>
-          </div>
+              </div>
+            </CardFooter>
+          </Card>
         </div>
         
-        {facialExpressions.length > 0 && (
-          <div className="p-4 border rounded-lg">
-            <h3 className="mb-2 text-sm font-medium text-gray-900">Facial Expression Analysis</h3>
-            <div className="flex flex-wrap gap-2">
-              {facialExpressions.map((expression, index) => (
-                <span 
-                  key={index}
-                  className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800"
-                >
-                  {expression.primary_emotion || "analyzing..."}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {answers[currentQuestionIndex] && (
-          <div className="p-4 border rounded-lg">
-            <h3 className="mb-2 text-sm font-medium text-gray-900">Your Answer</h3>
-            <p className="text-gray-700">{answers[currentQuestionIndex]}</p>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button
-          variant="outline"
-          disabled={!answers[currentQuestionIndex]}
-          onClick={() => {
-            const newAnswers = [...answers];
-            newAnswers[currentQuestionIndex] = '';
-            setAnswers(newAnswers);
-            setFacialExpressions([]);
-          }}
-        >
-          Clear Answer
-        </Button>
-        
-        <Button
-          onClick={nextQuestion}
-          disabled={!answers[currentQuestionIndex]}
-        >
-          {currentQuestionIndex < questions.length - 1 ? (
-            <>
-              Next Question
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </>
-          ) : (
-            'Complete Interview'
-          )}
-        </Button>
-      </CardFooter>
-      
-      {/* Hidden canvas for capturing video frames */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-    </Card>
+        <div>
+          <Card className="mb-6">
+            <CardHeader className="pb-2">
+              <h3 className="font-medium">Interview Progress</h3>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {questions.map((q, index) => (
+                  <div 
+                    key={index} 
+                    className={`p-3 rounded-md text-sm ${
+                      index === currentQuestionIndex
+                        ? 'bg-brand-purple text-white'
+                        : index < currentQuestionIndex
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-gray-50 text-gray-500'
+                    }`}
+                  >
+                    Question {index + 1}
+                    {index < currentQuestionIndex && (
+                      <span className="ml-2">✓</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <h3 className="font-medium">Tips</h3>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start">
+                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">1</span>
+                  <span>Speak clearly and at a moderate pace</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">2</span>
+                  <span>Maintain eye contact with the camera</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">3</span>
+                  <span>Structure your answers using the STAR method</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">4</span>
+                  <span>Take a moment to organize your thoughts before answering</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 };
 
