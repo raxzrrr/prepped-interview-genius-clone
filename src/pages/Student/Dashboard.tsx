@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -28,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
 import envService from '@/services/env';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard: React.FC = () => {
   const { user, isStudent } = useAuth();
