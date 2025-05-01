@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/components/ui/use-toast';
-import { BriefcaseIcon, Clock, Users, PlayCircle, CheckCircle, BarChart3 } from 'lucide-react';
+import { BriefcaseIcon, Clock, PlayCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
@@ -261,71 +261,83 @@ const Dashboard: React.FC = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center">
-                  <CheckCircle className="mr-2 h-5 w-5 text-gray-500" />
-                  Top Skills
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Technical Knowledge</span>
-                    <span className="text-sm font-medium text-green-600">92%</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Communication</span>
-                    <span className="text-sm font-medium text-green-600">88%</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Problem Solving</span>
-                    <span className="text-sm font-medium text-brand-purple">83%</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Cultural Fit</span>
-                    <span className="text-sm font-medium text-amber-600">76%</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center">
-                  <BarChart3 className="mr-2 h-5 w-5 text-gray-500" />
-                  Improvement Areas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Conciseness</span>
-                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full" style={{ width: '65%' }}></div>
+            {/* Remove fake statistics data for new users */}
+            {totalInterviews > 0 ? (
+              <>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center">
+                      Performance Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">Average Score</span>
+                        <span className="text-lg font-bold text-brand-purple">{averageScore}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">Total Interviews</span>
+                        <span className="text-lg font-bold">{totalInterviews}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-500">Total Questions</span>
+                        <span className="text-lg font-bold">{totalQuestions}</span>
+                      </div>
                     </div>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Eye Contact</span>
-                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full" style={{ width: '70%' }}></div>
-                    </div>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Quantifiable Results</span>
-                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-red-500 rounded-full" style={{ width: '55%' }}></div>
-                    </div>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-sm">Confidence</span>
-                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500 rounded-full" style={{ width: '80%' }}></div>
-                    </div>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle>Recent Feedback</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {completedInterviews.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-600">
+                          "Your technical answers are solid, but try to include more specific examples from your experience."
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          "Good engagement and facial expressions. You appear confident and engaged during the interview."
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        Complete an interview to receive feedback on your performance.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle>Getting Started</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600">
+                      Welcome to Interview Genius! Start by choosing a job role and 
+                      taking your first practice interview to receive personalized feedback.
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle>Monthly Quota</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600">
+                      You have 4 practice interviews available this month:
+                      <br />- 2 resume-based interviews
+                      <br />- 2 custom topic interviews
+                    </p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
           
           <Card>

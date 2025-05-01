@@ -2,36 +2,40 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 
-const GetStarted: React.FC = () => {
+const GetStarted = () => {
   const navigate = useNavigate();
-  
+
+  const handleGetStarted = () => {
+    navigate('/register');
+  };
+
+  const handleAdminLogin = () => {
+    navigate('/login', { state: { isAdmin: true } });
+  };
+
   return (
-    <section className="py-20 bg-gradient-to-r from-brand-purple to-brand-blue">
-      <div className="container px-4 mx-auto text-center">
-        <h2 className="mb-6 text-3xl font-bold text-white sm:text-4xl">
-          Ready to Transform Your Interview Skills?
-        </h2>
-        <p className="max-w-2xl mx-auto mb-8 text-xl text-white/80">
-          Join thousands of professionals who have boosted their confidence and landed their dream jobs with Interview Genius.
-        </p>
-        <div className="flex flex-wrap justify-center gap-4">
-          <Button 
-            size="lg"
-            variant="secondary"
-            onClick={() => navigate('/register')}
-            className="font-semibold"
-          >
-            Create Your Free Account
-          </Button>
-          <Button 
-            size="lg"
-            variant="outline"
-            onClick={() => navigate('/about')}
-            className="text-white border-white hover:bg-white/10"
-          >
-            Learn More
-          </Button>
+    <section className="py-12 md:py-24 bg-gray-50">
+      <div className="container px-4 md:px-6">
+        <div className="flex flex-col items-center space-y-4 text-center">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+              Ready to Ace Your Next Interview?
+            </h2>
+            <p className="mx-auto max-w-3xl text-gray-600 md:text-xl/relaxed">
+              Start practicing with our AI interview platform and gain the confidence you need to succeed.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button onClick={handleGetStarted} size="lg" className="bg-brand-purple hover:bg-brand-purple-dark">
+              Get Started
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+            <Button onClick={handleAdminLogin} variant="outline" size="lg">
+              Admin Login
+            </Button>
+          </div>
         </div>
       </div>
     </section>
