@@ -21,6 +21,13 @@ const LoginForm: React.FC = () => {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
 
+  // Admin login helper
+  const handleAdminLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmail('admin@interview.ai');
+    setPassword('CurrentTempPass');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login(email, password);
@@ -65,6 +72,20 @@ const LoginForm: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+          </div>
+          <div className="pt-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleAdminLogin}
+              size="sm" 
+              className="w-full text-xs text-gray-600"
+            >
+              Use Admin Credentials
+            </Button>
+            <p className="text-xs text-gray-500 text-center mt-1">
+              (admin@interview.ai / CurrentTempPass)
+            </p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">

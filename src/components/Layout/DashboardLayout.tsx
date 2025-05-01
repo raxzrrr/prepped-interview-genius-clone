@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   LayoutDashboard, 
@@ -13,7 +13,8 @@ import {
   Users,
   FileVideo,
   Tag,
-  CreditCard
+  CreditCard,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -23,8 +24,9 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { user, logout, isAdmin, isStudent } = useAuth();
+  const { user, logout, isAdmin, isStudent, profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (!user) {
     navigate('/login');
@@ -34,6 +36,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const studentNavItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: Video, label: 'Interview Practice', href: '/interviews' },
+    { icon: Sparkles, label: 'Custom Interviews', href: '/custom-interviews' },
     { icon: BookOpen, label: 'Learning Hub', href: '/learning' },
     { icon: FileText, label: 'My Reports', href: '/reports' },
     { icon: Award, label: 'Certificates', href: '/certificates' },
@@ -91,11 +94,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 rounded-full bg-brand-purple flex items-center justify-center">
-                    {user.name.charAt(0).toUpperCase()}
+                    {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
                   </div>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-white">{user.name}</p>
+                  <p className="text-sm font-medium text-white">{profile?.full_name || 'User'}</p>
                   <p className="text-xs text-gray-400">{user.email}</p>
                 </div>
               </div>

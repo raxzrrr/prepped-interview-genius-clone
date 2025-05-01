@@ -40,6 +40,10 @@ const Dashboard: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [interviewId, setInterviewId] = useState<string | undefined>();
   const [showApiSettings, setShowApiSettings] = useState(false);
+  const [usageData, setUsageData] = useState<{ custom_interviews: number, resume_interviews: number }>({ 
+    custom_interviews: 0, 
+    resume_interviews: 0 
+  });
   const { generateInterviewQuestions, saveInterview } = useInterviewApi();
 
   // Check if API key is configured when component mounts
@@ -47,7 +51,42 @@ const Dashboard: React.FC = () => {
     if (!envService.isConfigured('GEMINI_API_KEY')) {
       setShowApiSettings(true);
     }
-  }, []);
+    
+    if (user) {
+      fetchUserInterviewUsage();
+    }
+  }, [user]);
+  
+  // Fetch interview usage
+  const fetchUserInterviewUsage = async () => {
+    if (!user) return;
+    
+    try {
+      // Get the current month's first day
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const { data: interviews, error } = await supabase
+        .from('interviews')
+        .select('id, title')
+        .eq('user_id', user.id)
+        .gte('created_at', firstDayOfMonth.toISOString());
+      
+      if (error) throw error;
+      
+      // Count custom and resume interviews
+      const custom = interviews?.filter(i => i.title.includes('Custom')).length || 0;
+      const resume = interviews?.filter(i => !i.title.includes('Custom')).length || 0;
+      
+      setUsageData({ 
+        custom_interviews: custom,
+        resume_interviews: resume
+      });
+      
+    } catch (error) {
+      console.error('Error fetching user interview usage:', error);
+    }
+  };
 
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
@@ -68,6 +107,16 @@ const Dashboard: React.FC = () => {
   ];
 
   const startInterview = async () => {
+    // Check if user has reached the limit
+    if (usageData.resume_interviews >= 2) {
+      toast({
+        title: "Monthly Limit Reached",
+        description: "You've reached your limit of 2 resume-based interviews this month.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsGenerating(true);
 
     try {
@@ -125,6 +174,11 @@ const Dashboard: React.FC = () => {
       title: "API Key Configured",
       description: "You can now use all AI-powered interview features.",
     });
+  };
+  
+  const handleResumeAnalysisComplete = (questions: string[]) => {
+    setInterviewQuestions(questions);
+    setStage('interview');
   };
 
   if (showApiSettings) {
@@ -288,7 +342,7 @@ const Dashboard: React.FC = () => {
             <CardFooter>
               <Button 
                 onClick={startInterview}
-                disabled={isGenerating}
+                disabled={isGenerating || usageData.resume_interviews >= 2}
                 className="w-full md:w-auto"
               >
                 {isGenerating ? (
@@ -314,7 +368,7 @@ const Dashboard: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResumeUpload />
+              <ResumeUpload onAnalysisComplete={handleResumeAnalysisComplete} />
             </CardContent>
           </Card>
         </div>

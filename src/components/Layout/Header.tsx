@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Header: React.FC = () => {
-  const { user, logout, isAdmin, isStudent } = useAuth();
+  const { user, logout, isAdmin, isStudent, profile } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -44,6 +44,9 @@ const Header: React.FC = () => {
               <Link to="/interviews" className="text-gray-600 hover:text-brand-purple transition-colors">
                 My Interviews
               </Link>
+              <Link to="/custom-interviews" className="text-gray-600 hover:text-brand-purple transition-colors">
+                Custom Interviews
+              </Link>
             </>
           )}
           
@@ -66,7 +69,7 @@ const Header: React.FC = () => {
           {user ? (
             <div className="flex items-center space-x-4">
               <span className="hidden md:inline text-sm font-medium text-gray-700">
-                Hello, {user.name}
+                Hello, {profile?.full_name || 'User'}
               </span>
               <Button 
                 variant="outline" 

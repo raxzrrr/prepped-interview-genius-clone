@@ -16,6 +16,7 @@ import Index from "@/pages/Index";
 // Student Pages
 import Dashboard from "@/pages/Student/Dashboard";
 import InterviewsPage from "@/pages/Student/InterviewsPage";
+import CustomInterviewsPage from "@/pages/Student/CustomInterviewsPage";
 import LearningPage from "@/pages/Student/LearningPage";
 import ReportsPage from "@/pages/Student/ReportsPage";
 import CertificatesPage from "@/pages/Student/CertificatesPage";
@@ -48,6 +49,7 @@ const App = () => (
             {/* Student Routes */}
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/interviews" element={<InterviewsPage />} />
+            <Route path="/custom-interviews" element={<CustomInterviewsPage />} />
             <Route path="/learning" element={<LearningPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/certificates" element={<CertificatesPage />} />

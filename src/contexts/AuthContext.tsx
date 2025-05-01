@@ -52,7 +52,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
-      setProfile(data);
+      if (data) {
+        setProfile({
+          id: data.id,
+          full_name: data.full_name,
+          avatar_url: data.avatar_url || undefined,
+          role: data.role as UserRole
+        });
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     }

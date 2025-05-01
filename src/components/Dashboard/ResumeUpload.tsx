@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle 
 } from '@/components/ui/card';
-import { Upload, FileText, Check, RotateCcw } from 'lucide-react';
+import { Upload, FileText, Check, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface ResumeUploadProps {
@@ -26,14 +26,12 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type === 'application/pdf' || 
-          selectedFile.type === 'application/msword' || 
-          selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      if (selectedFile.type === 'application/pdf') {
         setFile(selectedFile);
       } else {
         toast({
           title: "Invalid File Type",
-          description: "Please upload a PDF or Word document.",
+          description: "Please upload a PDF document only.",
           variant: "destructive",
         });
       }
@@ -94,17 +92,27 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete }) => {
       <CardHeader>
         <CardTitle>Upload Your Resume</CardTitle>
         <CardDescription>
-          Upload your resume in PDF or Word format for AI analysis
+          Upload your resume in PDF format for AI analysis
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="flex items-start p-4 mb-6 bg-amber-50 border border-amber-200 rounded-lg">
+          <AlertTriangle className="w-5 h-5 mr-3 text-amber-500 mt-0.5" />
+          <div>
+            <h4 className="font-medium text-amber-800">Important Note</h4>
+            <p className="text-sm text-amber-700">
+              Do not include personal details like email ID, phone number, education background, or address in your resume.
+            </p>
+          </div>
+        </div>
+        
         {!uploadComplete ? (
           <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg border-gray-300 hover:border-brand-purple transition-colors">
             <input
               type="file"
               id="resume-upload"
               className="hidden"
-              accept=".pdf,.doc,.docx"
+              accept=".pdf"
               onChange={handleFileChange}
               disabled={uploading}
             />
@@ -119,7 +127,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete }) => {
               Click to upload
             </label>
             <p className="text-xs text-gray-500">
-              PDF or Word files (max. 5MB)
+              PDF files only (max. 5MB)
             </p>
             {file && (
               <div className="flex items-center mt-4 space-x-2 text-sm text-gray-700">

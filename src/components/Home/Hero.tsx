@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Hero: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -49,7 +49,7 @@ const Hero: React.FC = () => {
               ) : (
                 <Button 
                   size="lg"
-                  onClick={() => navigate(user.role === 'admin' ? '/admin' : '/dashboard')}
+                  onClick={() => navigate(profile?.role === 'admin' ? '/admin' : '/dashboard')}
                 >
                   Go to Dashboard
                 </Button>
@@ -60,8 +60,8 @@ const Hero: React.FC = () => {
           <div className="relative hidden lg:block">
             <div className="relative overflow-hidden rounded-lg shadow-xl animate-fadeIn">
               <img
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80"
-                alt="Person in interview"
+                src="/lovable-uploads/23109cc1-3f65-4c26-9142-d431fca949c9.png"
+                alt="AI Interview Robot"
                 className="object-cover w-full h-auto"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
