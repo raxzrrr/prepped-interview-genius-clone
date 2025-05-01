@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Button } from '@/components/ui/button';
 import { 
   Card,
