@@ -1,1 +1,5 @@
+
 project_id = "mxfhtujraqkcswtaxcns"
+
+[functions.gemini-interview]
+verify_jwt = true

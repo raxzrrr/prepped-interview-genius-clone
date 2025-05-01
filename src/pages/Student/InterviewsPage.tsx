@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,69 +21,72 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Play, Download, Eye } from 'lucide-react';
+import { FileText, Play, Download, Eye, Loader2 } from 'lucide-react';
+import { useInterviewApi } from '@/services/api';
+import { formatDistanceToNow } from 'date-fns';
 
 interface InterviewSession {
   id: string;
   date: string;
   title: string;
-  duration: string;
-  questions: number;
-  score: number;
+  duration: number | null;
+  questions: string[];
+  score: number | null;
   status: 'completed' | 'in-progress';
 }
 
 const InterviewsPage: React.FC = () => {
   const { user, isStudent } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [interviewSessions, setInterviewSessions] = useState<InterviewSession[]>([]);
+  const { getInterviews } = useInterviewApi();
   
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
   }
   
-  const interviewSessions: InterviewSession[] = [
-    {
-      id: '1',
-      date: '2023-04-28',
-      title: 'Software Engineer Interview Prep',
-      duration: '32 min',
-      questions: 15,
-      score: 85,
-      status: 'completed'
-    },
-    {
-      id: '2',
-      date: '2023-04-20',
-      title: 'Product Manager Mock Interview',
-      duration: '45 min',
-      questions: 12,
-      score: 78,
-      status: 'completed'
-    },
-    {
-      id: '3',
-      date: '2023-04-15',
-      title: 'Frontend Developer Technical Interview',
-      duration: '28 min',
-      questions: 10,
-      score: 92,
-      status: 'completed'
-    },
-    {
-      id: '4',
-      date: '2023-04-05',
-      title: 'Data Scientist Interview Practice',
-      duration: '5 min',
-      questions: 8,
-      score: 0,
-      status: 'in-progress'
-    }
-  ];
+  useEffect(() => {
+    const fetchInterviews = async () => {
+      try {
+        setLoading(true);
+        const data = await getInterviews();
+        
+        if (data) {
+          const formattedData = data.map((interview: any) => ({
+            id: interview.id,
+            date: interview.created_at,
+            title: interview.title,
+            duration: interview.duration,
+            questions: interview.questions || [],
+            score: interview.score,
+            status: interview.status
+          }));
+          
+          setInterviewSessions(formattedData);
+        }
+      } catch (error) {
+        console.error('Error fetching interviews:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchInterviews();
+  }, []);
   
   const startNewInterview = () => {
     navigate('/dashboard');
   };
+
+  // Calculate statistics
+  const completedInterviews = interviewSessions.filter(session => session.status === 'completed');
+  const totalInterviews = interviewSessions.length;
+  const averageScore = completedInterviews.length > 0 
+    ? Math.round(completedInterviews.reduce((acc, curr) => acc + (curr.score || 0), 0) / completedInterviews.length) 
+    : 0;
+  const totalQuestions = interviewSessions.reduce((acc, curr) => acc + curr.questions.length, 0);
 
   return (
     <DashboardLayout>
@@ -109,68 +112,79 @@ const InterviewsPage: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Interview Type</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Questions</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {interviewSessions.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell>{session.date}</TableCell>
-                    <TableCell className="font-medium">{session.title}</TableCell>
-                    <TableCell>{session.duration}</TableCell>
-                    <TableCell>{session.questions}</TableCell>
-                    <TableCell>
-                      {session.status === 'completed' ? (
-                        <span className={`font-medium ${
-                          session.score >= 90 ? 'text-green-600' : 
-                          session.score >= 70 ? 'text-brand-purple' : 
-                          'text-amber-600'
-                        }`}>
-                          {session.score}%
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {session.status === 'completed' ? (
-                        <Badge className="bg-green-500">Completed</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-amber-500 border-amber-500">
-                          In Progress
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="icon">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {session.status === 'completed' && (
-                          <Button variant="outline" size="icon">
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {session.status === 'in-progress' && (
-                          <Button variant="outline" size="icon">
-                            <Play className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+            {loading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-brand-purple" />
+              </div>
+            ) : interviewSessions.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Interview Type</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Questions</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {interviewSessions.map((session) => (
+                    <TableRow key={session.id}>
+                      <TableCell>{formatDistanceToNow(new Date(session.date), { addSuffix: true })}</TableCell>
+                      <TableCell className="font-medium">{session.title}</TableCell>
+                      <TableCell>{session.duration ? `${session.duration} min` : '—'}</TableCell>
+                      <TableCell>{session.questions.length}</TableCell>
+                      <TableCell>
+                        {session.status === 'completed' && session.score ? (
+                          <span className={`font-medium ${
+                            session.score >= 90 ? 'text-green-600' : 
+                            session.score >= 70 ? 'text-brand-purple' : 
+                            'text-amber-600'
+                          }`}>
+                            {session.score}%
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {session.status === 'completed' ? (
+                          <Badge className="bg-green-500">Completed</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-amber-500 border-amber-500">
+                            In Progress
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="icon">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          {session.status === 'completed' && (
+                            <Button variant="outline" size="icon">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {session.status === 'in-progress' && (
+                            <Button variant="outline" size="icon">
+                              <Play className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No interview sessions found. Start a new interview to see results here.</p>
+                <Button className="mt-4" onClick={startNewInterview}>Start Your First Interview</Button>
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -183,15 +197,15 @@ const InterviewsPage: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500">Average Score</span>
-                  <span className="text-lg font-bold text-brand-purple">85%</span>
+                  <span className="text-lg font-bold text-brand-purple">{averageScore}%</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500">Total Interviews</span>
-                  <span className="text-lg font-bold">4</span>
+                  <span className="text-lg font-bold">{totalInterviews}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500">Total Questions</span>
-                  <span className="text-lg font-bold">45</span>
+                  <span className="text-lg font-bold">{totalQuestions}</span>
                 </div>
               </div>
             </CardContent>

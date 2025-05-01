@@ -14,6 +14,7 @@ import {
   CardTitle 
 } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { LoaderCircle } from "lucide-react";
 
 const RegisterForm: React.FC = () => {
   const [name, setName] = useState('');
@@ -121,7 +122,12 @@ const RegisterForm: React.FC = () => {
             className="w-full"
             disabled={loading}
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {loading ? (
+              <>
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                Creating Account...
+              </>
+            ) : 'Create Account'}
           </Button>
           <p className="text-sm text-center text-gray-600">
             Already have an account?{' '}

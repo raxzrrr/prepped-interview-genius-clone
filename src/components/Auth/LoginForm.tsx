@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle 
 } from '@/components/ui/card';
+import { LoaderCircle } from "lucide-react";
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -65,13 +66,6 @@ const LoginForm: React.FC = () => {
               required
             />
           </div>
-          <div className="text-sm text-gray-500">
-            For demo, use: 
-            <br /> 
-            <strong>admin@example.com</strong> or <strong>student@example.com</strong>
-            <br />
-            with password: <strong>password</strong>
-          </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
           <Button
@@ -79,7 +73,12 @@ const LoginForm: React.FC = () => {
             className="w-full"
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? (
+              <>
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                Logging in...
+              </>
+            ) : 'Login'}
           </Button>
           <p className="text-sm text-center text-gray-600">
             Don't have an account?{' '}

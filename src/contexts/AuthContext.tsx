@@ -1,18 +1,22 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 
 type UserRole = 'student' | 'admin' | null;
 
-type User = {
+type UserProfile = {
   id: string;
-  name: string;
-  email: string;
+  full_name: string;
+  avatar_url?: string;
   role: UserRole;
 } | null;
 
 interface AuthContextType {
-  user: User;
+  user: User | null;
+  session: Session | null;
+  profile: UserProfile;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role: 'student' | 'admin') => Promise<void>;
@@ -32,64 +36,82 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Check for stored user on mount
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+  // Fetch profile data for the authenticated user
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
     }
-    setLoading(false);
+  };
+
+  useEffect(() => {
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        if (currentSession?.user) {
+          // Use setTimeout to avoid deadlocks
+          setTimeout(() => {
+            fetchProfile(currentSession.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+        }
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      
+      if (currentSession?.user) {
+        fetchProfile(currentSession.user.id);
+      }
+      
+      setLoading(false);
+    });
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    // In a real app, this would be an API call
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock login
-      if (email === 'admin@example.com' && password === 'password') {
-        const adminUser = {
-          id: '1',
-          name: 'Admin User',
-          email: 'admin@example.com',
-          role: 'admin' as UserRole
-        };
-        setUser(adminUser);
-        localStorage.setItem('user', JSON.stringify(adminUser));
-        toast({
-          title: "Login Successful",
-          description: "Welcome back, Admin!",
-        });
-      } else if (email === 'student@example.com' && password === 'password') {
-        const studentUser = {
-          id: '2',
-          name: 'Student User',
-          email: 'student@example.com',
-          role: 'student' as UserRole
-        };
-        setUser(studentUser);
-        localStorage.setItem('user', JSON.stringify(studentUser));
-        toast({
-          title: "Login Successful",
-          description: "Welcome back to Interview Genius!",
-        });
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password. Try admin@example.com or student@example.com with password 'password'",
-          variant: "destructive",
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
       }
-    } catch (error) {
+
       toast({
-        title: "Login Error",
-        description: "An error occurred during login.",
+        title: "Login Successful",
+        description: "Welcome back to Interview Genius!",
+      });
+
+    } catch (error: any) {
+      toast({
+        title: "Login Failed",
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -98,31 +120,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (name: string, email: string, password: string, role: 'student' | 'admin') => {
-    // In a real app, this would be an API call
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock registration
-      const newUser = {
-        id: Math.random().toString(36).substr(2, 9),
-        name,
+      const { data, error } = await supabase.auth.signUp({
         email,
-        role
-      };
-      
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
+        password,
+        options: {
+          data: {
+            full_name: name,
+            role
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
       
       toast({
         title: "Registration Successful",
-        description: `Welcome to Interview Genius, ${name}!`,
+        description: "Welcome to Interview Genius! You can now log in.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Registration Error",
-        description: "An error occurred during registration.",
+        description: error.message || "An error occurred during registration",
         variant: "destructive",
       });
     } finally {
@@ -130,21 +152,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
-  const isAdmin = () => user?.role === 'admin';
-  const isStudent = () => user?.role === 'student';
+  const isAdmin = () => profile?.role === 'admin';
+  const isStudent = () => profile?.role === 'student';
 
   return (
     <AuthContext.Provider value={{ 
       user, 
+      session,
+      profile,
       loading, 
       login, 
       register, 

@@ -1,230 +1,340 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import ResumeUpload from '@/components/Dashboard/ResumeUpload';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
-import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { FileText, Video, Clock, Activity } from 'lucide-react';
+import ResumeUpload from '@/components/Dashboard/ResumeUpload';
 import { Button } from '@/components/ui/button';
+import { 
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle 
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useToast } from '@/components/ui/use-toast';
+import { BriefcaseIcon, Clock, Users, PlayCircle, CheckCircle, BarChart3 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useInterviewApi } from '@/services/api';
+import ApiKeySettings from '@/components/Settings/ApiKeySettings';
+import envService from '@/services/env';
 
 const Dashboard: React.FC = () => {
   const { user, isStudent } = useAuth();
-  const [dashboardState, setDashboardState] = useState<'upload' | 'interview' | 'report'>('upload');
-  const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
-  const [answers, setAnswers] = useState<string[]>([]);
-  
+  const { toast } = useToast();
+  const [selectedJobRole, setSelectedJobRole] = useState('Software Engineer');
+  const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
+  const [interviewAnswers, setInterviewAnswers] = useState<string[]>([]);
+  const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
+  const [stage, setStage] = useState<'select' | 'interview' | 'report'>('select');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [interviewId, setInterviewId] = useState<string | undefined>();
+  const [showApiSettings, setShowApiSettings] = useState(false);
+  const { generateInterviewQuestions, saveInterview } = useInterviewApi();
+
+  // Check if API key is configured when component mounts
+  useEffect(() => {
+    if (!envService.isConfigured('GEMINI_API_KEY')) {
+      setShowApiSettings(true);
+    }
+  }, []);
+
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
   }
-  
-  const handleAnalysisComplete = (questions: string[]) => {
-    setGeneratedQuestions(questions);
-    setDashboardState('interview');
-  };
-  
-  const handleInterviewComplete = () => {
-    setAnswers(generateMockAnswers(generatedQuestions));
-    setDashboardState('report');
-  };
-  
-  const startNewInterview = () => {
-    setDashboardState('upload');
-    setGeneratedQuestions([]);
-    setAnswers([]);
-  };
-  
-  // Mock function to generate answers
-  const generateMockAnswers = (questions: string[]): string[] => {
-    return questions.map(() => "This is a simulated answer to the interview question.");
-  };
-  
-  const renderDashboardContent = () => {
-    switch (dashboardState) {
-      case 'upload':
-        return <ResumeUpload onAnalysisComplete={handleAnalysisComplete} />;
-      case 'interview':
-        return <InterviewPrep questions={generatedQuestions} onInterviewComplete={handleInterviewComplete} />;
-      case 'report':
-        return <InterviewReport questions={generatedQuestions} answers={answers} onStartNewInterview={startNewInterview} />;
-      default:
-        return null;
+
+  const jobRoles = [
+    'Software Engineer',
+    'Product Manager',
+    'Data Scientist',
+    'UX Designer',
+    'Marketing Manager',
+    'Sales Representative',
+    'Project Manager',
+    'Financial Analyst',
+    'Human Resources Specialist',
+    'Customer Success Manager'
+  ];
+
+  const startInterview = async () => {
+    setIsGenerating(true);
+
+    try {
+      // Generate interview questions
+      const questions = await generateInterviewQuestions(selectedJobRole);
+      const questionTexts = questions.map(q => q.question);
+      
+      if (questionTexts.length === 0) {
+        throw new Error('Failed to generate questions');
+      }
+      
+      setInterviewQuestions(questionTexts);
+      
+      // Create a new interview record in the database
+      const newInterviewData = {
+        user_id: user.id,
+        title: `${selectedJobRole} Interview Practice`,
+        questions: questionTexts,
+        status: 'in-progress'
+      };
+      
+      const id = await saveInterview(newInterviewData);
+      setInterviewId(id);
+      
+      setStage('interview');
+    } catch (error) {
+      console.error('Error starting interview:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start the interview. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
+  const handleInterviewComplete = (answers: string[], facialData: any[]) => {
+    setInterviewAnswers(answers);
+    setFacialAnalysis(facialData);
+    setStage('report');
+  };
+
+  const startNewInterview = () => {
+    setStage('select');
+    setInterviewQuestions([]);
+    setInterviewAnswers([]);
+    setFacialAnalysis([]);
+    setInterviewId(undefined);
+  };
+
+  const handleApiSetupComplete = () => {
+    setShowApiSettings(false);
+    toast({
+      title: "API Key Configured",
+      description: "You can now use all AI-powered interview features.",
+    });
+  };
+
+  if (showApiSettings) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-3xl mx-auto">
+          <h1 className="text-3xl font-bold tracking-tight mb-6">Setup Required</h1>
+          <p className="text-gray-600 mb-8">
+            To use the AI-powered interview features, you need to configure your Google Gemini API key.
+          </p>
+          <ApiKeySettings onComplete={handleApiSetupComplete} />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Student Dashboard</h1>
-          <p className="mt-2 text-gray-600">
-            Welcome back, {user.name}! Practice your interview skills and track your progress.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Interview Sessions</CardTitle>
-              <Video className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">3</div>
-              <p className="text-xs text-gray-500">
-                +1 from last week
-              </p>
-            </CardContent>
-          </Card>
+      {stage === 'select' && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Interview Preparation</h1>
+            <p className="mt-2 text-gray-600">
+              Practice your interview skills with our AI-powered mock interview system
+            </p>
+          </div>
           
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Learning Hours</CardTitle>
-              <Clock className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">12.5</div>
-              <p className="text-xs text-gray-500">
-                +3.2 from last week
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Reports Generated</CardTitle>
-              <FileText className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">7</div>
-              <p className="text-xs text-gray-500">
-                +2 from last week
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Average Score</CardTitle>
-              <Activity className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">76%</div>
-              <p className="text-xs text-gray-500">
-                +5% from last week
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <Tabs defaultValue="interview-practice" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="interview-practice">Interview Practice</TabsTrigger>
-            <TabsTrigger value="recent-activity">Recent Activity</TabsTrigger>
-            <TabsTrigger value="recommended">Recommended Courses</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="interview-practice" className="space-y-4">
-            {renderDashboardContent()}
-          </TabsContent>
-          
-          <TabsContent value="recent-activity">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>
-                  Your latest activity on the platform
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center">
+                  <Clock className="mr-2 h-5 w-5 text-gray-500" />
+                  Recent Activity
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-start space-x-4">
-                    <div className="p-2 bg-blue-100 rounded-md">
-                      <FileText className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium">Completed Interview Session</h3>
-                      <p className="text-sm text-gray-500">Software Engineer Role Practice</p>
-                      <p className="text-xs text-gray-400">3 days ago</p>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Interviews Completed</span>
+                    <span className="text-lg font-semibold">3</span>
                   </div>
-                  
-                  <div className="flex items-start space-x-4">
-                    <div className="p-2 bg-purple-100 rounded-md">
-                      <Video className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium">Watched Course Video</h3>
-                      <p className="text-sm text-gray-500">Answering Behavioral Questions</p>
-                      <p className="text-xs text-gray-400">5 days ago</p>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Last Interview</span>
+                    <span className="text-sm">2 days ago</span>
                   </div>
-                  
-                  <div className="flex items-start space-x-4">
-                    <div className="p-2 bg-green-100 rounded-md">
-                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium">Completed Course Module</h3>
-                      <p className="text-sm text-gray-500">Technical Interview Fundamentals</p>
-                      <p className="text-xs text-gray-400">1 week ago</p>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Average Score</span>
+                    <span className="text-lg font-semibold text-brand-purple">84%</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="recommended">
+
             <Card>
-              <CardHeader>
-                <CardTitle>Recommended for You</CardTitle>
-                <CardDescription>
-                  Courses that match your career goals and needs
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center">
+                  <CheckCircle className="mr-2 h-5 w-5 text-gray-500" />
+                  Top Skills
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-lg hover:border-brand-purple hover:shadow-sm transition-all cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">Mastering Behavioral Interviews</h3>
-                      <Badge className="bg-brand-purple">Recommended</Badge>
+                <ul className="space-y-2">
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Technical Knowledge</span>
+                    <span className="text-sm font-medium text-green-600">92%</span>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Communication</span>
+                    <span className="text-sm font-medium text-green-600">88%</span>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Problem Solving</span>
+                    <span className="text-sm font-medium text-brand-purple">83%</span>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Cultural Fit</span>
+                    <span className="text-sm font-medium text-amber-600">76%</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="mr-2 h-5 w-5 text-gray-500" />
+                  Improvement Areas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Conciseness</span>
+                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 rounded-full" style={{ width: '65%' }}></div>
                     </div>
-                    <p className="mt-1 text-sm text-gray-600">
-                      Learn how to structure compelling stories for behavioral questions using the STAR method.
-                    </p>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Eye Contact</span>
+                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 rounded-full" style={{ width: '70%' }}></div>
+                    </div>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Quantifiable Results</span>
+                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full" style={{ width: '55%' }}></div>
+                    </div>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Confidence</span>
+                    <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500 rounded-full" style={{ width: '80%' }}></div>
+                    </div>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Start New Interview</CardTitle>
+              <CardDescription>
+                Choose a job role and begin your AI-powered interview practice
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="role-select">Job Role</Label>
+                <Select
+                  value={selectedJobRole}
+                  onValueChange={setSelectedJobRole}
+                >
+                  <SelectTrigger id="role-select" className="w-full md:w-1/2">
+                    <SelectValue placeholder="Select a job role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jobRoles.map((role) => (
+                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-start space-x-4">
+                  <div className="mt-1 bg-white p-2 rounded-full border border-gray-200">
+                    <BriefcaseIcon className="h-6 w-6 text-brand-purple" />
                   </div>
-                  
-                  <div className="p-4 border rounded-lg hover:border-brand-purple hover:shadow-sm transition-all cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">Body Language and Facial Expressions</h3>
-                      <Badge variant="outline">90% match</Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-600">
-                      Understand how your non-verbal cues affect interviewer perception and how to improve them.
-                    </p>
-                  </div>
-                  
-                  <div className="p-4 border rounded-lg hover:border-brand-purple hover:shadow-sm transition-all cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">Technical Interview Deep Dive</h3>
-                      <Badge variant="outline">85% match</Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-600">
-                      Prepare for technical questions with practical exercises and expert tips.
+                  <div>
+                    <h3 className="font-medium">{selectedJobRole}</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Practice for a {selectedJobRole} position with AI-generated questions specific to this role.
+                      Our system will analyze your responses and provide detailed feedback.
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                onClick={startInterview}
+                disabled={isGenerating}
+                className="w-full md:w-auto"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
+                    Generating Questions...
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    Start Interview
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Resume Analysis</CardTitle>
+              <CardDescription>
+                Upload your resume to receive AI-powered feedback and suggestions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResumeUpload />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      
+      {stage === 'interview' && (
+        <InterviewPrep
+          questions={interviewQuestions}
+          interviewId={interviewId}
+          onInterviewComplete={handleInterviewComplete}
+        />
+      )}
+      
+      {stage === 'report' && (
+        <InterviewReport
+          questions={interviewQuestions}
+          answers={interviewAnswers}
+          onStartNewInterview={startNewInterview}
+        />
+      )}
     </DashboardLayout>
   );
 };

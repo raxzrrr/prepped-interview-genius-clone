@@ -1,0 +1,110 @@
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  try {
+    const { prompt, type } = await req.json();
+    const apiKey = Deno.env.get('GEMINI_API_KEY');
+
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: 'API key not configured' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+
+    // Define the API URL based on the request type
+    let url, requestBody;
+    
+    if (type === 'interview-questions') {
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent';
+      requestBody = {
+        contents: [{
+          parts: [{
+            text: `Generate a list of 10 interview questions for the following job role: ${prompt}. 
+            Format the response as a JSON array of question strings only.`
+          }]
+        }]
+      };
+    } else if (type === 'feedback') {
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent';
+      const { question, answer } = prompt;
+      requestBody = {
+        contents: [{
+          parts: [{
+            text: `Question: ${question}\n\nAnswer: ${answer}\n\nProvide detailed feedback on this interview answer. 
+            Evaluate the quality, clarity, and completeness of the response. Suggest improvements. Format the response as a JSON object 
+            with these properties: "score" (0-100), "strengths" (array of strings), "areas_to_improve" (array of strings), "suggestion" (string).`
+          }]
+        }]
+      };
+    } else if (type === 'facial-analysis') {
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro-vision:generateContent';
+      const { image } = prompt;
+      requestBody = {
+        contents: [{
+          parts: [
+            { text: "Analyze this facial expression during a job interview. What emotions are being expressed? Does the person appear confident, nervous, engaged, or distracted? Provide your analysis as a JSON object with properties: 'primary_emotion', 'confidence_score' (0-100), 'engagement_level' (0-100), 'observations' (array of strings)" },
+            { inline_data: { mime_type: "image/jpeg", data: image.replace(/^data:image\/\w+;base64,/, '') } }
+          ]
+        }]
+      };
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request type' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    // Make the request to the Gemini API
+    const apiUrl = `${url}?key=${apiKey}`;
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const data = await response.json();
+    
+    // Extract the response text
+    let result;
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      const text = data.candidates[0].content.parts[0].text;
+      
+      // Try to parse JSON from the response
+      try {
+        result = JSON.parse(text.replace(/```json|```/g, '').trim());
+      } catch (e) {
+        // If JSON parsing fails, return the text directly
+        result = { text };
+      }
+    } else if (data.error) {
+      throw new Error(data.error.message || 'API error');
+    } else {
+      throw new Error('Unexpected response format');
+    }
+
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'An unexpected error occurred' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+    )
+  }
+})
