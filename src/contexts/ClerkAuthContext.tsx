@@ -98,11 +98,21 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const isStudent = () => profile?.role === 'student';
   
   const logout = async () => {
+    console.log("Logout function called");
     try {
       await clerk.signOut();
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out",
+      });
       return Promise.resolve();
     } catch (error) {
       console.error("Error logging out:", error);
+      toast({
+        title: "Logout Failed",
+        description: "An error occurred during logout. Please try again.",
+        variant: "destructive"
+      });
       return Promise.reject(error);
     }
   };

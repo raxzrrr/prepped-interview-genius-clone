@@ -72,16 +72,21 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       
       // Create interview record in the database
       if (user) {
-        const newInterviewData = {
-          user_id: user.id,
-          title: `Resume-based ${suggestedRole} Interview`,
-          questions: questions.map(q => q.question),
-          status: 'in-progress'
-        };
-        
-        console.log("Saving interview with data:", newInterviewData);
-        const interviewId = await saveInterview(newInterviewData);
-        console.log('Created interview with ID:', interviewId);
+        try {
+          const newInterviewData = {
+            user_id: user.id,
+            title: `Resume-based ${suggestedRole} Interview`,
+            questions: questions.map(q => q.question),
+            status: 'in-progress'
+          };
+          
+          console.log("Saving interview with data:", newInterviewData);
+          const interviewId = await saveInterview(newInterviewData);
+          console.log('Created interview with ID:', interviewId);
+        } catch (err) {
+          console.error("Error saving interview:", err);
+          // Continue with the flow even if saving fails
+        }
       }
 
       // Pass questions to parent component

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -164,6 +165,8 @@ const LearningPage: React.FC = () => {
   
   const fetchUserLearningData = async () => {
     try {
+      console.log("Fetching user learning data for user ID:", user?.id);
+      
       // Try to get existing learning data
       const { data: existingData, error } = await supabase
         .from('user_learning')
@@ -176,12 +179,16 @@ const LearningPage: React.FC = () => {
       }
       
       if (existingData) {
+        console.log("Found existing learning data:", existingData);
+        
         // Cast the course_progress from Json to Record<string, any>
         setUserLearningData({
           ...existingData,
           course_progress: existingData.course_progress as Record<string, any> || {}
         });
       } else {
+        console.log("No existing learning data found, creating new record");
+        
         // Create new learning data for the user
         const newLearningData = {
           user_id: user?.id,
@@ -201,6 +208,8 @@ const LearningPage: React.FC = () => {
         }
         
         if (createdData) {
+          console.log("Created new learning data:", createdData);
+          
           setUserLearningData({
             ...createdData,
             course_progress: createdData.course_progress as Record<string, any> || {}
@@ -220,6 +229,8 @@ const LearningPage: React.FC = () => {
       setCourses(coursesData);
       return;
     }
+    
+    console.log("Updating courses with user progress:", userLearningData.course_progress);
     
     const updatedCourses = coursesData.map(course => {
       const courseProgress = userLearningData.course_progress[course.id] || {};
@@ -254,6 +265,7 @@ const LearningPage: React.FC = () => {
       };
     });
     
+    console.log("Updated courses with progress:", updatedCourses);
     setCourses(updatedCourses);
   };
   
@@ -271,6 +283,8 @@ const LearningPage: React.FC = () => {
   };
   
   const handleModuleProgress = async (moduleId: string, progress: number) => {
+    console.log(`Module ${moduleId} progress: ${progress}%`);
+    
     // Consider a module complete when progress reaches 100%
     if (progress >= 90) {
       await markModuleAsCompleted(moduleId);
@@ -281,6 +295,8 @@ const LearningPage: React.FC = () => {
     if (!userLearningData || !user?.id) return;
     
     try {
+      console.log(`Marking module ${moduleId} as completed`);
+      
       // Find which course the module belongs to
       let courseId = '';
       let currentCourseIndex = -1;
@@ -297,7 +313,12 @@ const LearningPage: React.FC = () => {
         }
       }
       
-      if (!courseId) return;
+      if (!courseId) {
+        console.error("Could not find course for module:", moduleId);
+        return;
+      }
+      
+      console.log(`Module ${moduleId} belongs to course ${courseId}`);
       
       // Update the course progress in the user learning data
       const courseProgress = {
@@ -311,13 +332,19 @@ const LearningPage: React.FC = () => {
       // Mark the current module as completed
       courseProgress[courseId][moduleId] = true;
       
+      console.log("Updated course progress:", courseProgress);
+      
       // Count completed modules
       let completedModulesCount = 0;
       Object.values(courseProgress).forEach(course => {
-        Object.values(course as Record<string, boolean>).forEach(completed => {
-          if (completed) completedModulesCount++;
-        });
+        if (course) {
+          Object.values(course as Record<string, boolean>).forEach(completed => {
+            if (completed) completedModulesCount++;
+          });
+        }
       });
+      
+      console.log(`Total completed modules: ${completedModulesCount}`);
       
       // Update database
       const { error } = await supabase
@@ -329,7 +356,12 @@ const LearningPage: React.FC = () => {
         })
         .eq('user_id', user.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating user_learning record:", error);
+        throw error;
+      }
+      
+      console.log("Successfully updated user_learning record in database");
       
       // Update local state with the new data
       setUserLearningData(prevData => {
@@ -341,6 +373,9 @@ const LearningPage: React.FC = () => {
         };
       });
       
+      // Refresh the courses data to update the UI
+      updateCoursesWithUserProgress();
+      
       // Check if all modules in the course are completed
       if (courseId === 'interview-mastery') {
         const course = courses.find(c => c.id === courseId);
@@ -350,6 +385,8 @@ const LearningPage: React.FC = () => {
           );
           
           if (allModulesCompleted) {
+            console.log("All modules in course completed, marking course as completed");
+            
             // Mark the course as completed
             await supabase
               .from('user_learning')
@@ -373,7 +410,11 @@ const LearningPage: React.FC = () => {
         if (currentModuleIndex < course.modules.length - 1) {
           const nextModule = course.modules[currentModuleIndex + 1];
           // Check if the next module is not locked
-          if (!nextModule.locked) {
+          const nextModuleLocked = nextModule.locked;
+          
+          if (!nextModuleLocked) {
+            console.log(`Auto-advancing to next module: ${nextModule.id}`);
+            
             toast({
               title: "Module Completed",
               description: "Moving to the next module...",
@@ -381,12 +422,24 @@ const LearningPage: React.FC = () => {
             setTimeout(() => {
               setSelectedModule(nextModule);
             }, 1500);
+          } else {
+            console.log("Next module is locked, not auto-advancing");
+            // We'll unlock it on the next render with the updated progress
+            toast({
+              title: "Module Completed",
+              description: "The next module has been unlocked!",
+            });
+            // Force an update of the courses to unlock the next module
+            updateCoursesWithUserProgress();
           }
+        } else {
+          console.log("This was the last module in the course");
+          toast({
+            title: "Module Completed",
+            description: "You've completed the last module in this course!",
+          });
         }
       }
-      
-      // Refresh the courses data to update the UI
-      updateCoursesWithUserProgress();
       
     } catch (error) {
       console.error('Error marking module as completed:', error);
