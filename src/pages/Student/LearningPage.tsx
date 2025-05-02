@@ -271,21 +271,28 @@ const LearningPage: React.FC = () => {
   };
   
   const handleModuleProgress = async (moduleId: string, progress: number) => {
-    // Consider a module complete when progress reaches 90%
+    // Consider a module complete when progress reaches 100%
     if (progress >= 90) {
-      markModuleAsCompleted(moduleId);
+      await markModuleAsCompleted(moduleId);
     }
   };
   
   const markModuleAsCompleted = async (moduleId: string) => {
-    if (!userLearningData) return;
+    if (!userLearningData || !user?.id) return;
     
     try {
       // Find which course the module belongs to
       let courseId = '';
-      for (const course of courses) {
-        if (course.modules.some(m => m.id === moduleId)) {
+      let currentCourseIndex = -1;
+      let currentModuleIndex = -1;
+      
+      for (let i = 0; i < courses.length; i++) {
+        const course = courses[i];
+        const moduleIndex = course.modules.findIndex(m => m.id === moduleId);
+        if (moduleIndex >= 0) {
           courseId = course.id;
+          currentCourseIndex = i;
+          currentModuleIndex = moduleIndex;
           break;
         }
       }
@@ -295,11 +302,14 @@ const LearningPage: React.FC = () => {
       // Update the course progress in the user learning data
       const courseProgress = {
         ...(userLearningData.course_progress || {}),
-        [courseId]: {
-          ...(userLearningData.course_progress?.[courseId] || {}),
-          [moduleId]: true
-        }
       };
+      
+      if (!courseProgress[courseId]) {
+        courseProgress[courseId] = {};
+      }
+      
+      // Mark the current module as completed
+      courseProgress[courseId][moduleId] = true;
       
       // Count completed modules
       let completedModulesCount = 0;
@@ -317,9 +327,19 @@ const LearningPage: React.FC = () => {
           completed_modules: completedModulesCount,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', user?.id);
+        .eq('user_id', user.id);
       
       if (error) throw error;
+      
+      // Update local state with the new data
+      setUserLearningData(prevData => {
+        if (!prevData) return null;
+        return {
+          ...prevData,
+          course_progress: courseProgress,
+          completed_modules: completedModulesCount
+        };
+      });
       
       // Check if all modules in the course are completed
       if (courseId === 'interview-mastery') {
@@ -337,7 +357,7 @@ const LearningPage: React.FC = () => {
                 course_score: 85, // Example score
                 course_completed_at: new Date().toISOString()
               })
-              .eq('user_id', user?.id);
+              .eq('user_id', user.id);
               
             toast({
               title: "Course Completed!",
@@ -347,11 +367,34 @@ const LearningPage: React.FC = () => {
         }
       }
       
-      // Refresh the user learning data
-      fetchUserLearningData();
+      // Auto-advance to next module if available
+      if (currentCourseIndex >= 0 && currentModuleIndex >= 0) {
+        const course = courses[currentCourseIndex];
+        if (currentModuleIndex < course.modules.length - 1) {
+          const nextModule = course.modules[currentModuleIndex + 1];
+          // Check if the next module is not locked
+          if (!nextModule.locked) {
+            toast({
+              title: "Module Completed",
+              description: "Moving to the next module...",
+            });
+            setTimeout(() => {
+              setSelectedModule(nextModule);
+            }, 1500);
+          }
+        }
+      }
+      
+      // Refresh the courses data to update the UI
+      updateCoursesWithUserProgress();
       
     } catch (error) {
       console.error('Error marking module as completed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update your progress. Please try again.",
+        variant: "destructive"
+      });
     }
   };
   

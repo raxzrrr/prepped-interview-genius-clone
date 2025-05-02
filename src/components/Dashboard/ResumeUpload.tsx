@@ -38,19 +38,25 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       setAnalyzing(true);
       setError(null);
       
+      console.log("Starting resume analysis with file:", file.substring(0, 100) + "...");
+      
       // Validate file is a PDF
       if (!file.includes('application/pdf')) {
         throw new Error('Only PDF files are supported');
       }
       
       // Step 1: Analyze resume
+      console.log("Calling analyzeResume API...");
       const analysis = await analyzeResume(file);
+      
+      console.log("Resume analysis response:", analysis);
       
       if (!analysis) {
         throw new Error('Failed to analyze resume');
       }
       
       // Notify parent component about analysis results
+      console.log("Notifying parent about analysis results");
       onAnalysisResults(analysis);
       
       // Step 2: Generate interview questions based on resume skills
@@ -58,9 +64,11 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       const skills = analysis.skills?.join(', ') || '';
       
       const generationPrompt = `${suggestedRole} with skills in ${skills}`;
+      console.log("Generating interview questions with prompt:", generationPrompt);
       
       // Generate questions
       const questions = await generateInterviewQuestions(generationPrompt);
+      console.log("Generated questions:", questions);
       
       // Create interview record in the database
       if (user) {
@@ -71,6 +79,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
           status: 'in-progress'
         };
         
+        console.log("Saving interview with data:", newInterviewData);
         const interviewId = await saveInterview(newInterviewData);
         console.log('Created interview with ID:', interviewId);
       }

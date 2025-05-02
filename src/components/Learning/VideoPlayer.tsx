@@ -33,7 +33,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, []);
+  }, [toast]);
   
   // Track video progress
   useEffect(() => {
@@ -59,7 +59,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
     return () => {
       if (progressInterval) clearInterval(progressInterval);
     };
-  }, [loading, error]);
+  }, [loading, error, onProgress]);
   
   // Handle iframe loading
   const handleIframeLoad = () => {
@@ -127,12 +127,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
           <div className="text-center p-4">
             <p className="text-red-500 mb-2">{error}</p>
-            <button 
-              className="bg-brand-purple text-white px-4 py-2 rounded-md"
+            <Button 
+              variant="destructive" 
               onClick={() => window.location.reload()}
             >
               Retry
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -165,8 +165,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
         
         <Button 
           onClick={handleMarkAsCompleted}
-          variant="outline" 
-          className="w-full flex items-center justify-center gap-2"
+          className="w-full flex items-center justify-center gap-2 bg-brand-purple hover:bg-brand-purple/90"
         >
           <CheckCircle className="h-4 w-4" />
           Mark as Completed

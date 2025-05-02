@@ -3,14 +3,29 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/ClerkAuthContext';
+import { useToast } from '@/components/ui/use-toast';
 
 const Header: React.FC = () => {
-  const { user, profile, isAdmin, isStudent } = useAuth();
+  const { user, profile, isAdmin, isStudent, logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
-  const logout = () => {
-    // This will be handled by Clerk's SignOutButton
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account",
+      });
+      navigate('/login');
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Logout failed",
+        description: "There was a problem logging you out. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -78,7 +93,7 @@ const Header: React.FC = () => {
               </span>
               <Button 
                 variant="outline" 
-                onClick={logout}
+                onClick={handleLogout}
               >
                 Logout
               </Button>

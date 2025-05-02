@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
+import { useAuth as useClerkAuth, useUser, useClerk } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -20,6 +20,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: () => boolean;
   isStudent: () => boolean;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +36,7 @@ export const useAuth = () => {
 export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLoaded, userId, sessionId } = useClerkAuth();
   const { user: clerkUser } = useUser();
+  const clerk = useClerk();
   const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -94,6 +96,16 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const isAdmin = () => profile?.role === 'admin';
   const isStudent = () => profile?.role === 'student';
+  
+  const logout = async () => {
+    try {
+      await clerk.signOut();
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error logging out:", error);
+      return Promise.reject(error);
+    }
+  };
 
   return (
     <AuthContext.Provider value={{ 
@@ -102,7 +114,8 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       profile,
       loading, 
       isAdmin,
-      isStudent
+      isStudent,
+      logout
     }}>
       {children}
     </AuthContext.Provider>
