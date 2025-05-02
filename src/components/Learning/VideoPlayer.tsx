@@ -1,133 +1,153 @@
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
+import React, { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 
 interface VideoPlayerProps {
-  title: string;
-  description: string;
   videoUrl: string;
-  thumbnail: string;
+  onProgress: (progress: number) => void;
+  initialProgress?: number;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  title,
-  description,
-  videoUrl,
-  thumbnail
-}) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initialProgress = 0 }) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(initialProgress);
   const { toast } = useToast();
   
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying);
-    toast({
-      title: !isPlaying ? "Video Started" : "Video Paused",
-      description: !isPlaying ? "The video is now playing." : "The video has been paused.",
-    });
+  // Prevent right-clicking on the video for download
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      toast({
+        title: "Download Restricted",
+        description: "Video downloading is not permitted for this content.",
+        variant: "destructive",
+      });
+      return false;
+    };
+    
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
+  
+  // Track video progress
+  useEffect(() => {
+    let progressInterval: NodeJS.Timeout;
+    
+    if (!loading && !error) {
+      // Simulate progress tracking
+      progressInterval = setInterval(() => {
+        setProgress(prevProgress => {
+          // Cap progress at 100%
+          const newProgress = Math.min(prevProgress + 0.5, 100);
+          
+          // Call the onProgress callback
+          if (newProgress !== prevProgress) {
+            onProgress(newProgress);
+          }
+          
+          return newProgress;
+        });
+      }, 5000); // Update every 5 seconds
+    }
+    
+    return () => {
+      if (progressInterval) clearInterval(progressInterval);
+    };
+  }, [loading, error]);
+  
+  // Handle iframe loading
+  const handleIframeLoad = () => {
+    setLoading(false);
   };
   
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
+  const handleIframeError = () => {
+    setLoading(false);
+    setError('Failed to load video. Please try again later.');
   };
   
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  const isYouTubeVideo = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
+  const isVimeoVideo = videoUrl.includes('vimeo.com');
+  
+  // Ensure the URL has the necessary parameters for embedding
+  const getEmbedUrl = () => {
+    let url = videoUrl;
+    
+    // Add necessary params for YouTube to disable downloading
+    if (isYouTubeVideo) {
+      // Ensure it's an embed URL
+      if (!url.includes('embed')) {
+        const videoId = url.includes('v=') 
+          ? new URLSearchParams(url.split('?')[1]).get('v')
+          : url.split('/').pop();
+        url = `https://www.youtube.com/embed/${videoId}`;
+      }
+      
+      // Add parameters
+      url = url.includes('?') 
+        ? `${url}&rel=0&modestbranding=1&enablejsapi=1` 
+        : `${url}?rel=0&modestbranding=1&enablejsapi=1`;
+    }
+    
+    // Add necessary params for Vimeo
+    if (isVimeoVideo && !url.includes('player.vimeo.com')) {
+      const videoId = url.split('/').pop();
+      url = `https://player.vimeo.com/video/${videoId}`;
+    }
+    
+    return url;
   };
 
   return (
-    <Card className="w-full overflow-hidden">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="relative overflow-hidden rounded-lg aspect-video bg-gray-900">
-          {/* Video Thumbnail with Play Button Overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <img
-              src={thumbnail}
-              alt={title}
-              className="object-cover w-full h-full"
-            />
-            
-            {!isPlaying && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-16 h-16 text-white rounded-full bg-brand-purple bg-opacity-70 hover:bg-opacity-100 transition-colors"
-                  onClick={togglePlay}
-                >
-                  <Play className="w-8 h-8" />
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          {/* Video Controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent">
-            <div className="flex items-center justify-between">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20"
-                onClick={togglePlay}
-              >
-                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-              </Button>
-              
-              <div className="flex space-x-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/20"
-                  onClick={toggleMute}
-                >
-                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/20"
-                  onClick={toggleFullscreen}
-                >
-                  {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-                </Button>
-              </div>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full h-1 mt-2 overflow-hidden bg-white/30 rounded-full">
-              <div
-                className="h-full bg-brand-purple"
-                style={{ width: isPlaying ? '35%' : '0%', transition: 'width 0.3s ease' }}
-              />
-            </div>
+    <div className="relative">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-80 z-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple"></div>
+        </div>
+      )}
+      
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+          <div className="text-center p-4">
+            <p className="text-red-500 mb-2">{error}</p>
+            <button 
+              className="bg-brand-purple text-white px-4 py-2 rounded-md"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </button>
           </div>
         </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <div className="text-sm text-gray-500">
-          {isPlaying ? '03:15 / 09:27' : '00:00 / 09:27'}
+      )}
+      
+      <div className="aspect-video w-full overflow-hidden rounded-md">
+        <iframe
+          ref={iframeRef}
+          src={getEmbedUrl()}
+          className="w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+        ></iframe>
+      </div>
+      
+      <div className="mt-4">
+        <div className="flex justify-between text-sm text-gray-500 mb-1">
+          <span>Progress</span>
+          <span>{Math.round(progress)}%</span>
         </div>
-        <div className="text-sm font-medium text-brand-purple">
-          HD
+        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-brand-purple rounded-full"
+            style={{ width: `${progress}%` }}
+          ></div>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 };
 

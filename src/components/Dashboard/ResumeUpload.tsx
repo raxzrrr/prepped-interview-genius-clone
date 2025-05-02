@@ -1,200 +1,135 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
-import { Upload, FileText, Check, RotateCcw, AlertTriangle } from 'lucide-react';
+import { FileUploader } from '@/components/ui/file-uploader';
 import { useToast } from '@/components/ui/use-toast';
+import { AlertCircle, Upload, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import { useInterviewApi } from '@/services/api';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 
 interface ResumeUploadProps {
+  file: string;
+  isLoading?: boolean;
   onAnalysisComplete: (questions: string[]) => void;
-  onResumeAnalysis?: (analysis: any) => void;
+  onAnalysisResults: (analysis: any) => void;
 }
 
-const ResumeUpload: React.FC<ResumeUploadProps> = ({ onAnalysisComplete, onResumeAnalysis }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [uploadComplete, setUploadComplete] = useState(false);
+const ResumeUpload: React.FC<ResumeUploadProps> = ({ 
+  file, 
+  isLoading = false, 
+  onAnalysisComplete,
+  onAnalysisResults
+}) => {
+  const [analyzing, setAnalyzing] = useState(isLoading);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { generateInterviewQuestions, analyzeResume } = useInterviewApi();
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (selectedFile.type === 'application/pdf') {
-        setFile(selectedFile);
-      } else {
-        toast({
-          title: "Invalid File Type",
-          description: "Please upload a PDF document only.",
-          variant: "destructive",
-        });
-      }
+  const { generateInterviewQuestions, analyzeResume, saveInterview } = useInterviewApi();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (file) {
+      analyzeResumeFile();
     }
-  };
-  
-  const handleUpload = async () => {
-    if (!file) return;
-    
-    setUploading(true);
-    
+  }, [file]);
+
+  const analyzeResumeFile = async () => {
     try {
-      // Convert file to base64 for processing
-      const base64File = await convertFileToBase64(file);
-      setUploading(false);
-      setUploadComplete(true);
       setAnalyzing(true);
+      setError(null);
       
-      // First, analyze the resume
-      const resumeAnalysis = await analyzeResume(base64File);
-      
-      if (onResumeAnalysis && resumeAnalysis) {
-        onResumeAnalysis(resumeAnalysis);
+      // Validate file is a PDF
+      if (!file.includes('application/pdf')) {
+        throw new Error('Only PDF files are supported');
       }
       
-      // Generate interview questions based on the resume content
-      const jobRole = resumeAnalysis?.suggested_role || "Software Engineer";
-      const questions = await generateInterviewQuestions(jobRole);
-      const questionTexts = questions.map(q => q.question);
+      // Step 1: Analyze resume
+      const analysis = await analyzeResume(file);
       
-      setAnalyzing(false);
-      
-      if (questionTexts.length === 0) {
-        throw new Error('Failed to generate questions');
+      if (!analysis) {
+        throw new Error('Failed to analyze resume');
       }
       
-      onAnalysisComplete(questionTexts);
+      // Notify parent component about analysis results
+      onAnalysisResults(analysis);
       
-      toast({
-        title: "Analysis Complete",
-        description: "Your resume has been analyzed and interview questions have been generated!",
-      });
-    } catch (error) {
-      console.error('Error processing resume:', error);
-      setUploading(false);
-      setAnalyzing(false);
+      // Step 2: Generate interview questions based on resume skills
+      const suggestedRole = analysis.suggested_role || 'Software Engineer';
+      const skills = analysis.skills?.join(', ') || '';
       
+      const generationPrompt = `${suggestedRole} with skills in ${skills}`;
+      
+      // Generate questions
+      const questions = await generateInterviewQuestions(generationPrompt);
+      
+      // Create interview record in the database
+      if (user) {
+        const newInterviewData = {
+          user_id: user.id,
+          title: `Resume-based ${suggestedRole} Interview`,
+          questions: questions.map(q => q.question),
+          status: 'in-progress'
+        };
+        
+        const interviewId = await saveInterview(newInterviewData);
+        console.log('Created interview with ID:', interviewId);
+      }
+
+      // Pass questions to parent component
+      onAnalysisComplete(questions.map(q => q.question));
+      
+    } catch (error: any) {
+      console.error('Error analyzing resume:', error);
+      setError(error.message || 'Failed to analyze resume');
       toast({
-        title: "Processing Error",
-        description: "There was an error processing your resume. Please try again.",
+        title: "Resume Analysis Failed",
+        description: error.message || "An error occurred while analyzing your resume. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setAnalyzing(false);
     }
-  };
-  
-  const resetUpload = () => {
-    setFile(null);
-    setUploadComplete(false);
-  };
-
-  // Convert file to base64
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
   };
 
   return (
-    <Card className="w-full">
+    <Card>
       <CardHeader>
-        <CardTitle>Upload Your Resume</CardTitle>
-        <CardDescription>
-          Upload your resume in PDF format for AI analysis
-        </CardDescription>
+        <CardTitle className="flex items-center">
+          <FileText className="mr-2 h-5 w-5 text-brand-purple" />
+          Resume Analysis
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex items-start p-4 mb-6 bg-amber-50 border border-amber-200 rounded-lg">
-          <AlertTriangle className="w-5 h-5 mr-3 text-amber-500 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-amber-800">Important Note</h4>
-            <p className="text-sm text-amber-700">
-              Do not include personal details like email ID, phone number, education background, or address in your resume.
-            </p>
-          </div>
-        </div>
-        
-        {!uploadComplete ? (
-          <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg border-gray-300 hover:border-brand-purple transition-colors">
-            <input
-              type="file"
-              id="resume-upload"
-              className="hidden"
-              accept=".pdf"
-              onChange={handleFileChange}
-              disabled={uploading}
-            />
-            <Upload 
-              className="w-12 h-12 mb-4 text-gray-400"
-              strokeWidth={1.5}
-            />
-            <label 
-              htmlFor="resume-upload" 
-              className="mb-2 text-sm font-medium text-brand-purple cursor-pointer hover:underline"
-            >
-              Click to upload
-            </label>
-            <p className="text-xs text-gray-500">
-              PDF files only (max. 5MB)
-            </p>
-            {file && (
-              <div className="flex items-center mt-4 space-x-2 text-sm text-gray-700">
-                <FileText className="w-4 h-4" />
-                <span>{file.name}</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center p-8 border-2 rounded-lg border-green-200 bg-green-50">
-            <div className="p-2 mb-4 text-white bg-green-500 rounded-full">
-              <Check className="w-8 h-8" />
+        <div className="space-y-4">
+          {analyzing ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-12 w-12 text-brand-purple animate-spin mb-4" />
+              <h3 className="font-medium text-lg mb-2">Analyzing your resume</h3>
+              <p className="text-gray-600 text-center max-w-md">
+                Our AI is extracting key skills and experiences from your resume to generate tailored interview questions.
+                This usually takes about 15-20 seconds.
+              </p>
             </div>
-            <h3 className="mb-2 text-lg font-medium text-gray-900">
-              Resume Uploaded Successfully
-            </h3>
-            <p className="text-sm text-gray-600">
-              {file?.name}
-            </p>
-            <Button 
-              variant="ghost"
-              onClick={resetUpload}
-              className="mt-4"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Upload Different Resume
-            </Button>
-          </div>
-        )}
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+              <h3 className="font-medium text-lg mb-2">Analysis Failed</h3>
+              <p className="text-red-500 text-center mb-4">{error}</p>
+              <Button onClick={analyzeResumeFile}>
+                Try Again
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8">
+              <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
+              <h3 className="font-medium text-lg mb-2">Resume Analysis Complete</h3>
+              <p className="text-gray-600 text-center mb-4">
+                Your resume has been successfully analyzed. Preparing your personalized interview...
+              </p>
+            </div>
+          )}
+        </div>
       </CardContent>
-      <CardFooter>
-        <Button
-          onClick={handleUpload}
-          disabled={!file || uploading || analyzing || uploadComplete}
-          className="w-full"
-        >
-          {uploading ? (
-            <>
-              <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-              Uploading...
-            </>
-          ) : analyzing ? (
-            <>
-              <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-              Analyzing Resume...
-            </>
-          ) : 'Upload & Analyze'}
-        </Button>
-      </CardFooter>
     </Card>
   );
 };

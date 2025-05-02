@@ -66,6 +66,7 @@ const Dashboard: React.FC = () => {
     
     if (user) {
       fetchUserInterviewUsage();
+      fetchUserStats();
     }
   }, [user]);
   
@@ -97,6 +98,38 @@ const Dashboard: React.FC = () => {
       
     } catch (error) {
       console.error('Error fetching user interview usage:', error);
+    }
+  };
+  
+  // Fetch user statistics
+  const fetchUserStats = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: interviews, error } = await supabase
+        .from('interviews')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      if (interviews) {
+        const completed = interviews.filter(interview => interview.status === 'completed');
+        const questionCount = interviews.reduce((acc, curr) => 
+          acc + (Array.isArray(curr.questions) ? curr.questions.length : 0), 0);
+        const avgScore = completed.length > 0 
+          ? Math.round(completed.reduce((acc, curr) => acc + (curr.score || 0), 0) / completed.length) 
+          : 0;
+          
+        setUserStats({
+          totalInterviews: interviews.length,
+          averageScore: avgScore,
+          totalQuestions: questionCount,
+          completedInterviews: completed
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
     }
   };
 
@@ -170,6 +203,9 @@ const Dashboard: React.FC = () => {
     setInterviewAnswers(answers);
     setFacialAnalysis(facialData);
     setStage('report');
+    // Refresh stats after completion
+    fetchUserStats();
+    fetchUserInterviewUsage();
   };
 
   const startNewInterview = () => {
@@ -179,7 +215,8 @@ const Dashboard: React.FC = () => {
     setFacialAnalysis([]);
     setInterviewId(undefined);
     setResumeAnalysis(null);
-    fetchUserInterviewUsage(); // Refresh usage data
+    fetchUserInterviewUsage();
+    fetchUserStats();
   };
 
   const handleApiSetupComplete = () => {
@@ -320,28 +357,38 @@ const Dashboard: React.FC = () => {
               </>
             ) : (
               <>
-                <Card>
+                <Card className="md:col-span-2">
                   <CardHeader className="pb-3">
                     <CardTitle>Getting Started</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-600">
-                      Welcome to Interview Genius! Start by choosing a job role and 
-                      taking your first practice interview to receive personalized feedback.
+                      Welcome to Interview Genius! Start by choosing a job role and preparing for your first interview.
                     </p>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle>Monthly Quota</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-gray-600">
-                      You have 4 practice interviews available this month:
-                      <br />- 2 resume-based interviews
-                      <br />- 2 custom topic interviews
-                    </p>
+                    <div className="mt-4 space-y-4">
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-brand-purple/10 p-2 rounded-full">
+                          <PlayCircle className="h-5 w-5 text-brand-purple" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium">Practice with AI</h4>
+                          <p className="text-xs text-gray-500">
+                            Experience realistic interview scenarios with our AI interviewer
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-brand-purple/10 p-2 rounded-full">
+                          <BriefcaseIcon className="h-5 w-5 text-brand-purple" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium">Upload Your Resume</h4>
+                          <p className="text-xs text-gray-500">
+                            Get tailored questions based on your skills and experience
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </>
@@ -350,101 +397,138 @@ const Dashboard: React.FC = () => {
           
           <Card>
             <CardHeader>
-              <CardTitle>Start New Interview</CardTitle>
+              <CardTitle>Select Job Role</CardTitle>
               <CardDescription>
-                Choose a job role and begin your AI-powered interview practice
+                Choose a job role for your interview practice session
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="role-select">Job Role</Label>
-                <Select
-                  value={selectedJobRole}
-                  onValueChange={setSelectedJobRole}
-                >
-                  <SelectTrigger id="role-select" className="w-full md:w-1/2">
-                    <SelectValue placeholder="Select a job role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobRoles.map((role) => (
-                      <SelectItem key={role} value={role}>{role}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-start space-x-4">
-                  <div className="mt-1 bg-white p-2 rounded-full border border-gray-200">
-                    <BriefcaseIcon className="h-6 w-6 text-brand-purple" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">{selectedJobRole}</h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Practice for a {selectedJobRole} position with AI-generated questions specific to this role.
-                      Our system will analyze your responses and provide detailed feedback.
-                    </p>
-                  </div>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="job-role">Job Role</Label>
+                  <Select
+                    value={selectedJobRole}
+                    onValueChange={setSelectedJobRole}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a job role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jobRoles.map(role => (
+                        <SelectItem key={role} value={role}>
+                          {role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:space-x-2 sm:space-y-0">
               <Button 
                 onClick={startInterview}
                 disabled={isGenerating || usageData.resume_interviews >= 2}
-                className="w-full md:w-auto"
+                className="w-full sm:w-1/2"
               >
-                {isGenerating ? (
-                  <>
-                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                    Generating Questions...
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="mr-2 h-4 w-4" />
-                    Start Interview
-                  </>
-                )}
+                {isGenerating ? 'Generating Questions...' : 'Start Role-based Interview'}
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full sm:w-1/2"
+                onClick={() => {
+                  const uploadInput = document.getElementById('resume-upload');
+                  if (uploadInput) {
+                    uploadInput.click();
+                  }
+                }}
+                disabled={usageData.resume_interviews >= 2}
+              >
+                Upload Resume for Analysis
+                <input
+                  type="file"
+                  id="resume-upload"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Handle resume upload
+                      if (file.type !== 'application/pdf') {
+                        toast({
+                          title: "Invalid File Type",
+                          description: "Please upload a PDF file only.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      
+                      // Create a new ResumeUpload component
+                      const reader = new FileReader();
+                      reader.onload = async (event) => {
+                        if (event.target?.result) {
+                          const base64Data = event.target.result.toString();
+                          
+                          try {
+                            // Further processing will be handled by ResumeUpload component
+                            setResumeAnalysis({
+                              isLoading: true,
+                              file: base64Data
+                            });
+                          } catch (error) {
+                            console.error('Error processing resume:', error);
+                            toast({
+                              title: "Error",
+                              description: "Failed to process resume. Please try again.",
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
               </Button>
             </CardFooter>
           </Card>
           
           {resumeAnalysis && (
-            <ResumeAnalysisResults analysis={resumeAnalysis} />
+            <ResumeUpload 
+              file={resumeAnalysis.file}
+              isLoading={resumeAnalysis.isLoading}
+              onAnalysisComplete={handleResumeAnalysisComplete}
+              onAnalysisResults={handleResumeAnalysisResults}
+            />
           )}
-          
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-1">
-            <Card>
-              <CardHeader>
-                <CardTitle>Resume Analysis</CardTitle>
-                <CardDescription>
-                  Upload your resume to receive AI-powered feedback and suggestions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResumeUpload 
-                  onAnalysisComplete={handleResumeAnalysisComplete} 
-                  onResumeAnalysis={handleResumeAnalysisResults}
-                />
-              </CardContent>
-            </Card>
-          </div>
         </div>
       )}
-      
+
       {stage === 'interview' && (
-        <InterviewPrep
+        <InterviewPrep 
           questions={interviewQuestions}
           interviewId={interviewId}
           onInterviewComplete={handleInterviewComplete}
         />
       )}
-      
-      {stage === 'report' && (
-        <InterviewReport
+
+      {stage === 'report' && resumeAnalysis && (
+        <>
+          <InterviewReport 
+            questions={interviewQuestions}
+            answers={interviewAnswers}
+            facialAnalysis={facialAnalysis}
+            onDone={startNewInterview}
+          />
+          <ResumeAnalysisResults analysis={resumeAnalysis} />
+        </>
+      )}
+
+      {stage === 'report' && !resumeAnalysis && (
+        <InterviewReport 
           questions={interviewQuestions}
           answers={interviewAnswers}
-          onStartNewInterview={startNewInterview}
+          facialAnalysis={facialAnalysis}
+          onDone={startNewInterview}
         />
       )}
     </DashboardLayout>

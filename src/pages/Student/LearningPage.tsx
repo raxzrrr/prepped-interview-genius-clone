@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import CourseCard from '@/components/Learning/CourseCard';
+import VideoPlayer from '@/components/Learning/VideoPlayer';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, ArrowLeft } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Course {
   id: string;
@@ -19,11 +23,15 @@ interface Course {
   category: string;
   isPremium: boolean;
   progress?: number;
+  videoUrl?: string;
 }
 
 const LearningPage: React.FC = () => {
   const { user, isStudent } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [userProgress, setUserProgress] = useState<Record<string, number>>({});
+  const { toast } = useToast();
   
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
@@ -41,7 +49,7 @@ const LearningPage: React.FC = () => {
       rating: 4.8,
       category: 'Behavioral',
       isPremium: true,
-      progress: 35
+      videoUrl: 'https://www.youtube.com/embed/9onJ-l3Yw0k'
     },
     {
       id: '2',
@@ -53,7 +61,7 @@ const LearningPage: React.FC = () => {
       rating: 4.7,
       category: 'Technical',
       isPremium: true,
-      progress: 80
+      videoUrl: 'https://www.youtube.com/embed/kCDqQPxYTb4'
     },
     {
       id: '3',
@@ -64,7 +72,8 @@ const LearningPage: React.FC = () => {
       enrolledCount: 3890,
       rating: 4.5,
       category: 'Presentation',
-      isPremium: false
+      isPremium: false,
+      videoUrl: 'https://www.youtube.com/embed/PCWVi5pAa30'
     },
     {
       id: '4',
@@ -75,7 +84,8 @@ const LearningPage: React.FC = () => {
       enrolledCount: 2970,
       rating: 4.6,
       category: 'Negotiation',
-      isPremium: true
+      isPremium: true,
+      videoUrl: 'https://www.youtube.com/embed/u9BoG1n1948'
     },
     {
       id: '5',
@@ -87,7 +97,7 @@ const LearningPage: React.FC = () => {
       rating: 4.9,
       category: 'Preparation',
       isPremium: false,
-      progress: 10
+      videoUrl: 'https://www.youtube.com/embed/TTBC7XlHSLg'
     },
     {
       id: '6',
@@ -98,7 +108,8 @@ const LearningPage: React.FC = () => {
       enrolledCount: 4120,
       rating: 4.7,
       category: 'Behavioral',
-      isPremium: true
+      isPremium: true,
+      videoUrl: 'https://www.youtube.com/embed/ia-qEMJ-x-M'
     },
     {
       id: '7',
@@ -109,7 +120,8 @@ const LearningPage: React.FC = () => {
       enrolledCount: 5380,
       rating: 4.8,
       category: 'Mindset',
-      isPremium: false
+      isPremium: false,
+      videoUrl: 'https://player.vimeo.com/video/565082849'
     },
     {
       id: '8',
@@ -120,9 +132,98 @@ const LearningPage: React.FC = () => {
       enrolledCount: 3790,
       rating: 4.6,
       category: 'Technical',
-      isPremium: true
+      isPremium: true,
+      videoUrl: 'https://player.vimeo.com/video/589314408'
     }
   ];
+  
+  // Fetch user's course progress
+  useEffect(() => {
+    if (user) {
+      fetchUserProgress();
+    }
+  }, [user]);
+  
+  const fetchUserProgress = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_learning')
+        .select('course_progress')
+        .eq('user_id', user?.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+      
+      if (data?.course_progress) {
+        setUserProgress(data.course_progress);
+      }
+    } catch (error) {
+      console.error('Error fetching course progress:', error);
+    }
+  };
+  
+  const updateProgress = async (courseId: string, progress: number) => {
+    try {
+      const newProgress = { ...userProgress, [courseId]: progress };
+      setUserProgress(newProgress);
+      
+      // Check if user exists in the table
+      const { data, error } = await supabase
+        .from('user_learning')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+      
+      if (data) {
+        // Update existing record
+        await supabase
+          .from('user_learning')
+          .update({ 
+            course_progress: newProgress,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user?.id);
+      } else {
+        // Insert new record
+        await supabase
+          .from('user_learning')
+          .insert({
+            user_id: user?.id,
+            course_progress: newProgress,
+            total_modules: courses.length,
+            completed_modules: Object.values(newProgress).filter(p => p >= 90).length
+          });
+      }
+      
+      // If course completed (progress >= 90%), show notification
+      if (progress >= 90) {
+        toast({
+          title: "Course Completed!",
+          description: "Congratulations! You've completed this course. Check your certificates page.",
+        });
+        
+        // Update course completion in database
+        await supabase
+          .from('user_learning')
+          .update({ 
+            course_completed_at: new Date().toISOString(),
+            course_score: 85, // Example score
+            completed_modules: Object.values({ ...userProgress, [courseId]: progress })
+              .filter(p => p >= 90).length
+          })
+          .eq('user_id', user?.id);
+      }
+      
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
   
   const filteredCourses = courses.filter(course => 
     course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -130,7 +231,15 @@ const LearningPage: React.FC = () => {
     course.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const inProgressCourses = courses.filter(course => course.progress !== undefined && course.progress > 0);
+  const inProgressCourses = courses.filter(course => {
+    const progress = userProgress[course.id];
+    return progress !== undefined && progress > 0 && progress < 90;
+  });
+  
+  const completedCourses = courses.filter(course => {
+    const progress = userProgress[course.id];
+    return progress !== undefined && progress >= 90;
+  });
 
   const handleBrowseCourses = () => {
     // Use querySelector with the proper attribute selector
@@ -138,6 +247,18 @@ const LearningPage: React.FC = () => {
     if (allCoursesTab instanceof HTMLElement) {
       allCoursesTab.click();
     }
+  };
+  
+  const handleSelectCourse = (course: Course) => {
+    setSelectedCourse(course);
+  };
+  
+  const handleBackToCourses = () => {
+    setSelectedCourse(null);
+  };
+  
+  const handleVideoProgress = (courseId: string, progress: number) => {
+    updateProgress(courseId, progress);
   };
 
   return (
@@ -150,89 +271,184 @@ const LearningPage: React.FC = () => {
           </p>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <div className="relative flex-grow">
-            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-            <Input
-              placeholder="Search courses by title, description, or category..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
+        {selectedCourse ? (
+          // Course video view
+          <div className="space-y-6">
+            <Button variant="outline" onClick={handleBackToCourses} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Courses
+            </Button>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>{selectedCourse.title}</CardTitle>
+                <CardDescription>{selectedCourse.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <VideoPlayer 
+                  videoUrl={selectedCourse.videoUrl || ''} 
+                  onProgress={(progress) => handleVideoProgress(selectedCourse.id, progress)}
+                  initialProgress={userProgress[selectedCourse.id] || 0}
+                />
+              </CardContent>
+            </Card>
+            
+            {/* Course materials, if any */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Course Materials</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  <li className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    <span className="text-sm">Course notes (PDF)</span>
+                  </li>
+                  <li className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    <span className="text-sm">Practice questions</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
           </div>
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        <Tabs defaultValue="all-courses" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="all-courses">All Courses</TabsTrigger>
-            <TabsTrigger value="in-progress">In Progress</TabsTrigger>
-            <TabsTrigger value="behavioral">Behavioral</TabsTrigger>
-            <TabsTrigger value="technical">Technical</TabsTrigger>
-            <TabsTrigger value="presentation">Presentation</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="all-courses">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredCourses.map((course) => (
-                <CourseCard key={course.id} {...course} />
-              ))}
+        ) : (
+          // Course listing view
+          <>
+            <div className="flex items-center space-x-2">
+              <div className="relative flex-grow">
+                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <Input
+                  placeholder="Search courses by title, description, or category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="in-progress">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {inProgressCourses.length > 0 ? (
-                inProgressCourses.map((course) => (
-                  <CourseCard key={course.id} {...course} />
-                ))
-              ) : (
-                <div className="col-span-full p-8 text-center">
-                  <h3 className="mb-2 text-lg font-medium">No courses in progress</h3>
-                  <p className="mb-4 text-gray-600">Start learning by enrolling in one of our courses.</p>
-                  <Button onClick={handleBrowseCourses}>
-                    Browse Courses
-                  </Button>
+            
+            <Tabs defaultValue="all-courses" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="all-courses" data-value="all-courses">All Courses</TabsTrigger>
+                <TabsTrigger value="in-progress">In Progress</TabsTrigger>
+                <TabsTrigger value="completed">Completed</TabsTrigger>
+                <TabsTrigger value="behavioral">Behavioral</TabsTrigger>
+                <TabsTrigger value="technical">Technical</TabsTrigger>
+                <TabsTrigger value="presentation">Presentation</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="all-courses">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredCourses.map((course) => (
+                    <CourseCard 
+                      key={course.id} 
+                      {...course} 
+                      progress={userProgress[course.id] || 0} 
+                      onClick={() => handleSelectCourse(course)}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="behavioral">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredCourses
-                .filter(course => course.category === 'Behavioral')
-                .map((course) => (
-                  <CourseCard key={course.id} {...course} />
-                ))
-              }
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="technical">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredCourses
-                .filter(course => course.category === 'Technical')
-                .map((course) => (
-                  <CourseCard key={course.id} {...course} />
-                ))
-              }
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="presentation">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredCourses
-                .filter(course => course.category === 'Presentation')
-                .map((course) => (
-                  <CourseCard key={course.id} {...course} />
-                ))
-              }
-            </div>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+              
+              <TabsContent value="in-progress">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {inProgressCourses.length > 0 ? (
+                    inProgressCourses.map((course) => (
+                      <CourseCard 
+                        key={course.id} 
+                        {...course} 
+                        progress={userProgress[course.id] || 0}
+                        onClick={() => handleSelectCourse(course)}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-full p-8 text-center">
+                      <h3 className="mb-2 text-lg font-medium">No courses in progress</h3>
+                      <p className="mb-4 text-gray-600">Start learning by enrolling in one of our courses.</p>
+                      <Button onClick={handleBrowseCourses}>
+                        Browse Courses
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="completed">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {completedCourses.length > 0 ? (
+                    completedCourses.map((course) => (
+                      <CourseCard 
+                        key={course.id} 
+                        {...course} 
+                        progress={userProgress[course.id] || 0}
+                        onClick={() => handleSelectCourse(course)}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-full p-8 text-center">
+                      <h3 className="mb-2 text-lg font-medium">No completed courses</h3>
+                      <p className="mb-4 text-gray-600">Complete a course to see it here.</p>
+                      <Button onClick={handleBrowseCourses}>
+                        Browse Courses
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="behavioral">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredCourses
+                    .filter(course => course.category === 'Behavioral')
+                    .map((course) => (
+                      <CourseCard 
+                        key={course.id} 
+                        {...course} 
+                        progress={userProgress[course.id] || 0}
+                        onClick={() => handleSelectCourse(course)}
+                      />
+                    ))
+                  }
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="technical">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredCourses
+                    .filter(course => course.category === 'Technical')
+                    .map((course) => (
+                      <CourseCard 
+                        key={course.id} 
+                        {...course} 
+                        progress={userProgress[course.id] || 0}
+                        onClick={() => handleSelectCourse(course)}
+                      />
+                    ))
+                  }
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="presentation">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredCourses
+                    .filter(course => course.category === 'Presentation')
+                    .map((course) => (
+                      <CourseCard 
+                        key={course.id} 
+                        {...course} 
+                        progress={userProgress[course.id] || 0}
+                        onClick={() => handleSelectCourse(course)}
+                      />
+                    ))
+                  }
+                </div>
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

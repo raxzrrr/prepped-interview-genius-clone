@@ -1,17 +1,9 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Users, Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Star, Users, Clock } from 'lucide-react';
 
 interface CourseCardProps {
   id: string;
@@ -24,6 +16,7 @@ interface CourseCardProps {
   category: string;
   isPremium: boolean;
   progress?: number;
+  onClick?: () => void;
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({
@@ -36,78 +29,74 @@ const CourseCard: React.FC<CourseCardProps> = ({
   rating,
   category,
   isPremium,
-  progress
+  progress = 0,
+  onClick
 }) => {
-  const navigate = useNavigate();
-  
   return (
-    <Card className="overflow-hidden transition-all duration-200 hover:shadow-md">
+    <Card className="overflow-hidden h-full flex flex-col transition-shadow hover:shadow-md">
       <div className="relative">
         <img
           src={thumbnail}
           alt={title}
-          className="object-cover w-full h-48"
+          className="w-full h-40 object-cover"
         />
-        {isPremium && (
-          <Badge className="absolute top-2 right-2 bg-brand-purple">
-            Premium
-          </Badge>
-        )}
-        {progress !== undefined && progress > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
-            <div
-              className="h-full bg-brand-purple"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        )}
+        <Badge
+          className={`absolute top-2 right-2 ${
+            isPremium ? 'bg-amber-400 text-black' : 'bg-green-500'
+          }`}
+        >
+          {isPremium ? 'Premium' : 'Free'}
+        </Badge>
       </div>
-      
-      <CardHeader>
-        <div className="flex items-center justify-between">
+      <CardContent className="pt-4 flex-grow">
+        <div className="flex justify-between items-center mb-2">
           <Badge variant="outline" className="text-xs">
             {category}
           </Badge>
-          <div className="flex items-center text-yellow-500">
-            <Star className="w-4 h-4 mr-1 fill-current" />
-            <span className="text-sm font-medium">{rating.toFixed(1)}</span>
+          <div className="flex items-center text-sm text-gray-600">
+            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 mr-1" />
+            <span>{rating.toFixed(1)}</span>
           </div>
         </div>
-        <CardTitle className="text-lg">{title}</CardTitle>
-        <CardDescription className="line-clamp-2">
-          {description}
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent>
-        <div className="flex items-center justify-between text-sm text-gray-500">
+        <h3 className="font-medium mb-1 line-clamp-1">{title}</h3>
+        <p className="text-sm text-gray-600 line-clamp-2 mb-2">{description}</p>
+        <div className="flex justify-between items-center text-xs text-gray-500">
           <div className="flex items-center">
-            <Clock className="w-4 h-4 mr-1" />
+            <Clock className="h-3 w-3 mr-1" />
             <span>{duration}</span>
           </div>
           <div className="flex items-center">
-            <Users className="w-4 h-4 mr-1" />
-            <span>{enrolledCount.toLocaleString()} enrolled</span>
+            <Users className="h-3 w-3 mr-1" />
+            <span>{enrolledCount.toLocaleString()}</span>
           </div>
         </div>
         
-        {progress !== undefined && progress > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-gray-700">Progress</span>
-              <span className="text-xs font-medium text-gray-700">{progress}%</span>
+        {/* Progress bar */}
+        {progress > 0 && (
+          <div className="mt-2">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>{progress >= 90 ? 'Completed' : 'In Progress'}</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className={`h-full rounded-full ${
+                  progress >= 90 ? 'bg-green-500' : 'bg-brand-purple'
+                }`}
+                style={{ width: `${progress}%` }}
+              ></div>
             </div>
           </div>
         )}
       </CardContent>
-      
-      <CardFooter>
+      <CardFooter className="pt-0">
         <Button
+          variant="default"
+          size="sm"
           className="w-full"
-          variant={isPremium ? "default" : "outline"}
-          onClick={() => navigate(`/learning/${id}`)}
+          onClick={onClick}
         >
-          {progress !== undefined && progress > 0 ? 'Continue Learning' : 'Start Learning'}
+          {progress === 0 ? 'Start Course' : progress >= 90 ? 'Review Course' : 'Continue Course'}
         </Button>
       </CardFooter>
     </Card>

@@ -28,8 +28,8 @@ serve(async (req) => {
     const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         input: { text },
@@ -44,6 +44,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.json()
+      console.error('Google TTS API error:', error);
       throw new Error(error.error?.message || 'Failed to generate speech')
     }
 
@@ -56,6 +57,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('Text-to-speech error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

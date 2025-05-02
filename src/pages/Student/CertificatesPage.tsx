@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
@@ -7,48 +7,185 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, Award, CheckCircle, XCircle, BookOpen, LockIcon } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+
+interface Certificate {
+  id: string;
+  name: string;
+  issued: string | null;
+  available: boolean;
+  prerequisites: string[];
+  completed: boolean[];
+}
 
 const CertificatesPage: React.FC = () => {
   const { user, isStudent, profile } = useAuth();
   const [downloadingCourse, setDownloadingCourse] = useState(false);
   const [downloadingAssessment, setDownloadingAssessment] = useState(false);
-  
-  // Redirect if not logged in or not a student
-  if (!user || !isStudent()) {
-    return <Navigate to="/login" />;
-  }
-
-  // Mock data for certificates
-  const certificates = {
+  const [certificates, setCertificates] = useState<{
+    course: Certificate;
+    assessment: Certificate;
+  }>({
     course: {
+      id: 'course-cert',
       name: 'Interview Mastery Course',
-      issued: '2025-04-15',
-      available: true,
+      issued: null,
+      available: false,
       prerequisites: ['Complete all course modules', 'Score 70% or higher on final quiz'],
-      completed: [true, false]
+      completed: [false, false]
     },
     assessment: {
+      id: 'assessment-cert',
       name: 'Technical Interview Assessment',
       issued: null,
       available: false,
       prerequisites: ['Complete Assessment Test', 'Score 80% or higher'],
       completed: [false, false]
     }
+  });
+  const { toast } = useToast();
+  
+  // Redirect if not logged in or not a student
+  if (!user || !isStudent()) {
+    return <Navigate to="/login" />;
+  }
+  
+  // Fetch user certificates data
+  useEffect(() => {
+    if (user) {
+      fetchCertificates();
+    }
+  }, [user]);
+  
+  const fetchCertificates = async () => {
+    try {
+      // Get user's learning progress from the database
+      const { data, error } = await supabase
+        .from('user_learning')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+      
+      if (data) {
+        // Update certificates based on actual user data
+        setCertificates({
+          course: {
+            id: 'course-cert',
+            name: 'Interview Mastery Course',
+            issued: data.course_completed_at,
+            available: !!data.course_completed_at,
+            prerequisites: ['Complete all course modules', 'Score 70% or higher on final quiz'],
+            completed: [
+              data.completed_modules >= (data.total_modules || 8),
+              (data.course_score || 0) >= 70
+            ]
+          },
+          assessment: {
+            id: 'assessment-cert',
+            name: 'Technical Interview Assessment',
+            issued: data.assessment_completed_at,
+            available: !!data.assessment_completed_at,
+            prerequisites: ['Complete Assessment Test', 'Score 80% or higher'],
+            completed: [
+              !!data.assessment_attempted,
+              (data.assessment_score || 0) >= 80
+            ]
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching certificates:', error);
+    }
   };
 
-  const downloadCertificate = (type: 'course' | 'assessment') => {
+  const downloadCertificate = async (type: 'course' | 'assessment') => {
     if (type === 'course') {
       setDownloadingCourse(true);
-      // Simulate download
-      setTimeout(() => {
+      try {
+        // Generate PDF certificate on the server
+        const { data, error } = await supabase.functions.invoke('generate-certificate', {
+          body: { 
+            type: 'course',
+            userId: user?.id,
+            userName: profile?.full_name || 'Student',
+            courseName: certificates.course.name,
+            certId: certificates.course.id,
+            issueDate: certificates.course.issued || new Date().toISOString()
+          }
+        });
+        
+        if (error) throw new Error(error.message);
+        
+        if (data?.pdfBase64) {
+          // Create a download link for the PDF
+          const link = document.createElement('a');
+          link.href = `data:application/pdf;base64,${data.pdfBase64}`;
+          link.download = `Course_Certificate_${certificates.course.id}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          toast({
+            title: "Certificate Downloaded",
+            description: "Your certificate has been downloaded successfully."
+          });
+        }
+      } catch (error) {
+        console.error('Error downloading certificate:', error);
+        toast({
+          title: "Download Failed",
+          description: "Failed to download certificate. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
         setDownloadingCourse(false);
-      }, 2000);
+      }
     } else {
       setDownloadingAssessment(true);
-      // Simulate download
-      setTimeout(() => {
+      try {
+        // Generate PDF certificate on the server
+        const { data, error } = await supabase.functions.invoke('generate-certificate', {
+          body: { 
+            type: 'assessment',
+            userId: user?.id,
+            userName: profile?.full_name || 'Student',
+            courseName: certificates.assessment.name,
+            certId: certificates.assessment.id,
+            issueDate: certificates.assessment.issued || new Date().toISOString()
+          }
+        });
+        
+        if (error) throw new Error(error.message);
+        
+        if (data?.pdfBase64) {
+          // Create a download link for the PDF
+          const link = document.createElement('a');
+          link.href = `data:application/pdf;base64,${data.pdfBase64}`;
+          link.download = `Assessment_Certificate_${certificates.assessment.id}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          toast({
+            title: "Certificate Downloaded",
+            description: "Your certificate has been downloaded successfully."
+          });
+        }
+      } catch (error) {
+        console.error('Error downloading certificate:', error);
+        toast({
+          title: "Download Failed",
+          description: "Failed to download certificate. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
         setDownloadingAssessment(false);
-      }, 2000);
+      }
     }
   };
 
@@ -166,6 +303,11 @@ const CertificatesPage: React.FC = () => {
                         Has successfully completed
                       </p>
                       <p className="font-medium mt-2">{certificates.assessment.name}</p>
+                      {certificates.assessment.issued && (
+                        <p className="text-gray-500 text-sm mt-4">
+                          Issued on {new Date(certificates.assessment.issued).toLocaleDateString()}
+                        </p>
+                      )}
                     </>
                   ) : (
                     <>

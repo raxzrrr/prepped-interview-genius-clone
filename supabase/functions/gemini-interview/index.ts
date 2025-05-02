@@ -27,17 +27,18 @@ serve(async (req) => {
     let url, requestBody;
     
     if (type === 'interview-questions') {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent';
+      url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       requestBody = {
         contents: [{
           parts: [{
-            text: `Generate a list of 10 interview questions for the following job role: ${prompt}. 
+            text: `Generate a list of 15 interview questions for the following job role: ${prompt}. 
+            The questions should be challenging and cover both technical and soft skills.
             Format the response as a JSON array of question strings only.`
           }]
         }]
       };
     } else if (type === 'feedback') {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent';
+      url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       const { question, answer } = prompt;
       requestBody = {
         contents: [{
@@ -49,7 +50,7 @@ serve(async (req) => {
         }]
       };
     } else if (type === 'facial-analysis') {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro-vision:generateContent';
+      url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       const { image } = prompt;
       requestBody = {
         contents: [{
@@ -60,7 +61,7 @@ serve(async (req) => {
         }]
       };
     } else if (type === 'resume-analysis') {
-      url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro-vision:generateContent';
+      url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       const { resume } = prompt;
       requestBody = {
         contents: [{
@@ -77,6 +78,8 @@ serve(async (req) => {
       )
     }
 
+    console.log(`Making request to Gemini API for type: ${type}`);
+    
     // Make the request to the Gemini API
     const apiUrl = `${url}?key=${apiKey}`;
     const response = await fetch(apiUrl, {
@@ -87,6 +90,12 @@ serve(async (req) => {
       body: JSON.stringify(requestBody),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Gemini API error:', errorData);
+      throw new Error(errorData.error?.message || `API error status: ${response.status}`);
+    }
+
     const data = await response.json();
     
     // Extract the response text
@@ -96,14 +105,19 @@ serve(async (req) => {
       
       // Try to parse JSON from the response
       try {
+        console.log('Attempting to parse JSON from response');
         result = JSON.parse(text.replace(/```json|```/g, '').trim());
+        console.log('JSON parsed successfully');
       } catch (e) {
+        console.error('JSON parsing failed:', e);
         // If JSON parsing fails, return the text directly
         result = { text };
       }
     } else if (data.error) {
+      console.error('Error in API response:', data.error);
       throw new Error(data.error.message || 'API error');
     } else {
+      console.error('Unexpected response format:', data);
       throw new Error('Unexpected response format');
     }
 
