@@ -1,6 +1,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { CheckCircle } from 'lucide-react';
 
 interface VideoPlayerProps {
   videoUrl: string;
@@ -67,6 +69,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
   const handleIframeError = () => {
     setLoading(false);
     setError('Failed to load video. Please try again later.');
+  };
+
+  // Handle marking video as completed
+  const handleMarkAsCompleted = () => {
+    // Update progress to 100% and call the onProgress callback
+    setProgress(100);
+    onProgress(100);
+    
+    toast({
+      title: "Module Completed",
+      description: "This module has been marked as completed.",
+    });
   };
   
   const isYouTubeVideo = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
@@ -135,17 +149,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
         ></iframe>
       </div>
       
-      <div className="mt-4">
-        <div className="flex justify-between text-sm text-gray-500 mb-1">
-          <span>Progress</span>
-          <span>{Math.round(progress)}%</span>
+      <div className="mt-4 space-y-4">
+        <div>
+          <div className="flex justify-between text-sm text-gray-500 mb-1">
+            <span>Progress</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-brand-purple rounded-full"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
         </div>
-        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-brand-purple rounded-full"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
+        
+        <Button 
+          onClick={handleMarkAsCompleted}
+          variant="outline" 
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <CheckCircle className="h-4 w-4" />
+          Mark as Completed
+        </Button>
       </div>
     </div>
   );

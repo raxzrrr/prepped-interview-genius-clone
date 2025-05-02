@@ -63,14 +63,28 @@ serve(async (req) => {
     } else if (type === 'resume-analysis') {
       url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       const { resume } = prompt;
-      requestBody = {
-        contents: [{
-          parts: [
-            { text: "Analyze this resume and provide insights. Note: This resume has been anonymized and contains no personal identifiable information. Extract key skills, suggest suitable job roles, and provide constructive feedback. Format the response as a JSON object with these properties: 'skills' (array of strings), 'suggested_role' (string), 'strengths' (array of strings), 'areas_to_improve' (array of strings), 'suggestions' (string)" },
-            { inline_data: { mime_type: "application/pdf", data: resume.replace(/^data:application\/pdf;base64,/, '') } }
-          ]
-        }]
-      };
+      
+      try {
+        // Extract the base64 data only - handle various formats
+        let base64Data = resume;
+        if (resume.includes('base64,')) {
+          base64Data = resume.split('base64,')[1];
+        } else if (resume.startsWith('data:')) {
+          base64Data = resume.replace(/^data:application\/pdf;base64,/, '');
+        }
+        
+        requestBody = {
+          contents: [{
+            parts: [
+              { text: "Analyze this resume and provide insights. Extract key skills, suggest suitable job roles, and provide constructive feedback. Format the response as a JSON object with these properties: 'skills' (array of strings), 'suggested_role' (string), 'strengths' (array of strings), 'areas_to_improve' (array of strings), 'suggestions' (string)" },
+              { inline_data: { mime_type: "application/pdf", data: base64Data } }
+            ]
+          }]
+        };
+      } catch (error) {
+        console.error('Error processing resume data:', error);
+        throw new Error('Invalid resume format');
+      }
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid request type' }),
