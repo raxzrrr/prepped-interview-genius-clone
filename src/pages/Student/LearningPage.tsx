@@ -11,6 +11,7 @@ import VideoPlayer from '@/components/Learning/VideoPlayer';
 import { BookOpen, Check, CheckCircle2, Lock, Play, PlayCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { Json } from '@/integrations/supabase/types';
 
 // Define an interface for the user learning data
 interface UserLearningData {
@@ -175,7 +176,11 @@ const LearningPage: React.FC = () => {
       }
       
       if (existingData) {
-        setUserLearningData(existingData);
+        // Cast the course_progress from Json to Record<string, any>
+        setUserLearningData({
+          ...existingData,
+          course_progress: existingData.course_progress as Record<string, any> || {}
+        });
       } else {
         // Create new learning data for the user
         const newLearningData = {
@@ -196,7 +201,10 @@ const LearningPage: React.FC = () => {
         }
         
         if (createdData) {
-          setUserLearningData(createdData);
+          setUserLearningData({
+            ...createdData,
+            course_progress: createdData.course_progress as Record<string, any> || {}
+          });
         }
       }
     } catch (error) {
