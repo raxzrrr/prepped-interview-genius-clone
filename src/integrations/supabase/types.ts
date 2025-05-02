@@ -78,6 +78,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_learning: {
+        Row: {
+          assessment_attempted: boolean | null
+          assessment_completed_at: string | null
+          assessment_score: number | null
+          completed_modules: number | null
+          course_completed_at: string | null
+          course_progress: Json | null
+          course_score: number | null
+          created_at: string
+          id: string
+          total_modules: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assessment_attempted?: boolean | null
+          assessment_completed_at?: string | null
+          assessment_score?: number | null
+          completed_modules?: number | null
+          course_completed_at?: string | null
+          course_progress?: Json | null
+          course_score?: number | null
+          created_at?: string
+          id?: string
+          total_modules?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assessment_attempted?: boolean | null
+          assessment_completed_at?: string | null
+          assessment_score?: number | null
+          completed_modules?: number | null
+          course_completed_at?: string | null
+          course_progress?: Json | null
+          course_score?: number | null
+          created_at?: string
+          id?: string
+          total_modules?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

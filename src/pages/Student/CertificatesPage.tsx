@@ -89,7 +89,7 @@ const CertificatesPage: React.FC = () => {
       
       // If we have learning data, update certificates
       if (learningData) {
-        const typedData = learningData as unknown as UserLearningData;
+        const typedData = learningData as UserLearningData;
         
         setCertificates({
           course: {

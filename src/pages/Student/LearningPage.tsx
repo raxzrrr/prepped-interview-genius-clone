@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -8,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { VideoPlayer } from '@/components/Learning/VideoPlayer';
+import VideoPlayer from '@/components/Learning/VideoPlayer';
 import { BookOpen, Check, CheckCircle2, Lock, Play, PlayCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -176,7 +175,7 @@ const LearningPage: React.FC = () => {
       }
       
       if (existingData) {
-        setUserLearningData(existingData as unknown as UserLearningData);
+        setUserLearningData(existingData);
       } else {
         // Create new learning data for the user
         const newLearningData = {
@@ -197,7 +196,7 @@ const LearningPage: React.FC = () => {
         }
         
         if (createdData) {
-          setUserLearningData(createdData as unknown as UserLearningData);
+          setUserLearningData(createdData);
         }
       }
     } catch (error) {
