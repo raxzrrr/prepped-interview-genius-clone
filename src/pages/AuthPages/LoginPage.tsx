@@ -13,7 +13,7 @@ import { useToast } from '@/components/ui/use-toast';
 const LoginPage: React.FC = () => {
   const { user, isAdmin, isStudent } = useAuth();
   const location = useLocation();
-  const isAdminLogin = location.state?.isAdmin;
+  const isAdminLogin = location.pathname.includes('admin') || location.state?.isAdmin;
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -53,6 +53,11 @@ const LoginPage: React.FC = () => {
       });
       setLoading(false);
     }
+  };
+  
+  const handleSwitchToAdmin = () => {
+    window.history.replaceState({isAdmin: true}, '', '/login');
+    window.location.reload();
   };
   
   return (
@@ -139,7 +144,7 @@ const LoginPage: React.FC = () => {
                 <div className="mt-6 text-center">
                   <Button 
                     variant="ghost" 
-                    onClick={() => window.history.replaceState({}, '', '/login?isAdmin=true') || window.location.reload()}
+                    onClick={handleSwitchToAdmin}
                     size="sm"
                   >
                     Switch to Admin Login

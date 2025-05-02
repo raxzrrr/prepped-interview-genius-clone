@@ -47,6 +47,14 @@ const Dashboard: React.FC = () => {
     custom_interviews: 0, 
     resume_interviews: 0 
   });
+  // Add stats state variables
+  const [userStats, setUserStats] = useState({
+    totalInterviews: 0,
+    averageScore: 0,
+    totalQuestions: 0,
+    completedInterviews: []
+  });
+  
   const { generateInterviewQuestions, saveInterview } = useInterviewApi();
 
   // Check if API key is configured when component mounts
@@ -262,7 +270,7 @@ const Dashboard: React.FC = () => {
             </Card>
 
             {/* Remove fake statistics data for new users */}
-            {totalInterviews > 0 ? (
+            {userStats.totalInterviews > 0 ? (
               <>
                 <Card>
                   <CardHeader className="pb-3">
@@ -274,15 +282,15 @@ const Dashboard: React.FC = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-500">Average Score</span>
-                        <span className="text-lg font-bold text-brand-purple">{averageScore}%</span>
+                        <span className="text-lg font-bold text-brand-purple">{userStats.averageScore}%</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-500">Total Interviews</span>
-                        <span className="text-lg font-bold">{totalInterviews}</span>
+                        <span className="text-lg font-bold">{userStats.totalInterviews}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-500">Total Questions</span>
-                        <span className="text-lg font-bold">{totalQuestions}</span>
+                        <span className="text-lg font-bold">{userStats.totalQuestions}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -293,7 +301,7 @@ const Dashboard: React.FC = () => {
                     <CardTitle>Recent Feedback</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {completedInterviews.length > 0 ? (
+                    {userStats.completedInterviews.length > 0 ? (
                       <div className="space-y-2">
                         <p className="text-sm text-gray-600">
                           "Your technical answers are solid, but try to include more specific examples from your experience."
