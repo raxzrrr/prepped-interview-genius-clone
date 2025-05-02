@@ -19,6 +19,22 @@ interface Certificate {
   completed: boolean[];
 }
 
+// Define an interface for user learning data
+interface UserLearningData {
+  id: string;
+  user_id: string;
+  course_progress: any;
+  completed_modules: number;
+  total_modules: number;
+  course_score: number | null;
+  course_completed_at: string | null;
+  assessment_attempted: boolean;
+  assessment_score: number | null;
+  assessment_completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const CertificatesPage: React.FC = () => {
   const { user, isStudent, profile } = useAuth();
   const [downloadingCourse, setDownloadingCourse] = useState(false);
@@ -61,7 +77,7 @@ const CertificatesPage: React.FC = () => {
   const fetchCertificates = async () => {
     try {
       // Get user's learning progress from the database
-      const { data, error } = await supabase
+      const { data: learningData, error } = await supabase
         .from('user_learning')
         .select('*')
         .eq('user_id', user?.id)
@@ -71,29 +87,31 @@ const CertificatesPage: React.FC = () => {
         throw error;
       }
       
-      if (data) {
-        // Update certificates based on actual user data
+      // If we have learning data, update certificates
+      if (learningData) {
+        const typedData = learningData as unknown as UserLearningData;
+        
         setCertificates({
           course: {
             id: 'course-cert',
             name: 'Interview Mastery Course',
-            issued: data.course_completed_at,
-            available: !!data.course_completed_at,
+            issued: typedData.course_completed_at,
+            available: !!typedData.course_completed_at,
             prerequisites: ['Complete all course modules', 'Score 70% or higher on final quiz'],
             completed: [
-              data.completed_modules >= (data.total_modules || 8),
-              (data.course_score || 0) >= 70
+              typedData.completed_modules >= (typedData.total_modules || 8),
+              (typedData.course_score || 0) >= 70
             ]
           },
           assessment: {
             id: 'assessment-cert',
             name: 'Technical Interview Assessment',
-            issued: data.assessment_completed_at,
-            available: !!data.assessment_completed_at,
+            issued: typedData.assessment_completed_at,
+            available: !!typedData.assessment_completed_at,
             prerequisites: ['Complete Assessment Test', 'Score 80% or higher'],
             completed: [
-              !!data.assessment_attempted,
-              (data.assessment_score || 0) >= 80
+              !!typedData.assessment_attempted,
+              (typedData.assessment_score || 0) >= 80
             ]
           }
         });

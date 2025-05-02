@@ -2,177 +2,172 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import CourseCard from '@/components/Learning/CourseCard';
-import VideoPlayer from '@/components/Learning/VideoPlayer';
 import { useAuth } from '@/contexts/ClerkAuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Filter, ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { VideoPlayer } from '@/components/Learning/VideoPlayer';
+import { BookOpen, Check, CheckCircle2, Lock, Play, PlayCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+
+// Define an interface for the user learning data
+interface UserLearningData {
+  id: string;
+  user_id: string;
+  course_progress: Record<string, any>;
+  completed_modules: number;
+  total_modules: number;
+  course_score: number | null;
+  course_completed_at: string | null;
+  assessment_attempted: boolean;
+  assessment_score: number | null;
+  assessment_completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Module {
+  id: string;
+  title: string;
+  description: string;
+  videoUrl: string;
+  duration: string;
+  locked: boolean;
+  completed: boolean;
+}
 
 interface Course {
   id: string;
   title: string;
   description: string;
-  thumbnail: string;
-  duration: string;
-  enrolledCount: number;
-  rating: number;
-  category: string;
-  isPremium: boolean;
-  progress?: number;
-  videoUrl?: string;
+  modules: Module[];
+  progress: number;
 }
 
 const LearningPage: React.FC = () => {
   const { user, isStudent } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [userProgress, setUserProgress] = useState<Record<string, number>>({});
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('courses');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [userLearningData, setUserLearningData] = useState<UserLearningData | null>(null);
+  const [loading, setLoading] = useState(true);
   
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
   }
   
-  const courses: Course[] = [
+  // Sample course data
+  const coursesData: Course[] = [
     {
-      id: '1',
-      title: 'Mastering Behavioral Interviews',
-      description: 'Learn how to structure compelling stories for behavioral questions using the STAR method.',
-      thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '3h 45m',
-      enrolledCount: 5680,
-      rating: 4.8,
-      category: 'Behavioral',
-      isPremium: true,
-      videoUrl: 'https://www.youtube.com/embed/9onJ-l3Yw0k'
+      id: 'interview-mastery',
+      title: 'Interview Mastery Course',
+      description: 'Master technical and behavioral interviews with this comprehensive course.',
+      modules: [
+        {
+          id: 'module-1',
+          title: 'Introduction to Technical Interviews',
+          description: 'Overview of what to expect in technical interviews and how to prepare.',
+          videoUrl: 'https://www.youtube.com/embed/PJl4iabBEz0',
+          duration: '15:30',
+          locked: false,
+          completed: false
+        },
+        {
+          id: 'module-2',
+          title: 'Algorithm Problems Walkthrough',
+          description: 'Practical guide to solving algorithm problems in interviews.',
+          videoUrl: 'https://www.youtube.com/embed/zHczhZn-z30',
+          duration: '23:45',
+          locked: false,
+          completed: false
+        },
+        {
+          id: 'module-3',
+          title: 'System Design Interview Techniques',
+          description: 'Learn how to approach system design questions effectively.',
+          videoUrl: 'https://www.youtube.com/embed/q0KGYwNbf-0',
+          duration: '28:15',
+          locked: true,
+          completed: false
+        },
+        {
+          id: 'module-4',
+          title: 'Behavioral Questions Mastery',
+          description: 'How to structure and deliver compelling stories for behavioral questions.',
+          videoUrl: 'https://www.youtube.com/embed/9FgfsL9B9Us',
+          duration: '19:10',
+          locked: true,
+          completed: false
+        },
+        {
+          id: 'module-5',
+          title: 'Mock Interview Simulation',
+          description: 'Real-world simulation of a complete technical interview.',
+          videoUrl: 'https://www.youtube.com/embed/1qw5ITr3k9E',
+          duration: '45:00',
+          locked: true,
+          completed: false
+        }
+      ],
+      progress: 0
     },
     {
-      id: '2',
-      title: 'Technical Interview Fundamentals',
-      description: 'Prepare for technical questions with practical exercises and expert tips.',
-      thumbnail: 'https://images.unsplash.com/photo-1504384764586-bb4cdc1707b0?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '5h 20m',
-      enrolledCount: 4230,
-      rating: 4.7,
-      category: 'Technical',
-      isPremium: true,
-      videoUrl: 'https://www.youtube.com/embed/kCDqQPxYTb4'
-    },
-    {
-      id: '3',
-      title: 'Body Language and Facial Expressions',
-      description: 'Understand how your non-verbal cues affect interviewer perception and how to improve them.',
-      thumbnail: 'https://images.unsplash.com/photo-1484863137850-59afcfe05386?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '2h 15m',
-      enrolledCount: 3890,
-      rating: 4.5,
-      category: 'Presentation',
-      isPremium: false,
-      videoUrl: 'https://www.youtube.com/embed/PCWVi5pAa30'
-    },
-    {
-      id: '4',
-      title: 'Answering Salary Negotiations',
-      description: 'Strategies for handling compensation discussions with confidence.',
-      thumbnail: 'https://images.unsplash.com/photo-1560472355-536de3962603?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '1h 30m',
-      enrolledCount: 2970,
-      rating: 4.6,
-      category: 'Negotiation',
-      isPremium: true,
-      videoUrl: 'https://www.youtube.com/embed/u9BoG1n1948'
-    },
-    {
-      id: '5',
-      title: 'Resume Building Workshop',
-      description: 'Create a standout resume that will get you through the ATS and impress recruiters.',
-      thumbnail: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '4h 10m',
-      enrolledCount: 6250,
-      rating: 4.9,
-      category: 'Preparation',
-      isPremium: false,
-      videoUrl: 'https://www.youtube.com/embed/TTBC7XlHSLg'
-    },
-    {
-      id: '6',
-      title: 'Handling Tough Interview Questions',
-      description: 'Strategies for answering challenging questions that catch most candidates off guard.',
-      thumbnail: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '2h 50m',
-      enrolledCount: 4120,
-      rating: 4.7,
-      category: 'Behavioral',
-      isPremium: true,
-      videoUrl: 'https://www.youtube.com/embed/ia-qEMJ-x-M'
-    },
-    {
-      id: '7',
-      title: 'Interview Anxiety Management',
-      description: 'Techniques to control nerves and perform at your best during high-pressure interviews.',
-      thumbnail: 'https://images.unsplash.com/photo-1489533119213-66a5cd877091?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '1h 45m',
-      enrolledCount: 5380,
-      rating: 4.8,
-      category: 'Mindset',
-      isPremium: false,
-      videoUrl: 'https://player.vimeo.com/video/565082849'
-    },
-    {
-      id: '8',
-      title: 'Remote Interview Success',
-      description: 'Master the unique challenges of virtual interviews and make a strong impression online.',
-      thumbnail: 'https://images.unsplash.com/photo-1642176849879-92d33c2ba82e?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-      duration: '2h 30m',
-      enrolledCount: 3790,
-      rating: 4.6,
-      category: 'Technical',
-      isPremium: true,
-      videoUrl: 'https://player.vimeo.com/video/589314408'
+      id: 'assessment',
+      title: 'Technical Assessment',
+      description: 'Test your skills with this comprehensive technical assessment.',
+      modules: [
+        {
+          id: 'assessment-intro',
+          title: 'Assessment Instructions',
+          description: 'Overview of the assessment format and guidelines.',
+          videoUrl: 'https://www.youtube.com/embed/Ct7D62sHrZE',
+          duration: '5:30',
+          locked: false,
+          completed: false
+        },
+        {
+          id: 'assessment-test',
+          title: 'Technical Assessment Test',
+          description: 'Take the 30-minute technical assessment to earn your certificate.',
+          videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+          duration: '30:00',
+          locked: true,
+          completed: false
+        }
+      ],
+      progress: 0
     }
   ];
   
-  // Fetch user's course progress
+  // Fetch user learning data
   useEffect(() => {
     if (user) {
-      fetchUserProgress();
+      fetchUserLearningData();
     }
   }, [user]);
   
-  const fetchUserProgress = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_learning')
-        .select('course_progress')
-        .eq('user_id', user?.id)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      
-      if (data?.course_progress) {
-        setUserProgress(data.course_progress);
-      }
-    } catch (error) {
-      console.error('Error fetching course progress:', error);
+  // Update courses data with user progress
+  useEffect(() => {
+    if (userLearningData) {
+      updateCoursesWithUserProgress();
+    } else {
+      setCourses(coursesData);
     }
-  };
+    
+    setLoading(false);
+  }, [userLearningData]);
   
-  const updateProgress = async (courseId: string, progress: number) => {
+  const fetchUserLearningData = async () => {
     try {
-      const newProgress = { ...userProgress, [courseId]: progress };
-      setUserProgress(newProgress);
-      
-      // Check if user exists in the table
-      const { data, error } = await supabase
+      // Try to get existing learning data
+      const { data: existingData, error } = await supabase
         .from('user_learning')
-        .select('id')
+        .select('*')
         .eq('user_id', user?.id)
         .single();
       
@@ -180,274 +175,469 @@ const LearningPage: React.FC = () => {
         throw error;
       }
       
-      if (data) {
-        // Update existing record
-        await supabase
-          .from('user_learning')
-          .update({ 
-            course_progress: newProgress,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user?.id);
+      if (existingData) {
+        setUserLearningData(existingData as unknown as UserLearningData);
       } else {
-        // Insert new record
-        await supabase
+        // Create new learning data for the user
+        const newLearningData = {
+          user_id: user?.id,
+          course_progress: {},
+          completed_modules: 0,
+          total_modules: coursesData.reduce((count, course) => count + course.modules.length, 0)
+        };
+        
+        const { data: createdData, error: createError } = await supabase
           .from('user_learning')
-          .insert({
-            user_id: user?.id,
-            course_progress: newProgress,
-            total_modules: courses.length,
-            completed_modules: Object.values(newProgress).filter(p => p >= 90).length
-          });
+          .insert(newLearningData)
+          .select('*')
+          .single();
+        
+        if (createError) {
+          throw createError;
+        }
+        
+        if (createdData) {
+          setUserLearningData(createdData as unknown as UserLearningData);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user learning data:', error);
+      // Use default courses data
+      setCourses(coursesData);
+      setLoading(false);
+    }
+  };
+  
+  const updateCoursesWithUserProgress = () => {
+    if (!userLearningData || !userLearningData.course_progress) {
+      setCourses(coursesData);
+      return;
+    }
+    
+    const updatedCourses = coursesData.map(course => {
+      const courseProgress = userLearningData.course_progress[course.id] || {};
+      
+      // Update modules with completion status
+      const updatedModules = course.modules.map((module, index) => {
+        // Check if this module is completed
+        const moduleCompleted = courseProgress[module.id] === true;
+        
+        // A module is locked if there are previous modules that aren't completed
+        // but the first module is always unlocked
+        const previousModuleCompleted = index === 0 || 
+          (index > 0 && courseProgress[course.modules[index - 1].id] === true);
+          
+        return {
+          ...module,
+          locked: index > 0 && !previousModuleCompleted,
+          completed: moduleCompleted
+        };
+      });
+      
+      // Calculate course progress percentage
+      const completedCount = updatedModules.filter(m => m.completed).length;
+      const progress = updatedModules.length > 0 
+        ? Math.round((completedCount / updatedModules.length) * 100)
+        : 0;
+      
+      return {
+        ...course,
+        modules: updatedModules,
+        progress
+      };
+    });
+    
+    setCourses(updatedCourses);
+  };
+  
+  const handleModuleSelect = (module: Module) => {
+    if (module.locked) {
+      toast({
+        title: "Module Locked",
+        description: "Complete the previous module to unlock this content.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSelectedModule(module);
+  };
+  
+  const handleModuleProgress = async (moduleId: string, progress: number) => {
+    // Consider a module complete when progress reaches 90%
+    if (progress >= 90) {
+      markModuleAsCompleted(moduleId);
+    }
+  };
+  
+  const markModuleAsCompleted = async (moduleId: string) => {
+    if (!userLearningData) return;
+    
+    try {
+      // Find which course the module belongs to
+      let courseId = '';
+      for (const course of courses) {
+        if (course.modules.some(m => m.id === moduleId)) {
+          courseId = course.id;
+          break;
+        }
       }
       
-      // If course completed (progress >= 90%), show notification
-      if (progress >= 90) {
-        toast({
-          title: "Course Completed!",
-          description: "Congratulations! You've completed this course. Check your certificates page.",
+      if (!courseId) return;
+      
+      // Update the course progress in the user learning data
+      const courseProgress = {
+        ...(userLearningData.course_progress || {}),
+        [courseId]: {
+          ...(userLearningData.course_progress?.[courseId] || {}),
+          [moduleId]: true
+        }
+      };
+      
+      // Count completed modules
+      let completedModulesCount = 0;
+      Object.values(courseProgress).forEach(course => {
+        Object.values(course as Record<string, boolean>).forEach(completed => {
+          if (completed) completedModulesCount++;
         });
-        
-        // Update course completion in database
-        await supabase
-          .from('user_learning')
-          .update({ 
-            course_completed_at: new Date().toISOString(),
-            course_score: 85, // Example score
-            completed_modules: Object.values({ ...userProgress, [courseId]: progress })
-              .filter(p => p >= 90).length
-          })
-          .eq('user_id', user?.id);
+      });
+      
+      // Update database
+      const { error } = await supabase
+        .from('user_learning')
+        .update({
+          course_progress: courseProgress,
+          completed_modules: completedModulesCount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user?.id);
+      
+      if (error) throw error;
+      
+      // Check if all modules in the course are completed
+      if (courseId === 'interview-mastery') {
+        const course = courses.find(c => c.id === courseId);
+        if (course) {
+          const allModulesCompleted = course.modules.every(
+            m => courseProgress[courseId]?.[m.id] === true
+          );
+          
+          if (allModulesCompleted) {
+            // Mark the course as completed
+            await supabase
+              .from('user_learning')
+              .update({
+                course_score: 85, // Example score
+                course_completed_at: new Date().toISOString()
+              })
+              .eq('user_id', user?.id);
+              
+            toast({
+              title: "Course Completed!",
+              description: "Congratulations! You've completed the Interview Mastery Course!",
+            });
+          }
+        }
       }
+      
+      // Refresh the user learning data
+      fetchUserLearningData();
       
     } catch (error) {
-      console.error('Error updating progress:', error);
+      console.error('Error marking module as completed:', error);
     }
   };
   
-  const filteredCourses = courses.filter(course => 
-    course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  const inProgressCourses = courses.filter(course => {
-    const progress = userProgress[course.id];
-    return progress !== undefined && progress > 0 && progress < 90;
-  });
-  
-  const completedCourses = courses.filter(course => {
-    const progress = userProgress[course.id];
-    return progress !== undefined && progress >= 90;
-  });
-
-  const handleBrowseCourses = () => {
-    // Use querySelector with the proper attribute selector
-    const allCoursesTab = document.querySelector('[data-value="all-courses"]');
-    if (allCoursesTab instanceof HTMLElement) {
-      allCoursesTab.click();
-    }
-  };
-  
-  const handleSelectCourse = (course: Course) => {
-    setSelectedCourse(course);
-  };
-  
-  const handleBackToCourses = () => {
-    setSelectedCourse(null);
-  };
-  
-  const handleVideoProgress = (courseId: string, progress: number) => {
-    updateProgress(courseId, progress);
-  };
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Learning Hub</h1>
           <p className="mt-2 text-gray-600">
-            Enhance your interview skills with our curated learning content
+            Access courses and certifications to enhance your interview skills
           </p>
         </div>
         
-        {selectedCourse ? (
-          // Course video view
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple"></div>
+          </div>
+        ) : selectedModule ? (
           <div className="space-y-6">
-            <Button variant="outline" onClick={handleBackToCourses} className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Courses
-            </Button>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">{selectedModule.title}</h2>
+              <Button variant="outline" onClick={() => setSelectedModule(null)}>
+                Back to Courses
+              </Button>
+            </div>
             
             <Card>
-              <CardHeader>
-                <CardTitle>{selectedCourse.title}</CardTitle>
-                <CardDescription>{selectedCourse.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <VideoPlayer 
-                  videoUrl={selectedCourse.videoUrl || ''} 
-                  onProgress={(progress) => handleVideoProgress(selectedCourse.id, progress)}
-                  initialProgress={userProgress[selectedCourse.id] || 0}
+                  videoUrl={selectedModule.videoUrl}
+                  onProgress={(progress) => handleModuleProgress(selectedModule.id, progress)}
+                  initialProgress={0}
                 />
-              </CardContent>
-            </Card>
-            
-            {/* Course materials, if any */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Course Materials</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  <li className="flex items-center">
-                    <FileText className="h-4 w-4 mr-2" />
-                    <span className="text-sm">Course notes (PDF)</span>
-                  </li>
-                  <li className="flex items-center">
-                    <FileText className="h-4 w-4 mr-2" />
-                    <span className="text-sm">Practice questions</span>
-                  </li>
-                </ul>
+                
+                <div className="mt-6 space-y-4">
+                  <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
+                  <p className="text-gray-600">{selectedModule.description}</p>
+                  
+                  {selectedModule.completed && (
+                    <div className="flex items-center text-green-500">
+                      <CheckCircle2 className="h-5 w-5 mr-2" />
+                      <span>Completed</span>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
         ) : (
-          // Course listing view
-          <>
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-grow">
-                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                <Input
-                  placeholder="Search courses by title, description, or category..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
-            </div>
+          <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="courses">Courses</TabsTrigger>
+              <TabsTrigger value="assessment">Assessment</TabsTrigger>
+            </TabsList>
             
-            <Tabs defaultValue="all-courses" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="all-courses" data-value="all-courses">All Courses</TabsTrigger>
-                <TabsTrigger value="in-progress">In Progress</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-                <TabsTrigger value="behavioral">Behavioral</TabsTrigger>
-                <TabsTrigger value="technical">Technical</TabsTrigger>
-                <TabsTrigger value="presentation">Presentation</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="all-courses">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {filteredCourses.map((course) => (
-                    <CourseCard 
-                      key={course.id} 
-                      {...course} 
-                      progress={userProgress[course.id] || 0} 
-                      onClick={() => handleSelectCourse(course)}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="in-progress">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {inProgressCourses.length > 0 ? (
-                    inProgressCourses.map((course) => (
-                      <CourseCard 
-                        key={course.id} 
-                        {...course} 
-                        progress={userProgress[course.id] || 0}
-                        onClick={() => handleSelectCourse(course)}
-                      />
-                    ))
-                  ) : (
-                    <div className="col-span-full p-8 text-center">
-                      <h3 className="mb-2 text-lg font-medium">No courses in progress</h3>
-                      <p className="mb-4 text-gray-600">Start learning by enrolling in one of our courses.</p>
-                      <Button onClick={handleBrowseCourses}>
-                        Browse Courses
-                      </Button>
+            <TabsContent value="courses">
+              <div className="space-y-6">
+                {courses
+                  .filter(course => course.id !== 'assessment')
+                  .map(course => (
+                  <Card key={course.id}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-xl">{course.title}</CardTitle>
+                          <CardDescription className="mt-1">
+                            {course.description}
+                          </CardDescription>
+                        </div>
+                        <Badge className={course.progress === 100 ? "bg-green-500" : "bg-brand-purple"}>
+                          {course.progress}% Complete
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="mb-4">
+                        <Progress value={course.progress} className="h-2" />
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {course.modules.map((module, index) => (
+                          <div key={module.id} 
+                               className={`flex items-start p-3 border rounded-lg ${
+                                 module.completed 
+                                   ? 'border-green-200 bg-green-50' 
+                                   : module.locked 
+                                     ? 'border-gray-200 bg-gray-50 opacity-75' 
+                                     : 'border-gray-200 hover:border-brand-purple/50 hover:bg-brand-purple/5 cursor-pointer'
+                               }`}
+                               onClick={() => handleModuleSelect(module)}
+                          >
+                            <div className="mr-4 mt-1">
+                              {module.completed ? (
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-500">
+                                  <Check className="h-5 w-5" />
+                                </div>
+                              ) : module.locked ? (
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400">
+                                  <Lock className="h-4 w-4" />
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-purple/10 text-brand-purple">
+                                  <PlayCircle className="h-5 w-5" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex justify-between">
+                                <h4 className={`font-medium ${module.locked ? 'text-gray-500' : ''}`}>
+                                  {index + 1}. {module.title}
+                                </h4>
+                                <span className="text-sm text-gray-500">{module.duration}</span>
+                              </div>
+                              <p className={`text-sm mt-1 ${module.locked ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {module.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <div className="w-full flex justify-between items-center">
+                        <div className="text-sm text-gray-500">
+                          {course.modules.filter(m => m.completed).length} of {course.modules.length} modules completed
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          disabled={!course.modules.some(m => !m.locked && !m.completed)}
+                          onClick={() => {
+                            const nextModule = course.modules.find(m => !m.locked && !m.completed);
+                            if (nextModule) {
+                              handleModuleSelect(nextModule);
+                            }
+                          }}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Continue Learning
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="assessment">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-xl">Technical Assessment</CardTitle>
+                      <CardDescription className="mt-1">
+                        Test your technical interview skills and earn a certificate
+                      </CardDescription>
                     </div>
-                  )}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="completed">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {completedCourses.length > 0 ? (
-                    completedCourses.map((course) => (
-                      <CourseCard 
-                        key={course.id} 
-                        {...course} 
-                        progress={userProgress[course.id] || 0}
-                        onClick={() => handleSelectCourse(course)}
-                      />
-                    ))
-                  ) : (
-                    <div className="col-span-full p-8 text-center">
-                      <h3 className="mb-2 text-lg font-medium">No completed courses</h3>
-                      <p className="mb-4 text-gray-600">Complete a course to see it here.</p>
-                      <Button onClick={handleBrowseCourses}>
-                        Browse Courses
-                      </Button>
+                    {userLearningData?.assessment_completed_at ? (
+                      <Badge className="bg-green-500">Completed</Badge>
+                    ) : userLearningData?.assessment_attempted ? (
+                      <Badge variant="outline" className="border-amber-500 text-amber-500">In Progress</Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-gray-500 text-gray-500">Not Started</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-start space-x-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="text-amber-500 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
                     </div>
+                    <div>
+                      <h4 className="font-medium text-amber-800">Assessment Requirements</h4>
+                      <p className="text-sm text-amber-700 mt-1">
+                        You must complete the Interview Mastery Course before taking the assessment.
+                        The assessment consists of 30 multiple-choice questions and requires a score of 80% or higher to earn a certificate.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-brand-purple/5 hover:border-brand-purple/50"
+                         onClick={() => {
+                           const module = courses
+                             .find(c => c.id === 'assessment')
+                             ?.modules.find(m => m.id === 'assessment-intro');
+                           if (module) handleModuleSelect(module);
+                         }}
+                    >
+                      <div className="mr-4 mt-1">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-purple/10 text-brand-purple">
+                          <BookOpen className="h-5 w-5" />
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Assessment Instructions</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Learn about the assessment format and preparation tips
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className={`flex items-start p-3 border rounded-lg ${
+                      userLearningData?.assessment_completed_at
+                        ? 'border-green-200 bg-green-50'
+                        : courses.find(c => c.id === 'interview-mastery')?.progress === 100
+                          ? 'cursor-pointer hover:bg-brand-purple/5 hover:border-brand-purple/50'
+                          : 'opacity-75 bg-gray-50'
+                    }`}
+                         onClick={() => {
+                           if (courses.find(c => c.id === 'interview-mastery')?.progress === 100) {
+                             const module = courses
+                               .find(c => c.id === 'assessment')
+                               ?.modules.find(m => m.id === 'assessment-test');
+                             if (module) handleModuleSelect(module);
+                           } else {
+                             toast({
+                               title: "Assessment Locked",
+                               description: "Complete the Interview Mastery Course to unlock the assessment.",
+                               variant: "destructive"
+                             });
+                           }
+                         }}
+                    >
+                      <div className="mr-4 mt-1">
+                        {userLearningData?.assessment_completed_at ? (
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-500">
+                            <Check className="h-5 w-5" />
+                          </div>
+                        ) : courses.find(c => c.id === 'interview-mastery')?.progress === 100 ? (
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-purple/10 text-brand-purple">
+                            <PlayCircle className="h-5 w-5" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400">
+                            <Lock className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex justify-between">
+                          <h4 className={`font-medium ${courses.find(c => c.id === 'interview-mastery')?.progress !== 100 && !userLearningData?.assessment_completed_at ? 'text-gray-500' : ''}`}>
+                            Technical Assessment Test
+                          </h4>
+                          <span className="text-sm text-gray-500">30 min</span>
+                        </div>
+                        <p className={`text-sm mt-1 ${courses.find(c => c.id === 'interview-mastery')?.progress !== 100 && !userLearningData?.assessment_completed_at ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Take the timed assessment to test your interview skills and knowledge
+                        </p>
+                        {userLearningData?.assessment_completed_at && userLearningData?.assessment_score !== null && (
+                          <div className="mt-2 flex items-center">
+                            <span className="text-sm font-medium mr-2">Your score:</span>
+                            <span className={`text-sm font-bold ${
+                              (userLearningData.assessment_score || 0) >= 80 
+                                ? 'text-green-500' 
+                                : 'text-amber-500'
+                            }`}>
+                              {userLearningData.assessment_score}%
+                            </span>
+                            {(userLearningData.assessment_score || 0) >= 80 && (
+                              <span className="ml-2 text-sm text-green-500 flex items-center">
+                                <Check className="h-3 w-3 mr-1" /> Passed
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  {userLearningData?.assessment_completed_at && (userLearningData?.assessment_score || 0) >= 80 ? (
+                    <Button variant="outline" onClick={() => window.location.href = '/certificates'}>
+                      View Certificate
+                    </Button>
+                  ) : courses.find(c => c.id === 'interview-mastery')?.progress === 100 ? (
+                    <Button onClick={() => {
+                      const module = courses
+                        .find(c => c.id === 'assessment')
+                        ?.modules.find(m => m.id === 'assessment-test');
+                      if (module) handleModuleSelect(module);
+                    }}>
+                      Start Assessment
+                    </Button>
+                  ) : (
+                    <Button disabled>
+                      Complete Course First
+                    </Button>
                   )}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="behavioral">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {filteredCourses
-                    .filter(course => course.category === 'Behavioral')
-                    .map((course) => (
-                      <CourseCard 
-                        key={course.id} 
-                        {...course} 
-                        progress={userProgress[course.id] || 0}
-                        onClick={() => handleSelectCourse(course)}
-                      />
-                    ))
-                  }
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="technical">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {filteredCourses
-                    .filter(course => course.category === 'Technical')
-                    .map((course) => (
-                      <CourseCard 
-                        key={course.id} 
-                        {...course} 
-                        progress={userProgress[course.id] || 0}
-                        onClick={() => handleSelectCourse(course)}
-                      />
-                    ))
-                  }
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="presentation">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {filteredCourses
-                    .filter(course => course.category === 'Presentation')
-                    .map((course) => (
-                      <CourseCard 
-                        key={course.id} 
-                        {...course} 
-                        progress={userProgress[course.id] || 0}
-                        onClick={() => handleSelectCourse(course)}
-                      />
-                    ))
-                  }
-                </div>
-              </TabsContent>
-            </Tabs>
-          </>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </DashboardLayout>

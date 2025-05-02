@@ -1,331 +1,491 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Share, Printer, BookOpen } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { Check, Download, RefreshCw, Save, Share2 } from 'lucide-react';
+import { useInterviewApi } from '@/services/api';
 
-interface InterviewReportProps {
+export interface InterviewReportProps {
   questions: string[];
   answers: string[];
-  onStartNewInterview: () => void;
+  facialAnalysis?: any[];
+  onDone: () => void;
 }
 
 const InterviewReport: React.FC<InterviewReportProps> = ({ 
   questions, 
   answers, 
-  onStartNewInterview 
+  facialAnalysis = [], 
+  onDone 
 }) => {
-  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('summary');
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<any[]>([]);
+  const [overallScore, setOverallScore] = useState(0);
+  const { getAnswerFeedback } = useInterviewApi();
   
-  // Mock data
-  const facialAnalysis = {
-    overall: "Positive",
-    confidence: 72,
-    engagement: 84,
-    nervous: 35,
-    facial_expressions: {
-      happy: 28,
-      neutral: 45,
-      anxious: 15,
-      confused: 7,
-      focused: 5
+  useEffect(() => {
+    if (questions.length > 0 && answers.length > 0) {
+      analyzeAnswers();
+    }
+  }, [questions, answers]);
+
+  const analyzeAnswers = async () => {
+    setLoading(true);
+    
+    try {
+      // Analyze each answer and get feedback
+      const feedbackPromises = questions.map((question, index) => 
+        getAnswerFeedback(question, answers[index] || 'No answer provided')
+      );
+      
+      // Wait for all feedback to be processed
+      const feedbackResults = await Promise.all(feedbackPromises);
+      
+      // Filter out null values and calculate average score
+      const validFeedback = feedbackResults.filter(f => f !== null);
+      setFeedback(validFeedback);
+      
+      if (validFeedback.length > 0) {
+        const totalScore = validFeedback.reduce((sum, f) => sum + (f.score || 0), 0);
+        setOverallScore(Math.round(totalScore / validFeedback.length));
+      }
+      
+    } catch (error) {
+      console.error('Error analyzing answers:', error);
+    } finally {
+      setLoading(false);
     }
   };
-  
-  const idealAnswers = [
-    "When discussing React experience, focus on specific projects, technical challenges you've overcome, and measurable outcomes. Mention your familiarity with React hooks, context API, and state management solutions.",
-    "For problem-solving questions, use the STAR method (Situation, Task, Action, Result). Clearly explain the challenge, your role, the specific actions you took, and quantify the positive outcome.",
-    "When addressing time management, emphasize your prioritization methods, ability to communicate effectively about deadlines, and examples of successfully managing competing priorities.",
-    "Questions about your interest in the position should reflect your research on the company. Connect your skills and career goals specifically to the role and company mission.",
-    "For process questions, demonstrate a methodical approach that considers business requirements, technical constraints, and collaboration with team members. Mention your testing strategy.",
-    "Professional development questions should highlight your proactive learning habits, specific resources you use, and how you've applied new knowledge in practical situations.",
-    "When discussing agile experience, mention specific methodologies (Scrum, Kanban), your role in ceremonies, and how you've contributed to process improvements.",
-    "Learning new technologies quickly requires a structured approach. Describe your learning strategy, how you find resources, and a specific example where you delivered results with a newly learned technology.",
-    "Code quality questions should address your testing philosophy, experience with CI/CD, code reviews, and examples of maintaining high standards even under pressure.",
-    "Career goal questions require self-awareness and authenticity. Align your answer with realistic progression that shows ambition but also commitment to the role you're interviewing for.",
-    "Achievement questions are perfect for showcasing your impact. Choose an example that demonstrates technical excellence, leadership, problem-solving, and quantifiable results.",
-    "For feedback questions, show that you separate yourself from the criticism, actively listen, confirm understanding, and take concrete actions to improve based on feedback.",
-    "Cross-functional communication should highlight your ability to translate technical concepts for different audiences, active listening skills, and examples of successful collaboration.",
-    "Motivation questions reveal your values. Connect your answer to intrinsic motivators like problem-solving, creating impact, and continuous learning rather than just extrinsic rewards.",
-    "Decision-making with limited information demonstrates your critical thinking. Describe your approach to gathering available data, consulting experts, evaluating risks, and making timely decisions."
-  ];
 
-  const downloadReport = () => {
-    toast({
-      title: "Report Downloaded",
-      description: "Your interview report has been downloaded.",
+  const calculateEmotionData = () => {
+    if (!facialAnalysis || facialAnalysis.length === 0) {
+      return { 
+        primaryEmotion: 'neutral',
+        confidenceAvg: 0,
+        engagementAvg: 0 
+      };
+    }
+
+    // Count emotions
+    const emotionCounts: {[key: string]: number} = {};
+    let totalConfidence = 0;
+    let totalEngagement = 0;
+    
+    facialAnalysis.forEach(analysis => {
+      if (!analysis) return;
+      
+      const emotion = analysis.primary_emotion || 'neutral';
+      emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+      
+      totalConfidence += analysis.confidence_score || 0;
+      totalEngagement += analysis.engagement_level || 0;
     });
+    
+    // Find the most common emotion
+    let primaryEmotion = 'neutral';
+    let maxCount = 0;
+    
+    Object.keys(emotionCounts).forEach(emotion => {
+      if (emotionCounts[emotion] > maxCount) {
+        maxCount = emotionCounts[emotion];
+        primaryEmotion = emotion;
+      }
+    });
+    
+    // Calculate averages
+    const confidenceAvg = Math.round(totalConfidence / facialAnalysis.length);
+    const engagementAvg = Math.round(totalEngagement / facialAnalysis.length);
+    
+    return { primaryEmotion, confidenceAvg, engagementAvg };
+  };
+  
+  const { primaryEmotion, confidenceAvg, engagementAvg } = calculateEmotionData();
+
+  const getEmotionColor = (emotion: string) => {
+    const emotionColors: {[key: string]: string} = {
+      happy: 'text-green-500',
+      confident: 'text-blue-500',
+      neutral: 'text-gray-500',
+      anxious: 'text-yellow-500',
+      nervous: 'text-amber-500',
+      confused: 'text-purple-500',
+      sad: 'text-blue-400',
+      surprised: 'text-pink-500',
+      angry: 'text-red-500',
+    };
+    
+    return emotionColors[emotion.toLowerCase()] || 'text-gray-500';
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Interview Performance Report</CardTitle>
-        <CardDescription>
-          Comprehensive analysis of your interview performance
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="p-4 text-center border rounded-lg">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-blue-100">
-              <BookOpen className="w-6 h-6 text-blue-600" />
-            </div>
-            <h3 className="mb-1 text-xl font-semibold">15</h3>
-            <p className="text-sm text-gray-600">Questions Answered</p>
-          </div>
-          
-          <div className="p-4 text-center border rounded-lg">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-green-100">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="mb-1 text-xl font-semibold">{facialAnalysis.confidence}%</h3>
-            <p className="text-sm text-gray-600">Confidence Score</p>
-          </div>
-          
-          <div className="p-4 text-center border rounded-lg">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-purple-100">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="mb-1 text-xl font-semibold">{facialAnalysis.engagement}%</h3>
-            <p className="text-sm text-gray-600">Engagement Level</p>
-          </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Interview Report</h1>
+          <p className="mt-2 text-gray-600">
+            Review your performance and feedback
+          </p>
         </div>
-        
-        <Tabs defaultValue="questions">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="questions">Questions & Answers</TabsTrigger>
-            <TabsTrigger value="facial">Facial Analysis</TabsTrigger>
-            <TabsTrigger value="suggestions">Improvement Suggestions</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="questions" className="py-4">
-            <div className="space-y-6">
-              {questions.map((question, index) => (
-                <div key={index} className="p-4 border rounded-lg">
-                  <h3 className="mb-3 text-lg font-semibold text-gray-900">Question {index + 1}:</h3>
-                  <p className="mb-4 text-gray-800">{question}</p>
-                  
-                  <div className="mb-4 space-y-2">
-                    <h4 className="text-sm font-medium text-gray-700">Your Answer:</h4>
-                    <p className="p-3 text-sm text-gray-600 bg-gray-50 rounded-md">
-                      {answers[index] || "No answer recorded"}
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-700">Suggested Answer:</h4>
-                    <p className="p-3 text-sm text-gray-600 bg-green-50 rounded-md">
-                      {idealAnswers[index] || "No suggested answer available"}
-                    </p>
-                  </div>
+        <div className="flex space-x-2">
+          <Button variant="outline" size="sm" onClick={onDone}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            New Interview
+          </Button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Overall Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center">
+              <div className="relative w-36 h-36">
+                <svg className="w-full h-full" viewBox="0 0 100 100">
+                  <circle 
+                    className="text-gray-200" 
+                    strokeWidth="10" 
+                    stroke="currentColor" 
+                    fill="transparent" 
+                    r="40" 
+                    cx="50" 
+                    cy="50" 
+                  />
+                  <circle 
+                    className={`${
+                      overallScore >= 80 ? 'text-green-500' : 
+                      overallScore >= 60 ? 'text-yellow-500' : 'text-red-500'
+                    }`}
+                    strokeWidth="10" 
+                    strokeDasharray={`${overallScore * 2.51} 251`} 
+                    strokeLinecap="round" 
+                    stroke="currentColor" 
+                    fill="transparent" 
+                    r="40" 
+                    cx="50" 
+                    cy="50" 
+                  />
+                </svg>
+                <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                  <span className="text-4xl font-bold">{overallScore}</span>
+                  <span className="text-sm text-gray-500">Score</span>
                 </div>
-              ))}
+              </div>
+              <div className="mt-4 text-center">
+                <p className="font-medium">
+                  {overallScore >= 80 ? 'Excellent' : 
+                   overallScore >= 60 ? 'Good' : 
+                   overallScore >= 40 ? 'Average' : 'Needs Improvement'}
+                </p>
+              </div>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="facial" className="py-4">
-            <div className="space-y-6">
-              <div className="p-4 border rounded-lg">
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">Facial Expression Analysis</h3>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Key Metrics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium">Questions Answered</span>
+                  <span className="text-sm font-medium">{answers.filter(a => a.trim()).length}/{questions.length}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-brand-purple h-2 rounded-full" 
+                    style={{width: `${(answers.filter(a => a.trim()).length / questions.length) * 100}%`}}
+                  ></div>
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium">Answer Clarity</span>
+                  <span className="text-sm font-medium">{Math.min(Math.round((overallScore + 10) * 0.9), 100)}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-brand-purple h-2 rounded-full" 
+                    style={{width: `${Math.min(Math.round((overallScore + 10) * 0.9), 100)}%`}}
+                  ></div>
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium">Engagement Level</span>
+                  <span className="text-sm font-medium">{engagementAvg}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-brand-purple h-2 rounded-full" 
+                    style={{width: `${engagementAvg}%`}}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Facial Analysis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex flex-col items-center">
+                <div className="text-2xl font-bold mb-2 capitalize">
+                  <span className={getEmotionColor(primaryEmotion)}>
+                    {primaryEmotion}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 text-center mb-4">
+                  Primary emotion detected during your interview
+                </p>
                 
-                <div className="mb-6">
-                  <h4 className="mb-2 text-sm font-medium text-gray-700">Overall Impression</h4>
-                  <div className="p-3 bg-gray-50 rounded-md">
-                    <p className="text-gray-600">
-                      Your facial expressions conveyed an overall <span className="font-medium text-green-600">{facialAnalysis.overall}</span> impression during the interview, with good engagement and moderate confidence.
-                    </p>
+                <div className="w-full">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm font-medium">Confidence</span>
+                    <span className="text-sm font-medium">{confidenceAvg}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full" 
+                      style={{width: `${confidenceAvg}%`}}
+                    ></div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <Tabs defaultValue="summary" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="summary">Summary</TabsTrigger>
+          <TabsTrigger value="questions">Questions & Answers</TabsTrigger>
+          <TabsTrigger value="facial">Facial Analysis</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="summary">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-medium text-lg mb-3">Strengths</h3>
+                  <ul className="space-y-2">
+                    {feedback.length > 0 ? (
+                      feedback.slice(0, 3).flatMap(f => 
+                        f.strengths?.slice(0, 2).map((s: string, i: number) => (
+                          <li key={i} className="flex items-start">
+                            <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>{s}</span>
+                          </li>
+                        )) || []
+                      )
+                    ) : (
+                      <li className="text-gray-500">Loading feedback...</li>
+                    )}
+                  </ul>
+                </div>
                 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <h4 className="mb-2 text-sm font-medium text-gray-700">Expression Breakdown</h4>
-                    <ul className="space-y-2">
-                      {Object.entries(facialAnalysis.facial_expressions).map(([expression, percentage], index) => (
-                        <li key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                          <span className="capitalize">{expression}</span>
-                          <span className="text-sm font-medium">{percentage}%</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <h4 className="mb-2 text-sm font-medium text-gray-700">Insights</h4>
-                    <div className="p-3 bg-gray-50 rounded-md space-y-2">
-                      <p className="text-sm text-gray-600">
-                        You appeared confident during most of the interview, with occasional signs of anxiety when discussing technical skills.
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Your focused expressions demonstrate good listening skills and thoughtful responses.
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Consider maintaining more consistent eye contact to convey stronger confidence.
+                <div>
+                  <h3 className="font-medium text-lg mb-3">Areas to Improve</h3>
+                  <ul className="space-y-2">
+                    {feedback.length > 0 ? (
+                      feedback.slice(0, 3).flatMap(f => 
+                        f.areas_to_improve?.slice(0, 2).map((s: string, i: number) => (
+                          <li key={i} className="flex items-start">
+                            <div className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0 flex items-center justify-center">
+                              <div className="h-1.5 w-1.5 bg-amber-500 rounded-full"></div>
+                            </div>
+                            <span>{s}</span>
+                          </li>
+                        )) || []
+                      )
+                    ) : (
+                      <li className="text-gray-500">Loading feedback...</li>
+                    )}
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium text-lg mb-3">Next Steps</h3>
+                  <p className="text-gray-600">
+                    Focus on improving your clarity and providing specific examples when answering technical questions.
+                    Consider practicing with more domain-specific questions in areas where you felt less confident.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="questions">
+          <div className="space-y-4">
+            {questions.map((question, index) => (
+              <Card key={index}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-medium">Question {index + 1}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-medium">{question}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Your Answer:</p>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-md">
+                        {answers[index] || "No answer provided"}
                       </p>
                     </div>
+                    
+                    {feedback[index] && (
+                      <div className="border-t pt-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium">Feedback</h4>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            feedback[index].score >= 80 ? 'bg-green-100 text-green-800' : 
+                            feedback[index].score >= 60 ? 'bg-yellow-100 text-yellow-800' : 
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {feedback[index].score}/100
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-3 text-sm">
+                          {feedback[index].strengths && feedback[index].strengths.length > 0 && (
+                            <div>
+                              <p className="font-medium text-green-600">Strengths:</p>
+                              <ul className="list-disc pl-5 space-y-1 mt-1">
+                                {feedback[index].strengths.map((s: string, i: number) => (
+                                  <li key={i}>{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {feedback[index].areas_to_improve && feedback[index].areas_to_improve.length > 0 && (
+                            <div>
+                              <p className="font-medium text-amber-600">Areas to Improve:</p>
+                              <ul className="list-disc pl-5 space-y-1 mt-1">
+                                {feedback[index].areas_to_improve.map((s: string, i: number) => (
+                                  <li key={i}>{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {feedback[index].suggestion && (
+                            <div>
+                              <p className="font-medium text-blue-600">Suggestion:</p>
+                              <p className="mt-1">{feedback[index].suggestion}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="facial">
+          <Card>
+            <CardHeader>
+              <CardTitle>Facial Expression Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-medium text-lg mb-3">
+                    Expression Summary
+                  </h3>
+                  <p className="text-gray-600">
+                    During your interview, you primarily displayed a <span className={`font-medium ${getEmotionColor(primaryEmotion)}`}>{primaryEmotion}</span> expression.
+                    Your confidence level was measured at <span className="font-medium">{confidenceAvg}%</span>, and your engagement level at <span className="font-medium">{engagementAvg}%</span>.
+                  </p>
+                </div>
+                
+                {facialAnalysis && facialAnalysis.length > 0 && (
+                  <div>
+                    <h3 className="font-medium text-lg mb-3">Detailed Observations</h3>
+                    <div className="space-y-3">
+                      {facialAnalysis.slice(0, 5).map((analysis, index) => (
+                        analysis && analysis.observations ? (
+                          <div key={index} className="bg-gray-50 p-3 rounded-md">
+                            <p className="text-sm font-medium mb-2">During Question {index + 1}:</p>
+                            <ul className="text-sm space-y-1 list-disc pl-5">
+                              {analysis.observations.slice(0, 2).map((obs: string, i: number) => (
+                                <li key={i}>{obs}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <h3 className="font-medium text-lg mb-3">Non-verbal Communication Tips</h3>
+                  <ul className="space-y-2">
+                    <li className="flex items-start">
+                      <div className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0 flex items-center justify-center">
+                        <div className="h-1.5 w-1.5 bg-blue-500 rounded-full"></div>
+                      </div>
+                      <span>Maintain eye contact to demonstrate confidence and engagement</span>
+                    </li>
+                    <li className="flex items-start">
+                      <div className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0 flex items-center justify-center">
+                        <div className="h-1.5 w-1.5 bg-blue-500 rounded-full"></div>
+                      </div>
+                      <span>Use subtle hand gestures to emphasize key points</span>
+                    </li>
+                    <li className="flex items-start">
+                      <div className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0 flex items-center justify-center">
+                        <div className="h-1.5 w-1.5 bg-blue-500 rounded-full"></div>
+                      </div>
+                      <span>Practice a natural smile to create rapport with interviewers</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
-              
-              <div className="p-4 border rounded-lg">
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">Body Language Observations</h3>
-                <div className="p-3 bg-gray-50 rounded-md space-y-2">
-                  <p className="text-sm text-gray-600">
-                    Your posture was generally upright and engaged, indicating attentiveness and respect.
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Hand gestures were natural and helped emphasize key points during technical explanations.
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Minor fidgeting was detected during challenging questions, which may indicate nervousness.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="suggestions" className="py-4">
-            <div className="space-y-6">
-              <div className="p-4 border rounded-lg">
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">Strengths</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Strong technical knowledge demonstrated through specific examples</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Well-structured answers with clear problem-solution narratives</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Effective communication of complex concepts in accessible language</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Good engagement and positive facial expressions</span>
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="p-4 border rounded-lg">
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">Areas for Improvement</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span className="text-gray-700">
-                      Answers to behavioral questions could include more quantifiable results
-                    </span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span className="text-gray-700">
-                      Consider reducing filler words like "um" and "you know" for more polished delivery
-                    </span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span className="text-gray-700">
-                      Some technical answers could be more concise while maintaining their effectiveness
-                    </span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-5 h-5 mr-2 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span className="text-gray-700">
-                      Practice maintaining more consistent eye contact during responses
-                    </span>
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="p-4 border rounded-lg">
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">Recommended Learning Resources</h3>
-                <div className="space-y-3">
-                  <div className="p-3 bg-gray-50 rounded-md">
-                    <h4 className="text-sm font-medium text-brand-purple">Behavioral Interview Techniques</h4>
-                    <p className="text-sm text-gray-600">
-                      Explore the STAR method in depth with our video course in the Learning Hub.
-                    </p>
-                    <a href="/learning/behavioral-techniques" className="text-sm font-medium text-brand-purple hover:underline">View Course →</a>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-md">
-                    <h4 className="text-sm font-medium text-brand-purple">Confident Communication</h4>
-                    <p className="text-sm text-gray-600">
-                      Master techniques for eliminating filler words and projecting confidence.
-                    </p>
-                    <a href="/learning/communication" className="text-sm font-medium text-brand-purple hover:underline">View Course →</a>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-md">
-                    <h4 className="text-sm font-medium text-brand-purple">Technical Interview Preparation</h4>
-                    <p className="text-sm text-gray-600">
-                      Enhance your ability to explain complex technical concepts clearly and concisely.
-                    </p>
-                    <a href="/learning/technical-interviews" className="text-sm font-medium text-brand-purple hover:underline">View Course →</a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-      <CardFooter className="flex flex-col space-y-4">
-        <div className="flex flex-wrap justify-between w-full gap-4">
-          <Button
-            variant="outline"
-            onClick={downloadReport}
-          >
-            <Download className="w-4 h-4 mr-2" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
+      <div className="flex justify-between">
+        <div className="flex space-x-2">
+          <Button variant="outline">
+            <Save className="mr-2 h-4 w-4" />
+            Save Report
+          </Button>
+          <Button variant="outline">
+            <Download className="mr-2 h-4 w-4" />
             Download PDF
           </Button>
-          
-          <div className="flex space-x-2">
-            <Button variant="outline" size="icon">
-              <Share className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon">
-              <Printer className="w-4 h-4" />
-            </Button>
-          </div>
         </div>
-        
-        <Button
-          className="w-full"
-          onClick={onStartNewInterview}
-        >
-          Start New Interview
+        <Button variant="outline">
+          <Share2 className="mr-2 h-4 w-4" />
+          Share
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 };
 
