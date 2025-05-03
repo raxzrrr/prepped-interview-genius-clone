@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ interface VideoPlayerProps {
   initialProgress?: number;
   moduleId: string;
   onCompleted: (moduleId: string) => void;
+  onAdvanceToNext?: () => void; // New prop for advancing to next video
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -17,7 +17,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onProgress, 
   initialProgress = 0,
   moduleId,
-  onCompleted 
+  onCompleted,
+  onAdvanceToNext
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +63,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           // Auto-complete when progress reaches 100%
           if (newProgress === 100 && prevProgress !== 100) {
             onCompleted(moduleId);
+            
+            // Auto-advance to next video if available
+            if (onAdvanceToNext) {
+              setTimeout(() => {
+                onAdvanceToNext();
+              }, 1500); // Small delay before advancing
+            }
           }
           
           return newProgress;
@@ -72,7 +80,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => {
       if (progressInterval) clearInterval(progressInterval);
     };
-  }, [loading, error, onProgress, onCompleted, moduleId]);
+  }, [loading, error, onProgress, onCompleted, moduleId, onAdvanceToNext]);
   
   // Handle iframe loading
   const handleIframeLoad = () => {
@@ -97,6 +105,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       title: "Module Completed",
       description: "This module has been marked as completed.",
     });
+    
+    // Auto-advance to next video if available
+    if (onAdvanceToNext) {
+      setTimeout(() => {
+        onAdvanceToNext();
+      }, 1500); // Small delay before advancing
+    }
   };
   
   const isYouTubeVideo = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
@@ -184,9 +199,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <Button 
             onClick={handleMarkAsCompleted}
             className="bg-brand-purple hover:bg-brand-purple/90 font-medium"
+            disabled={progress === 100}
           >
             <CheckCircle className="h-4 w-4 mr-2" />
-            Mark as Completed
+            {progress === 100 ? "Completed" : "Mark as Completed"}
           </Button>
         </div>
       </div>
