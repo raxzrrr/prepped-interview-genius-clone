@@ -8,9 +8,17 @@ interface VideoPlayerProps {
   videoUrl: string;
   onProgress: (progress: number) => void;
   initialProgress?: number;
+  moduleId: string; // Add moduleId prop to identify which module is being completed
+  onCompleted: (moduleId: string) => void; // Add explicit completion handler
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initialProgress = 0 }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
+  videoUrl, 
+  onProgress, 
+  initialProgress = 0,
+  moduleId,
+  onCompleted 
+}) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +48,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
     let progressInterval: NodeJS.Timeout;
     
     if (!loading && !error) {
-      // Simulate progress tracking
+      // Simulate progress tracking - increased speed for better user experience
       progressInterval = setInterval(() => {
         setProgress(prevProgress => {
           // Cap progress at 100%
-          const newProgress = Math.min(prevProgress + 10, 100); // Increased to 10% for faster progress
+          const newProgress = Math.min(prevProgress + 20, 100); // Increased to 20% for even faster progress
           
           // Call the onProgress callback
           if (newProgress !== prevProgress) {
@@ -53,7 +61,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
           
           return newProgress;
         });
-      }, 2000); // Update every 2 seconds for faster progress
+      }, 1000); // Update every 1 second for faster progress
     }
     
     return () => {
@@ -71,11 +79,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
     setError('Failed to load video. Please try again later.');
   };
 
-  // Handle marking video as completed (moved to parent component)
+  // Handle marking video as completed
   const handleMarkAsCompleted = () => {
     // Update progress to 100% and call the onProgress callback
     setProgress(100);
     onProgress(100);
+    
+    // Call the explicit completion handler with the module ID
+    onCompleted(moduleId);
     
     toast({
       title: "Module Completed",
@@ -161,6 +172,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
               style={{ width: `${progress}%` }}
             ></div>
           </div>
+        </div>
+        
+        {/* Add Mark as Completed button directly in the video player */}
+        <div className="flex justify-end">
+          <Button 
+            onClick={handleMarkAsCompleted}
+            className="bg-brand-purple hover:bg-brand-purple/90"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Mark as Completed
+          </Button>
         </div>
       </div>
     </div>

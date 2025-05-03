@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -55,6 +56,7 @@ const LearningPage: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [userLearningData, setUserLearningData] = useState<UserLearningData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshFlag, setRefreshFlag] = useState(0); // Add refresh flag to trigger re-fetching data
   
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
@@ -92,7 +94,7 @@ const LearningPage: React.FC = () => {
           description: 'Learn how to approach system design questions effectively.',
           videoUrl: 'https://www.youtube.com/embed/q0KGYwNbf-0',
           duration: '28:15',
-          locked: false, // Unlocking all videos
+          locked: false,
           completed: false
         },
         {
@@ -101,7 +103,7 @@ const LearningPage: React.FC = () => {
           description: 'How to structure and deliver compelling stories for behavioral questions.',
           videoUrl: 'https://www.youtube.com/embed/9FgfsL9B9Us',
           duration: '19:10',
-          locked: false, // Unlocking all videos
+          locked: false,
           completed: false
         },
         {
@@ -110,7 +112,7 @@ const LearningPage: React.FC = () => {
           description: 'Real-world simulation of a complete technical interview.',
           videoUrl: 'https://www.youtube.com/embed/1qw5ITr3k9E',
           duration: '45:00',
-          locked: false, // Unlocking all videos
+          locked: false,
           completed: false
         }
       ],
@@ -136,7 +138,7 @@ const LearningPage: React.FC = () => {
           description: 'Take the 30-minute technical assessment to earn your certificate.',
           videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
           duration: '30:00',
-          locked: false, // Unlocking all videos
+          locked: false,
           completed: false
         }
       ],
@@ -144,12 +146,12 @@ const LearningPage: React.FC = () => {
     }
   ];
   
-  // Fetch user learning data
+  // Fetch user learning data whenever refreshFlag changes
   useEffect(() => {
     if (user) {
       fetchUserLearningData();
     }
-  }, [user]);
+  }, [user, refreshFlag]); // Added refreshFlag to dependencies
   
   // Update courses data with user progress
   useEffect(() => {
@@ -271,6 +273,7 @@ const LearningPage: React.FC = () => {
     setSelectedModule(module);
   };
   
+  // This function is called when the video player reports progress
   const handleModuleProgress = async (moduleId: string, progress: number) => {
     console.log(`Module ${moduleId} progress: ${progress}%`);
     
@@ -278,6 +281,12 @@ const LearningPage: React.FC = () => {
     if (progress >= 100) {
       await markModuleAsCompleted(moduleId);
     }
+  };
+  
+  // This function is called directly when the "Mark as Completed" button is clicked
+  const handleModuleCompleted = async (moduleId: string) => {
+    console.log(`Module ${moduleId} marked as completed via button`);
+    await markModuleAsCompleted(moduleId);
   };
   
   const markModuleAsCompleted = async (moduleId: string) => {
@@ -438,6 +447,9 @@ const LearningPage: React.FC = () => {
           });
         }
       }
+
+      // Trigger a refresh of the data to ensure UI shows correct progress
+      setRefreshFlag(prev => prev + 1);
       
     } catch (error) {
       console.error('Error marking module as completed:', error);
@@ -447,6 +459,14 @@ const LearningPage: React.FC = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // Additional function to mark a module as completed directly from the course list
+  const handleMarkAsCompletedFromList = async (moduleId: string, event: React.MouseEvent) => {
+    // Prevent triggering the parent click handler which would open the module
+    event.stopPropagation();
+    
+    await markModuleAsCompleted(moduleId);
   };
   
   return (
@@ -478,6 +498,8 @@ const LearningPage: React.FC = () => {
                   videoUrl={selectedModule.videoUrl}
                   onProgress={(progress) => handleModuleProgress(selectedModule.id, progress)}
                   initialProgress={0}
+                  moduleId={selectedModule.id}
+                  onCompleted={handleModuleCompleted}
                 />
                 
                 <div className="mt-6 space-y-4">
@@ -494,9 +516,9 @@ const LearningPage: React.FC = () => {
                       )}
                     </div>
                     
-                    {/* Mark as Completed button directly on the page */}
+                    {/* Additional Mark as Completed button on the page */}
                     <Button 
-                      onClick={() => markModuleAsCompleted(selectedModule.id)}
+                      onClick={() => handleModuleCompleted(selectedModule.id)}
                       className="bg-brand-purple hover:bg-brand-purple/90 flex items-center gap-2"
                     >
                       <Check className="h-4 w-4" />
@@ -544,11 +566,13 @@ const LearningPage: React.FC = () => {
                                className={`flex items-start p-3 border rounded-lg ${
                                  module.completed 
                                    ? 'border-green-200 bg-green-50' 
-                                   : 'border-gray-200 hover:border-brand-purple/50 hover:bg-brand-purple/5 cursor-pointer'
+                                   : 'border-gray-200 hover:border-brand-purple/50 hover:bg-brand-purple/5'
                                }`}
-                               onClick={() => handleModuleSelect(module)}
                           >
-                            <div className="mr-4 mt-1">
+                            <div 
+                              className="mr-4 mt-1 cursor-pointer"
+                              onClick={() => handleModuleSelect(module)}
+                            >
                               {module.completed ? (
                                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-500">
                                   <Check className="h-5 w-5" />
@@ -559,7 +583,10 @@ const LearningPage: React.FC = () => {
                                 </div>
                               )}
                             </div>
-                            <div className="flex-1">
+                            <div 
+                              className="flex-1 cursor-pointer"
+                              onClick={() => handleModuleSelect(module)}
+                            >
                               <div className="flex justify-between">
                                 <h4 className="font-medium">
                                   {index + 1}. {module.title}
@@ -569,6 +596,28 @@ const LearningPage: React.FC = () => {
                               <p className="text-sm mt-1 text-gray-600">
                                 {module.description}
                               </p>
+                            </div>
+                            {/* Add Mark as Completed button in the module list */}
+                            <div className="ml-4 flex items-center">
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                className={`${module.completed ? 'bg-green-50 text-green-600 border-green-200' : ''}`}
+                                onClick={(e) => handleMarkAsCompletedFromList(module.id, e)}
+                                disabled={module.completed}
+                              >
+                                {module.completed ? (
+                                  <>
+                                    <Check className="h-4 w-4 mr-1" />
+                                    Completed
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="h-4 w-4 mr-1" />
+                                    Mark Complete
+                                  </>
+                                )}
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -653,6 +702,18 @@ const LearningPage: React.FC = () => {
                           Learn about the assessment format and preparation tips
                         </p>
                       </div>
+                      {/* Add Mark as Completed button for assessment module */}
+                      <div className="ml-auto">
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleMarkAsCompletedFromList('assessment-intro', e)}
+                          disabled={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-intro')?.completed}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Mark Complete
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className={`flex items-start p-3 border rounded-lg ${
@@ -720,6 +781,20 @@ const LearningPage: React.FC = () => {
                           </div>
                         )}
                       </div>
+                      {/* Add Mark as Completed button for assessment test */}
+                      {courses.find(c => c.id === 'interview-mastery')?.progress === 100 && (
+                        <div className="ml-auto">
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => handleMarkAsCompletedFromList('assessment-test', e)}
+                            disabled={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-test')?.completed}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Mark Complete
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
