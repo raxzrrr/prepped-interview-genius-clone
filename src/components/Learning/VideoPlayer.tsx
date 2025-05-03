@@ -43,31 +43,36 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [toast]);
   
-  // Track video progress
+  // Track video progress - with a slower increment for more realistic tracking
   useEffect(() => {
     let progressInterval: NodeJS.Timeout;
     
     if (!loading && !error) {
-      // Simulate progress tracking - increased speed for better user experience
+      // Update progress every 3 seconds for more realistic tracking
       progressInterval = setInterval(() => {
         setProgress(prevProgress => {
           // Cap progress at 100%
-          const newProgress = Math.min(prevProgress + 20, 100);
+          const newProgress = Math.min(prevProgress + 5, 100);
           
           // Call the onProgress callback
           if (newProgress !== prevProgress) {
             onProgress(newProgress);
           }
           
+          // Auto-complete when progress reaches 100%
+          if (newProgress === 100 && prevProgress !== 100) {
+            onCompleted(moduleId);
+          }
+          
           return newProgress;
         });
-      }, 1000); // Update every 1 second for faster progress
+      }, 3000); // Update every 3 seconds for more realistic progress
     }
     
     return () => {
       if (progressInterval) clearInterval(progressInterval);
     };
-  }, [loading, error, onProgress]);
+  }, [loading, error, onProgress, onCompleted, moduleId]);
   
   // Handle iframe loading
   const handleIframeLoad = () => {
@@ -174,11 +179,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </div>
         </div>
         
-        {/* Add Mark as Completed button directly in the video player */}
+        {/* Mark as Completed button with improved styling */}
         <div className="flex justify-end">
           <Button 
             onClick={handleMarkAsCompleted}
-            className="bg-brand-purple hover:bg-brand-purple/90"
+            className="bg-brand-purple hover:bg-brand-purple/90 font-medium"
           >
             <CheckCircle className="h-4 w-4 mr-2" />
             Mark as Completed

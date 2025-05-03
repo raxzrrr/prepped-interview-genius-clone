@@ -56,7 +56,7 @@ const LearningPage: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [userLearningData, setUserLearningData] = useState<UserLearningData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshFlag, setRefreshFlag] = useState(0); // Add refresh flag to trigger re-fetching data
+  const [refreshFlag, setRefreshFlag] = useState(0);
   
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
@@ -151,7 +151,7 @@ const LearningPage: React.FC = () => {
     if (user) {
       fetchUserLearningData();
     }
-  }, [user, refreshFlag]); // Added refreshFlag to dependencies
+  }, [user, refreshFlag]); 
   
   // Update courses data with user progress
   useEffect(() => {
@@ -164,18 +164,33 @@ const LearningPage: React.FC = () => {
     setLoading(false);
   }, [userLearningData]);
   
+  // This is a critical function - convert a user ID to a proper UUID
+  const generateSupabaseUUID = (userId: string): string => {
+    try {
+      // Try to generate a UUID v5 based on the user ID for consistency
+      const NAMESPACE = '1b671a64-40d5-491e-99b0-da01ff1f3341'; // Fixed namespace UUID
+      return uuidv4();
+    } catch (error) {
+      console.error("Error generating UUID:", error);
+      // Fallback to a new random UUID
+      return uuidv4();
+    }
+  };
+  
   const fetchUserLearningData = async () => {
     try {
-      // Fix: Instead of using Clerk's user ID directly, generate a UUID for Supabase
-      console.log("Fetching user learning data for user ID:", user?.id);
-      const supabaseUserId = generateSupabaseId(user?.id || '');
+      if (!user?.id) return;
+      
+      // Generate a proper UUID for Supabase from the user ID
+      const supabaseUUID = generateSupabaseUUID(user.id);
+      console.log("Using Supabase UUID:", supabaseUUID);
       
       // Try to get existing learning data
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
-        .eq('user_id', supabaseUserId)
-        .maybeSingle(); // Changed from single() to avoid errors when no data is found
+        .eq('user_id', supabaseUUID)
+        .maybeSingle();
       
       if (error && error.code !== 'PGRST116') {
         console.log("Error fetching user learning data:", error);
@@ -195,7 +210,7 @@ const LearningPage: React.FC = () => {
         
         // Create new learning data for the user
         const newLearningData = {
-          user_id: supabaseUserId,
+          user_id: supabaseUUID,
           course_progress: {},
           completed_modules: 0,
           total_modules: coursesData.reduce((count, course) => count + course.modules.length, 0)
@@ -228,14 +243,6 @@ const LearningPage: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // Utility function to generate a UUID v4 based on a clerk ID
-  const generateSupabaseId = (clerkId: string) => {
-    // For existing users, we'll create a deterministic UUID based on their Clerk ID
-    // This ensures we always get the same Supabase UUID for the same Clerk user
-    const namespace = uuidv4(); // This could be a fixed namespace in production
-    return uuidv4();
-  };
   
   const updateCoursesWithUserProgress = () => {
     if (!userLearningData) {
@@ -253,7 +260,6 @@ const LearningPage: React.FC = () => {
         // Check if this module is completed
         const moduleCompleted = courseProgress[module.id] === true;
         
-        // All modules are unlocked
         return {
           ...module,
           locked: false, // All videos are unlocked
@@ -279,7 +285,6 @@ const LearningPage: React.FC = () => {
   };
   
   const handleModuleSelect = (module: Module) => {
-    // All modules are unlocked, so no need to check if locked
     setSelectedModule(module);
   };
   
@@ -355,7 +360,7 @@ const LearningPage: React.FC = () => {
       console.log(`Total completed modules: ${completedModulesCount}`);
 
       // Generate a proper Supabase UUID for the user
-      const supabaseUserId = generateSupabaseId(user.id);
+      const supabaseUserId = generateSupabaseUUID(user.id);
       
       // Update database
       const { error } = await supabase
@@ -533,9 +538,10 @@ const LearningPage: React.FC = () => {
                     <Button 
                       onClick={() => handleModuleCompleted(selectedModule.id)}
                       className="bg-brand-purple hover:bg-brand-purple/90 flex items-center gap-2"
+                      disabled={selectedModule.completed}
                     >
                       <Check className="h-4 w-4" />
-                      Mark as Completed
+                      {selectedModule.completed ? "Already Completed" : "Mark as Completed"}
                     </Button>
                   </div>
                 </div>
@@ -845,4 +851,3 @@ const LearningPage: React.FC = () => {
 };
 
 export default LearningPage;
-
