@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -823,4 +824,25 @@ const LearningPage: React.FC = () => {
                     <Button onClick={() => {
                       const module = courses
                         .find(c => c.id === 'assessment')
-                        ?.modules.find(m
+                        ?.modules.find(m => m.id === 'assessment-test');
+                      if (module) handleModuleSelect(module);
+                    }}>
+                      Start Assessment
+                    </Button>
+                  ) : (
+                    <Button disabled>
+                      Complete Course to Unlock
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default LearningPage;
+
