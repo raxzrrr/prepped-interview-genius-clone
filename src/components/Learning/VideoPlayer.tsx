@@ -8,8 +8,8 @@ interface VideoPlayerProps {
   videoUrl: string;
   onProgress: (progress: number) => void;
   initialProgress?: number;
-  moduleId: string; // Add moduleId prop to identify which module is being completed
-  onCompleted: (moduleId: string) => void; // Add explicit completion handler
+  moduleId: string;
+  onCompleted: (moduleId: string) => void;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -52,7 +52,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       progressInterval = setInterval(() => {
         setProgress(prevProgress => {
           // Cap progress at 100%
-          const newProgress = Math.min(prevProgress + 20, 100); // Increased to 20% for even faster progress
+          const newProgress = Math.min(prevProgress + 20, 100);
           
           // Call the onProgress callback
           if (newProgress !== prevProgress) {

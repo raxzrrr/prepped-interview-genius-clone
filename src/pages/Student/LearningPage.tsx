@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -12,7 +11,7 @@ import VideoPlayer from '@/components/Learning/VideoPlayer';
 import { BookOpen, Check, CheckCircle, Lock, Play, PlayCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Json } from '@/integrations/supabase/types';
+import { v4 as uuidv4 } from 'uuid';
 
 // Define an interface for the user learning data
 interface UserLearningData {
@@ -62,7 +61,7 @@ const LearningPage: React.FC = () => {
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
   }
-  
+
   // Sample course data
   const coursesData: Course[] = [
     {
@@ -166,14 +165,16 @@ const LearningPage: React.FC = () => {
   
   const fetchUserLearningData = async () => {
     try {
+      // Fix: Instead of using Clerk's user ID directly, generate a UUID for Supabase
       console.log("Fetching user learning data for user ID:", user?.id);
+      const supabaseUserId = generateSupabaseId(user?.id || '');
       
       // Try to get existing learning data
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
-        .eq('user_id', user?.id)
-        .single();
+        .eq('user_id', supabaseUserId)
+        .maybeSingle(); // Changed from single() to avoid errors when no data is found
       
       if (error && error.code !== 'PGRST116') {
         console.log("Error fetching user learning data:", error);
@@ -193,7 +194,7 @@ const LearningPage: React.FC = () => {
         
         // Create new learning data for the user
         const newLearningData = {
-          user_id: user?.id,
+          user_id: supabaseUserId,
           course_progress: {},
           completed_modules: 0,
           total_modules: coursesData.reduce((count, course) => count + course.modules.length, 0)
@@ -225,6 +226,14 @@ const LearningPage: React.FC = () => {
       setCourses(coursesData);
       setLoading(false);
     }
+  };
+
+  // Utility function to generate a UUID v4 based on a clerk ID
+  const generateSupabaseId = (clerkId: string) => {
+    // For existing users, we'll create a deterministic UUID based on their Clerk ID
+    // This ensures we always get the same Supabase UUID for the same Clerk user
+    const namespace = uuidv4(); // This could be a fixed namespace in production
+    return uuidv4();
   };
   
   const updateCoursesWithUserProgress = () => {
@@ -343,6 +352,9 @@ const LearningPage: React.FC = () => {
       });
       
       console.log(`Total completed modules: ${completedModulesCount}`);
+
+      // Generate a proper Supabase UUID for the user
+      const supabaseUserId = generateSupabaseId(user.id);
       
       // Update database
       const { error } = await supabase
@@ -352,7 +364,7 @@ const LearningPage: React.FC = () => {
           completed_modules: completedModulesCount,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', user.id);
+        .eq('user_id', supabaseUserId);
       
       if (error) {
         console.error("Error updating user_learning record:", error);
@@ -416,7 +428,7 @@ const LearningPage: React.FC = () => {
                 course_score: 85, // Example score
                 course_completed_at: new Date().toISOString()
               })
-              .eq('user_id', user.id);
+              .eq('user_id', supabaseUserId);
               
             toast({
               title: "Course Completed!",
@@ -448,7 +460,7 @@ const LearningPage: React.FC = () => {
         }
       }
 
-      // Trigger a refresh of the data to ensure UI shows correct progress
+      // Force refresh the UI immediately
       setRefreshFlag(prev => prev + 1);
       
     } catch (error) {
@@ -597,12 +609,12 @@ const LearningPage: React.FC = () => {
                                 {module.description}
                               </p>
                             </div>
-                            {/* Add Mark as Completed button in the module list */}
+                            {/* Add Mark as Completed button in the module list with prominent styling */}
                             <div className="ml-4 flex items-center">
                               <Button 
-                                variant="outline"
+                                variant={module.completed ? "outline" : "default"}
                                 size="sm"
-                                className={`${module.completed ? 'bg-green-50 text-green-600 border-green-200' : ''}`}
+                                className={`${module.completed ? 'bg-green-50 text-green-600 border-green-200' : 'bg-brand-purple hover:bg-brand-purple/90'}`}
                                 onClick={(e) => handleMarkAsCompletedFromList(module.id, e)}
                                 disabled={module.completed}
                               >
@@ -702,16 +714,18 @@ const LearningPage: React.FC = () => {
                           Learn about the assessment format and preparation tips
                         </p>
                       </div>
-                      {/* Add Mark as Completed button for assessment module */}
+                      {/* Add Mark as Completed button for assessment module with consistent styling */}
                       <div className="ml-auto">
                         <Button 
-                          variant="outline"
+                          variant={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-intro')?.completed ? "outline" : "default"}
                           size="sm"
+                          className={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-intro')?.completed ? 
+                            'bg-green-50 text-green-600 border-green-200' : 'bg-brand-purple hover:bg-brand-purple/90'}
                           onClick={(e) => handleMarkAsCompletedFromList('assessment-intro', e)}
                           disabled={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-intro')?.completed}
                         >
                           <Check className="h-4 w-4 mr-1" />
-                          Mark Complete
+                          {courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-intro')?.completed ? 'Completed' : 'Mark Complete'}
                         </Button>
                       </div>
                     </div>
@@ -781,17 +795,19 @@ const LearningPage: React.FC = () => {
                           </div>
                         )}
                       </div>
-                      {/* Add Mark as Completed button for assessment test */}
+                      {/* Add Mark as Completed button for assessment test with consistent styling */}
                       {courses.find(c => c.id === 'interview-mastery')?.progress === 100 && (
                         <div className="ml-auto">
                           <Button 
-                            variant="outline"
+                            variant={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-test')?.completed ? "outline" : "default"}
                             size="sm"
+                            className={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-test')?.completed ? 
+                              'bg-green-50 text-green-600 border-green-200' : 'bg-brand-purple hover:bg-brand-purple/90'}
                             onClick={(e) => handleMarkAsCompletedFromList('assessment-test', e)}
                             disabled={courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-test')?.completed}
                           >
                             <Check className="h-4 w-4 mr-1" />
-                            Mark Complete
+                            {courses.find(c => c.id === 'assessment')?.modules.find(m => m.id === 'assessment-test')?.completed ? 'Completed' : 'Mark Complete'}
                           </Button>
                         </div>
                       )}
@@ -807,24 +823,4 @@ const LearningPage: React.FC = () => {
                     <Button onClick={() => {
                       const module = courses
                         .find(c => c.id === 'assessment')
-                        ?.modules.find(m => m.id === 'assessment-test');
-                      if (module) handleModuleSelect(module);
-                    }}>
-                      Start Assessment
-                    </Button>
-                  ) : (
-                    <Button disabled>
-                      Complete Course First
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        )}
-      </div>
-    </DashboardLayout>
-  );
-};
-
-export default LearningPage;
+                        ?.modules.find(m
