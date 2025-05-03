@@ -44,7 +44,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
       progressInterval = setInterval(() => {
         setProgress(prevProgress => {
           // Cap progress at 100%
-          const newProgress = Math.min(prevProgress + 0.5, 100);
+          const newProgress = Math.min(prevProgress + 10, 100); // Increased to 10% for faster progress
           
           // Call the onProgress callback
           if (newProgress !== prevProgress) {
@@ -53,7 +53,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
           
           return newProgress;
         });
-      }, 5000); // Update every 5 seconds
+      }, 2000); // Update every 2 seconds for faster progress
     }
     
     return () => {
@@ -71,7 +71,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
     setError('Failed to load video. Please try again later.');
   };
 
-  // Handle marking video as completed
+  // Handle marking video as completed (moved to parent component)
   const handleMarkAsCompleted = () => {
     // Update progress to 100% and call the onProgress callback
     setProgress(100);
@@ -157,19 +157,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onProgress, initial
           </div>
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-brand-purple rounded-full"
+              className="h-full bg-brand-purple rounded-full transition-all duration-300 ease-in-out"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
         </div>
-        
-        <Button 
-          onClick={handleMarkAsCompleted}
-          className="w-full flex items-center justify-center gap-2 bg-brand-purple hover:bg-brand-purple/90"
-        >
-          <CheckCircle className="h-4 w-4" />
-          Mark as Completed
-        </Button>
       </div>
     </div>
   );

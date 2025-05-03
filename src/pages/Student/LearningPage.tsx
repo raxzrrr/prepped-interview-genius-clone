@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -9,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import VideoPlayer from '@/components/Learning/VideoPlayer';
-import { BookOpen, Check, CheckCircle2, Lock, Play, PlayCircle } from 'lucide-react';
+import { BookOpen, Check, CheckCircle, Lock, Play, PlayCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Json } from '@/integrations/supabase/types';
@@ -93,7 +92,7 @@ const LearningPage: React.FC = () => {
           description: 'Learn how to approach system design questions effectively.',
           videoUrl: 'https://www.youtube.com/embed/q0KGYwNbf-0',
           duration: '28:15',
-          locked: true,
+          locked: false, // Unlocking all videos
           completed: false
         },
         {
@@ -102,7 +101,7 @@ const LearningPage: React.FC = () => {
           description: 'How to structure and deliver compelling stories for behavioral questions.',
           videoUrl: 'https://www.youtube.com/embed/9FgfsL9B9Us',
           duration: '19:10',
-          locked: true,
+          locked: false, // Unlocking all videos
           completed: false
         },
         {
@@ -111,7 +110,7 @@ const LearningPage: React.FC = () => {
           description: 'Real-world simulation of a complete technical interview.',
           videoUrl: 'https://www.youtube.com/embed/1qw5ITr3k9E',
           duration: '45:00',
-          locked: true,
+          locked: false, // Unlocking all videos
           completed: false
         }
       ],
@@ -137,7 +136,7 @@ const LearningPage: React.FC = () => {
           description: 'Take the 30-minute technical assessment to earn your certificate.',
           videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
           duration: '30:00',
-          locked: true,
+          locked: false, // Unlocking all videos
           completed: false
         }
       ],
@@ -175,6 +174,7 @@ const LearningPage: React.FC = () => {
         .single();
       
       if (error && error.code !== 'PGRST116') {
+        console.log("Error fetching user learning data:", error);
         throw error;
       }
       
@@ -204,6 +204,7 @@ const LearningPage: React.FC = () => {
           .single();
         
         if (createError) {
+          console.log("Error creating user learning data:", createError);
           throw createError;
         }
         
@@ -225,7 +226,7 @@ const LearningPage: React.FC = () => {
   };
   
   const updateCoursesWithUserProgress = () => {
-    if (!userLearningData || !userLearningData.course_progress) {
+    if (!userLearningData) {
       setCourses(coursesData);
       return;
     }
@@ -236,18 +237,14 @@ const LearningPage: React.FC = () => {
       const courseProgress = userLearningData.course_progress[course.id] || {};
       
       // Update modules with completion status
-      const updatedModules = course.modules.map((module, index) => {
+      const updatedModules = course.modules.map((module) => {
         // Check if this module is completed
         const moduleCompleted = courseProgress[module.id] === true;
         
-        // A module is locked if there are previous modules that aren't completed
-        // but the first module is always unlocked
-        const previousModuleCompleted = index === 0 || 
-          (index > 0 && courseProgress[course.modules[index - 1].id] === true);
-          
+        // All modules are unlocked
         return {
           ...module,
-          locked: index > 0 && !previousModuleCompleted,
+          locked: false, // All videos are unlocked
           completed: moduleCompleted
         };
       });
@@ -270,15 +267,7 @@ const LearningPage: React.FC = () => {
   };
   
   const handleModuleSelect = (module: Module) => {
-    if (module.locked) {
-      toast({
-        title: "Module Locked",
-        description: "Complete the previous module to unlock this content.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+    // All modules are unlocked, so no need to check if locked
     setSelectedModule(module);
   };
   
@@ -286,7 +275,7 @@ const LearningPage: React.FC = () => {
     console.log(`Module ${moduleId} progress: ${progress}%`);
     
     // Consider a module complete when progress reaches 100%
-    if (progress >= 90) {
+    if (progress >= 100) {
       await markModuleAsCompleted(moduleId);
     }
   };
@@ -374,7 +363,31 @@ const LearningPage: React.FC = () => {
       });
       
       // Refresh the courses data to update the UI
-      updateCoursesWithUserProgress();
+      const updatedCourses = courses.map(course => {
+        if (course.id === courseId) {
+          const updatedModules = course.modules.map(module => {
+            if (module.id === moduleId) {
+              return {
+                ...module,
+                completed: true
+              };
+            }
+            return module;
+          });
+          
+          const completedCount = updatedModules.filter(m => m.completed).length;
+          const progress = Math.round((completedCount / updatedModules.length) * 100);
+          
+          return {
+            ...course,
+            modules: updatedModules,
+            progress
+          };
+        }
+        return course;
+      });
+      
+      setCourses(updatedCourses);
       
       // Check if all modules in the course are completed
       if (courseId === 'interview-mastery') {
@@ -409,29 +422,14 @@ const LearningPage: React.FC = () => {
         const course = courses[currentCourseIndex];
         if (currentModuleIndex < course.modules.length - 1) {
           const nextModule = course.modules[currentModuleIndex + 1];
-          // Check if the next module is not locked
-          const nextModuleLocked = nextModule.locked;
           
-          if (!nextModuleLocked) {
-            console.log(`Auto-advancing to next module: ${nextModule.id}`);
-            
-            toast({
-              title: "Module Completed",
-              description: "Moving to the next module...",
-            });
-            setTimeout(() => {
-              setSelectedModule(nextModule);
-            }, 1500);
-          } else {
-            console.log("Next module is locked, not auto-advancing");
-            // We'll unlock it on the next render with the updated progress
-            toast({
-              title: "Module Completed",
-              description: "The next module has been unlocked!",
-            });
-            // Force an update of the courses to unlock the next module
-            updateCoursesWithUserProgress();
-          }
+          toast({
+            title: "Module Completed",
+            description: "Moving to the next module...",
+          });
+          setTimeout(() => {
+            setSelectedModule(nextModule);
+          }, 1500);
         } else {
           console.log("This was the last module in the course");
           toast({
@@ -486,12 +484,25 @@ const LearningPage: React.FC = () => {
                   <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
                   <p className="text-gray-600">{selectedModule.description}</p>
                   
-                  {selectedModule.completed && (
-                    <div className="flex items-center text-green-500">
-                      <CheckCircle2 className="h-5 w-5 mr-2" />
-                      <span>Completed</span>
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="flex-1">
+                      {selectedModule.completed && (
+                        <div className="flex items-center text-green-500">
+                          <CheckCircle className="h-5 w-5 mr-2" />
+                          <span>Completed</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    
+                    {/* Mark as Completed button directly on the page */}
+                    <Button 
+                      onClick={() => markModuleAsCompleted(selectedModule.id)}
+                      className="bg-brand-purple hover:bg-brand-purple/90 flex items-center gap-2"
+                    >
+                      <Check className="h-4 w-4" />
+                      Mark as Completed
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -533,9 +544,7 @@ const LearningPage: React.FC = () => {
                                className={`flex items-start p-3 border rounded-lg ${
                                  module.completed 
                                    ? 'border-green-200 bg-green-50' 
-                                   : module.locked 
-                                     ? 'border-gray-200 bg-gray-50 opacity-75' 
-                                     : 'border-gray-200 hover:border-brand-purple/50 hover:bg-brand-purple/5 cursor-pointer'
+                                   : 'border-gray-200 hover:border-brand-purple/50 hover:bg-brand-purple/5 cursor-pointer'
                                }`}
                                onClick={() => handleModuleSelect(module)}
                           >
@@ -543,10 +552,6 @@ const LearningPage: React.FC = () => {
                               {module.completed ? (
                                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-500">
                                   <Check className="h-5 w-5" />
-                                </div>
-                              ) : module.locked ? (
-                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400">
-                                  <Lock className="h-4 w-4" />
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-purple/10 text-brand-purple">
@@ -556,12 +561,12 @@ const LearningPage: React.FC = () => {
                             </div>
                             <div className="flex-1">
                               <div className="flex justify-between">
-                                <h4 className={`font-medium ${module.locked ? 'text-gray-500' : ''}`}>
+                                <h4 className="font-medium">
                                   {index + 1}. {module.title}
                                 </h4>
                                 <span className="text-sm text-gray-500">{module.duration}</span>
                               </div>
-                              <p className={`text-sm mt-1 ${module.locked ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className="text-sm mt-1 text-gray-600">
                                 {module.description}
                               </p>
                             </div>
@@ -577,9 +582,9 @@ const LearningPage: React.FC = () => {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          disabled={!course.modules.some(m => !m.locked && !m.completed)}
+                          disabled={!course.modules.some(m => !m.completed)}
                           onClick={() => {
-                            const nextModule = course.modules.find(m => !m.locked && !m.completed);
+                            const nextModule = course.modules.find(m => !m.completed);
                             if (nextModule) {
                               handleModuleSelect(nextModule);
                             }
