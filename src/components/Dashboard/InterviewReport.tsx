@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Download, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { Download, ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import ResumeAnalysisResults from './ResumeAnalysisResults';
 import jsPDF from 'jspdf';
@@ -30,7 +30,31 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   onDone
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [expandedAnswers, setExpandedAnswers] = useState<{ [key: number]: boolean }>({});
   const { toast } = useToast();
+
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLines: number = 3) => {
+    if (!text) return text;
+    
+    const words = text.split(' ');
+    const wordsPerLine = 15; // Approximate words per line
+    const maxWords = maxLines * wordsPerLine;
+    
+    if (words.length <= maxWords) {
+      return text;
+    }
+    
+    return words.slice(0, maxWords).join(' ') + '...';
+  };
+
+  // Toggle answer expansion
+  const toggleAnswerExpansion = (index: number) => {
+    setExpandedAnswers(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   // Helper function to render formatted text
   const renderFormattedText = (text: string) => {
@@ -330,6 +354,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
               const answer = answers[index];
               const evaluation = evaluations[index];
               const isAnswered = answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped';
+              const isExpanded = expandedAnswers[index];
+              const shouldTruncate = answer && answer.length > 200; // Truncate if longer than 200 characters
               
               return (
                 <div key={index} className="border-b border-gray-200 pb-6 last:border-b-0">
@@ -349,13 +375,43 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                         <p className="mt-1 text-gray-700">{question}</p>
                       </div>
                       <div className="mb-3">
-                        <span className="font-medium text-gray-900">Your Answer:</span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-900">Your Answer:</span>
+                          {shouldTruncate && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleAnswerExpansion(index)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="h-4 w-4 mr-1" />
+                                  Show less
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="h-4 w-4 mr-1" />
+                                  Show more
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
                         <div className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
-                          {isAnswered ? renderFormattedText(answer) : 'No answer provided'}
+                          {isAnswered ? (
+                            renderFormattedText(
+                              shouldTruncate && !isExpanded 
+                                ? truncateText(answer) 
+                                : answer
+                            )
+                          ) : (
+                            'No answer provided'
+                          )}
                         </div>
                       </div>
                       
-                      {evaluation && (
+                      {evaluation && isAnswered && (
                         <div className="space-y-4">
                           <div>
                             <span className="font-medium text-gray-900">Ideal Answer:</span>
