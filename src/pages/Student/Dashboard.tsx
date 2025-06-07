@@ -2,22 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import InterviewPrep from '@/components/Dashboard/InterviewPrep';
-import InterviewReport from '@/components/Dashboard/InterviewReport';
-import ResumeUpload from '@/components/Dashboard/ResumeUpload';
-import ResumeAnalysisResults from '@/components/Dashboard/ResumeAnalysisResults';
 import { Button } from '@/components/ui/button';
 import { 
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle 
 } from '@/components/ui/card';
-import { Label } from "@/components/ui/label";
 import { useToast } from '@/components/ui/use-toast';
-import { BriefcaseIcon, Clock, PlayCircle, AlertCircle, Upload, FileText, User, Briefcase } from 'lucide-react';
+import { Clock, Sparkles, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
@@ -29,12 +22,6 @@ const Dashboard: React.FC = () => {
   const { user, isStudent } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
-  const [interviewAnswers, setInterviewAnswers] = useState<string[]>([]);
-  const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
-  const [resumeAnalysis, setResumeAnalysis] = useState<any>(null);
-  const [stage, setStage] = useState<'select' | 'interview' | 'report'>('select');
-  const [interviewId, setInterviewId] = useState<string | undefined>();
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [usageData, setUsageData] = useState<{ custom_interviews: number, resume_interviews: number }>({ 
     custom_interviews: 0, 
@@ -47,7 +34,7 @@ const Dashboard: React.FC = () => {
     completedInterviews: []
   });
   
-  const { getInterviews, saveInterview } = useInterviewApi();
+  const { getInterviews } = useInterviewApi();
 
   // Check if API key is configured when component mounts
   useEffect(() => {
@@ -131,65 +118,12 @@ const Dashboard: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  const handleInterviewComplete = (answers: string[], facialData: any[]) => {
-    setInterviewAnswers(answers);
-    setFacialAnalysis(facialData);
-    setStage('report');
-    fetchUserStats();
-    fetchUserInterviewUsage();
-  };
-
-  const startNewInterview = () => {
-    setStage('select');
-    setInterviewQuestions([]);
-    setInterviewAnswers([]);
-    setFacialAnalysis([]);
-    setInterviewId(undefined);
-    setResumeAnalysis(null);
-    fetchUserInterviewUsage();
-    fetchUserStats();
-  };
-
   const handleApiSetupComplete = () => {
     setShowApiSettings(false);
     toast({
       title: "API Key Configured",
       description: "You can now use all AI-powered interview features.",
     });
-  };
-  
-  const handleResumeAnalysisComplete = async (questions: string[]) => {
-    // Save resume-based interview to database
-    if (user && questions.length > 0) {
-      try {
-        const newInterviewData = {
-          user_id: user.id,
-          title: `Resume-based Interview`,
-          questions: questions,
-          status: 'in-progress'
-        };
-        
-        const savedInterviewId = await saveInterview(newInterviewData);
-        setInterviewId(savedInterviewId);
-        
-        // Refresh usage data after saving
-        fetchUserInterviewUsage();
-      } catch (error) {
-        console.error("Error saving resume-based interview:", error);
-        toast({
-          title: "Warning",
-          description: "Interview questions generated but failed to save session. You can still proceed.",
-          variant: "destructive",
-        });
-      }
-    }
-    
-    setInterviewQuestions(questions);
-    setStage('interview');
-  };
-  
-  const handleResumeAnalysisResults = (analysis: any) => {
-    setResumeAnalysis(analysis);
   };
 
   if (showApiSettings) {
@@ -212,310 +146,129 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  const totalUsage = usageData.custom_interviews + usageData.resume_interviews;
+
   return (
     <DashboardLayout>
-      {stage === 'select' && (
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-6">Interview Preparation</h1>
-            <p className="mt-2 text-gray-600">
-              Practice your interview skills with our AI-powered mock interview system
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center">
-                  <Clock className="mr-2 h-5 w-5 text-gray-500" />
-                  Monthly Limits
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">Resume Interviews</span>
-                      <span className={`text-sm font-medium ${usageData.resume_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
-                        {usageData.resume_interviews}/10
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${usageData.resume_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
-                        style={{ width: `${(usageData.resume_interviews / 10) * 100}%` }}
-                      ></div>
-                    </div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-6">Dashboard</h1>
+          <p className="mt-2 text-gray-600">
+            Welcome back! Here's your interview preparation overview.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Monthly Limits */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center">
+                <Clock className="mr-2 h-5 w-5 text-gray-500" />
+                Monthly Limits
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-500">Total Interviews</span>
+                    <span className={`text-sm font-medium ${totalUsage >= 20 ? 'text-red-500' : 'text-green-500'}`}>
+                      {totalUsage}/20
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">Custom Interviews</span>
-                      <span className={`text-sm font-medium ${usageData.custom_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
-                        {usageData.custom_interviews}/10
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${usageData.custom_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
-                        style={{ width: `${(usageData.custom_interviews / 10) * 100}%` }}
-                      ></div>
-                    </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${totalUsage >= 20 ? 'bg-red-500' : 'bg-green-500'}`} 
+                      style={{ width: `${(totalUsage / 20) * 100}%` }}
+                    ></div>
                   </div>
                 </div>
-                <div className="mt-4 text-xs text-gray-500 pt-2 border-t border-gray-100">
-                  <p>Limits reset every 30 days</p>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-400">Resume-based</span>
+                    <span className="text-xs text-gray-500">{usageData.resume_interviews}/10</span>
+                  </div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-400">Custom/Role-based</span>
+                    <span className="text-xs text-gray-500">{usageData.custom_interviews}/10</span>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="mt-4 text-xs text-gray-500 pt-2 border-t border-gray-100">
+                <p>Limits reset every 30 days</p>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center">
-                  Performance Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">Average Score</span>
-                    <span className="text-lg font-bold text-brand-purple">{userStats.averageScore}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">Total Interviews</span>
-                    <span className="text-lg font-bold">{userStats.totalInterviews}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">Total Questions</span>
-                    <span className="text-lg font-bold">{userStats.totalQuestions}</span>
-                  </div>
+          {/* Performance Summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center">
+                Performance Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Average Score</span>
+                  <span className="text-lg font-bold text-brand-purple">{userStats.averageScore}%</span>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle>Recent Feedback</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {userStats.completedInterviews.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">
-                      "Your technical answers are solid, but try to include more specific examples from your experience."
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      "Good engagement and facial expressions. You appear confident and engaged during the interview."
-                    </p>
-                  </div>
-                ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Total Interviews</span>
+                  <span className="text-lg font-bold">{userStats.totalInterviews}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Total Questions</span>
+                  <span className="text-lg font-bold">{userStats.totalQuestions}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Recent Feedback */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Recent Feedback</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {userStats.completedInterviews.length > 0 ? (
+                <div className="space-y-2">
                   <p className="text-sm text-gray-600">
-                    Complete an interview to receive feedback on your performance.
+                    "Your technical answers are solid, but try to include more specific examples from your experience."
                   </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Improvement Tips Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Improvement Tips</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                <li className="flex items-start space-x-2">
-                  <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm text-gray-600">
-                    Practice maintaining consistent eye contact
-                  </span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm text-gray-600">
-                    Use the STAR method for behavioral questions
-                  </span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm text-gray-600">
-                    Include more quantifiable results in your answers
-                  </span>
-                </li>
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full">
-                <FileText className="w-4 h-4 mr-2" />
-                View Full Report
-              </Button>
-            </CardFooter>
-          </Card>
-
-          {/* Quick Actions Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <Button 
-                  className="w-full justify-start" 
-                  variant="outline"
-                  onClick={() => navigate('/custom-interviews')}
-                >
-                  <Briefcase className="w-4 h-4 mr-2" />
-                  Start Role-Based Interview
-                </Button>
-                <Button 
-                  className="w-full justify-start" 
-                  variant="outline"
-                  onClick={() => navigate('/interviews')}
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  View All Interviews
-                </Button>
-                <Button 
-                  className="w-full justify-start" 
-                  variant="outline"
-                  onClick={() => navigate('/reports')}
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  View Reports
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Getting Started Card for new users */}
-          {userStats.totalInterviews === 0 && (
-            <Card className="md:col-span-2">
-              <CardHeader className="pb-3">
-                <CardTitle>Getting Started</CardTitle>
-              </CardHeader>
-              <CardContent>
+                  <p className="text-sm text-gray-600">
+                    "Good engagement and facial expressions. You appear confident and engaged during the interview."
+                  </p>
+                </div>
+              ) : (
                 <p className="text-sm text-gray-600">
-                  Welcome to Interview Genius! Start by choosing an interview type below.
+                  Complete an interview to receive feedback on your performance.
                 </p>
-                <div className="mt-4 space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="bg-brand-purple/10 p-2 rounded-full">
-                      <Upload className="h-5 w-5 text-brand-purple" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium">Upload Your Resume</h4>
-                      <p className="text-xs text-gray-500">
-                        Get tailored questions based on your skills and experience
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="bg-brand-purple/10 p-2 rounded-full">
-                      <PlayCircle className="h-5 w-5 text-brand-purple" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium">Practice with AI</h4>
-                      <p className="text-xs text-gray-500">
-                        Experience realistic interview scenarios with our AI interviewer
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Resume-Based Interview</CardTitle>
-              <CardDescription>
-                Upload your resume to get personalized interview questions tailored to your experience
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="resume-file">Resume Analysis & Interview</Label>
-                  <p className="text-sm text-gray-500">
-                    Our AI will analyze your resume and generate relevant interview questions based on your skills and experience.
-                  </p>
-                </div>
-              </div>
+              )}
             </CardContent>
-            <CardFooter>
-              <Button 
-                className="w-full"
-                onClick={() => navigate('/custom-interviews')}
-                disabled={usageData.resume_interviews >= 10}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                {usageData.resume_interviews >= 10 ? 'Monthly Limit Reached' : 'Start Resume-Based Interview'}
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Role-Based Interview</CardTitle>
-              <CardDescription>
-                Practice interviews for specific job roles with customized questions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-500">
-                    Enter a specific job role and get targeted interview questions tailored to that position.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                className="w-full"
-                onClick={() => navigate('/custom-interviews')}
-                disabled={usageData.custom_interviews >= 10}
-              >
-                <Briefcase className="mr-2 h-4 w-4" />
-                {usageData.custom_interviews >= 10 ? 'Monthly Limit Reached' : 'Start Role-Based Interview'}
-              </Button>
-            </CardFooter>
           </Card>
         </div>
-      )}
 
-      {stage === 'interview' && (
-        <InterviewPrep 
-          questions={interviewQuestions}
-          interviewId={interviewId}
-          onInterviewComplete={handleInterviewComplete}
-        />
-      )}
-
-      {stage === 'report' && resumeAnalysis && (
-        <>
-          <InterviewReport 
-            questions={interviewQuestions}
-            answers={interviewAnswers}
-            facialAnalysis={facialAnalysis}
-            onDone={startNewInterview}
-          />
-          <ResumeAnalysisResults analysis={resumeAnalysis} />
-        </>
-      )}
-
-      {stage === 'report' && !resumeAnalysis && (
-        <InterviewReport 
-          questions={interviewQuestions}
-          answers={interviewAnswers}
-          facialAnalysis={facialAnalysis}
-          onDone={startNewInterview}
-        />
-      )}
+        {/* Start Interview Button */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Start Interview Practice</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              Practice your interview skills with AI-powered mock interviews. Choose between resume-based or role-specific questions.
+            </p>
+            <Button 
+              className="w-full"
+              onClick={() => navigate('/custom-interviews')}
+              disabled={totalUsage >= 20}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {totalUsage >= 20 ? 'Monthly Limit Reached' : 'Start Interview Practice'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </DashboardLayout>
   );
 };
