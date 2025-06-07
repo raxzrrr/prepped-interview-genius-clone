@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -224,7 +223,6 @@ const ReportsPage: React.FC = () => {
                   size="sm"
                   className="flex items-center"
                   onClick={() => {
-                    // Navigate to detailed report view
                     window.location.href = `/reports/${report.id}`;
                   }}
                 >
