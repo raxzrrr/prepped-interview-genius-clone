@@ -16,9 +16,13 @@ serve(async (req) => {
     const { prompt, type } = await req.json();
     const apiKey = Deno.env.get('GEMINI_API_KEY');
 
+    console.log('Edge function called with type:', type);
+    console.log('API key available:', apiKey ? 'Yes' : 'No');
+
     if (!apiKey) {
+      console.error('GEMINI_API_KEY environment variable not set');
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
+        JSON.stringify({ error: 'GEMINI_API_KEY not configured in edge function environment' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
@@ -104,6 +108,8 @@ serve(async (req) => {
       body: JSON.stringify(requestBody),
     });
 
+    console.log('Gemini API response status:', response.status);
+
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Gemini API error:', errorData);
@@ -111,6 +117,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log('Gemini API response received successfully');
     
     // Extract the response text
     let result;
@@ -124,6 +131,7 @@ serve(async (req) => {
         console.log('JSON parsed successfully');
       } catch (e) {
         console.error('JSON parsing failed:', e);
+        console.log('Raw response text:', text);
         // If JSON parsing fails, return the text directly
         result = { text };
       }

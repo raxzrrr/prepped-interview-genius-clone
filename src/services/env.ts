@@ -16,6 +16,7 @@ class EnvService {
     // Get from environment if available
     if (import.meta.env.VITE_GEMINI_API_KEY) {
       this.config.GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+      console.log('Loaded Gemini API key from environment');
     }
   }
 
@@ -30,7 +31,9 @@ class EnvService {
     try {
       const storedConfig = localStorage.getItem('env_config');
       if (storedConfig) {
-        this.config = { ...this.config, ...JSON.parse(storedConfig) };
+        const parsed = JSON.parse(storedConfig);
+        this.config = { ...this.config, ...parsed };
+        console.log('Loaded config from localStorage');
       }
     } catch (error) {
       console.error('Error loading environment variables from localStorage:', error);
@@ -40,26 +43,41 @@ class EnvService {
   public saveToLocalStorage(): void {
     try {
       localStorage.setItem('env_config', JSON.stringify(this.config));
+      console.log('Saved config to localStorage');
     } catch (error) {
       console.error('Error saving environment variables to localStorage:', error);
     }
   }
 
   public get(key: keyof EnvConfig): string | null {
-    return this.config[key];
+    const value = this.config[key];
+    console.log(`Getting ${key}:`, value ? 'Key present' : 'Key missing');
+    return value;
   }
 
   public set(key: keyof EnvConfig, value: string | null): void {
     this.config[key] = value;
     this.saveToLocalStorage();
+    console.log(`Set ${key}:`, value ? 'Key set' : 'Key cleared');
   }
 
   public isConfigured(key: keyof EnvConfig): boolean {
-    return this.config[key] !== null && this.config[key] !== '';
+    const isConfigured = this.config[key] !== null && this.config[key] !== '';
+    console.log(`${key} configured:`, isConfigured);
+    return isConfigured;
   }
 
   public getAllConfig(): EnvConfig {
     return { ...this.config };
+  }
+
+  // Debug method to check all sources
+  public debugApiKey(): void {
+    console.log('=== API Key Debug ===');
+    console.log('Environment VITE_GEMINI_API_KEY:', import.meta.env.VITE_GEMINI_API_KEY ? 'Present' : 'Missing');
+    console.log('LocalStorage config:', this.config);
+    console.log('Final GEMINI_API_KEY:', this.get('GEMINI_API_KEY') ? 'Present' : 'Missing');
+    console.log('===================');
   }
 }
 

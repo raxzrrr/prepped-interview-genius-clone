@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
@@ -35,15 +34,24 @@ export const useInterviewApi = () => {
   const { toast } = useToast();
 
   const checkApiKey = (): boolean => {
+    // Debug API key configuration
+    envService.debugApiKey();
+    
     const geminiApiKey = envService.get('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY;
+    
+    console.log('API Key check result:', geminiApiKey ? 'Available' : 'Missing');
+    
     if (!geminiApiKey) {
+      console.error('No Gemini API key found in any source');
       toast({
         title: "API Key Required",
-        description: "Please set up your Gemini API key in Settings to use this feature.",
+        description: "Please set up your Gemini API key in Settings to use this feature. Check both environment variables and Settings page.",
         variant: "destructive"
       });
       return false;
     }
+    
+    console.log('API key validation successful');
     return true;
   };
 
@@ -57,25 +65,37 @@ export const useInterviewApi = () => {
         body: { type: 'interview-questions', prompt: jobRole }
       });
 
+      console.log('Supabase function response:', { data, error });
+
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message);
+        throw new Error(error.message || 'Edge function error');
+      }
+      
+      if (!data) {
+        throw new Error('No data received from API');
       }
       
       if (Array.isArray(data)) {
-        return data.map((question, index) => ({
+        const questions = data.map((question, index) => ({
           id: `q-${index + 1}`,
-          question
+          question: typeof question === 'string' ? question : question.question || 'Question unavailable'
         }));
+        
+        console.log('Successfully generated questions:', questions.length);
+        return questions;
       }
       
-      // If data is not an array or is invalid, throw error instead of using mock data
       throw new Error('Invalid response format from API');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating interview questions:', error);
+      
+      const errorMessage = error.message || 'Unknown error occurred';
+      console.error('Detailed error:', errorMessage);
+      
       toast({
         title: "API Error",
-        description: "Failed to generate interview questions. Please check your API configuration.",
+        description: `Failed to generate interview questions: ${errorMessage}. Please check your API configuration and network connection.`,
         variant: "destructive"
       });
       throw error;
@@ -86,6 +106,8 @@ export const useInterviewApi = () => {
     if (!checkApiKey()) return null;
     
     try {
+      console.log('Getting feedback for question:', question.substring(0, 50) + '...');
+      
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'feedback', 
@@ -98,12 +120,17 @@ export const useInterviewApi = () => {
         throw new Error(error.message);
       }
       
+      if (!data) {
+        throw new Error('No feedback data received');
+      }
+      
+      console.log('Successfully received feedback');
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting answer feedback:', error);
       toast({
         title: "API Error",
-        description: "Failed to analyze your answer. Please check your API configuration.",
+        description: `Failed to analyze your answer: ${error.message}. Please check your API configuration.`,
         variant: "destructive"
       });
       throw error;
@@ -114,6 +141,8 @@ export const useInterviewApi = () => {
     if (!checkApiKey()) return null;
     
     try {
+      console.log('Analyzing facial expression...');
+      
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'facial-analysis', 
@@ -126,12 +155,17 @@ export const useInterviewApi = () => {
         throw new Error(error.message);
       }
       
+      if (!data) {
+        throw new Error('No facial analysis data received');
+      }
+      
+      console.log('Successfully analyzed facial expression');
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error analyzing facial expression:', error);
       toast({
         title: "API Error",
-        description: "Failed to analyze facial expressions. Please check your API configuration.",
+        description: `Failed to analyze facial expressions: ${error.message}. Please check your API configuration.`,
         variant: "destructive"
       });
       throw error;
@@ -164,12 +198,13 @@ export const useInterviewApi = () => {
         throw new Error('No analysis data received');
       }
       
+      console.log('Successfully analyzed resume');
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error analyzing resume:', error);
       toast({
         title: "API Error",
-        description: "Failed to analyze resume. Please check your API configuration.",
+        description: `Failed to analyze resume: ${error.message}. Please check your API configuration.`,
         variant: "destructive"
       });
       throw error;
