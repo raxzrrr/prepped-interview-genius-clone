@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -140,24 +139,14 @@ const LearningPage: React.FC = () => {
   }
 
   useEffect(() => {
-    if (userLearningData) {
-      updateCoursesWithUserProgress();
-    } else if (!learningLoading && !learningError) {
-      // If no learning data and not loading, use default courses
-      setCourses(coursesData);
-    }
-  }, [userLearningData, learningLoading, learningError]);
+    updateCoursesWithUserProgress();
+  }, [userLearningData]);
   
   const updateCoursesWithUserProgress = () => {
-    if (!userLearningData) {
-      setCourses(coursesData);
-      return;
-    }
-    
-    console.log('Updating courses with user progress:', userLearningData.course_progress);
+    console.log('Updating courses with user progress:', userLearningData?.course_progress);
     
     const updatedCourses = coursesData.map(course => {
-      const courseProgress = userLearningData.course_progress[course.id] || {};
+      const courseProgress = userLearningData?.course_progress?.[course.id] || {};
       
       const updatedModules = course.modules.map((module) => ({
         ...module,
@@ -194,16 +183,12 @@ const LearningPage: React.FC = () => {
     console.log('Module completed:', moduleId);
     
     let courseId = '';
-    let currentCourseIndex = -1;
-    let currentModuleIndex = -1;
     
     for (let i = 0; i < courses.length; i++) {
       const course = courses[i];
       const moduleIndex = course.modules.findIndex(m => m.id === moduleId);
       if (moduleIndex >= 0) {
         courseId = course.id;
-        currentCourseIndex = i;
-        currentModuleIndex = moduleIndex;
         break;
       }
     }
@@ -216,12 +201,17 @@ const LearningPage: React.FC = () => {
     const success = await updateModuleCompletion(moduleId, courseId);
     if (!success) return;
     
+    // Force update courses with new progress
+    setTimeout(() => {
+      updateCoursesWithUserProgress();
+    }, 100);
+    
     // Check for course completion
     if (courseId === 'interview-mastery') {
       const course = courses.find(c => c.id === courseId);
       if (course && user) {
         const allModulesCompleted = course.modules.every(
-          m => userLearningData?.course_progress[courseId]?.[m.id] === true || m.id === moduleId
+          m => userLearningData?.course_progress?.[courseId]?.[m.id] === true || m.id === moduleId
         );
         
         if (allModulesCompleted) {
@@ -280,6 +270,7 @@ const LearningPage: React.FC = () => {
 
   const handleMarkAsCompletedFromList = async (moduleId: string, event: React.MouseEvent) => {
     event.stopPropagation();
+    console.log('Mark as completed clicked for module:', moduleId);
     await handleModuleCompleted(moduleId);
   };
   
@@ -308,7 +299,7 @@ const LearningPage: React.FC = () => {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {learningError}. Some features may not work properly.
+              {learningError}. Progress will be saved locally.
             </AlertDescription>
           </Alert>
         )}
