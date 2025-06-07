@@ -16,19 +16,48 @@ export interface UserLearningData {
   updated_at: string;
 }
 
+const invokeFunction = async (functionName: string, body: any, retries = 2): Promise<any> => {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      console.log(`Invoking ${functionName}, attempt ${attempt + 1}/${retries + 1}`, body);
+      
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body
+      });
+
+      if (error) {
+        console.error(`Function ${functionName} error:`, error);
+        throw error;
+      }
+      
+      if (!data.success) {
+        console.error(`Function ${functionName} returned error:`, data.error);
+        throw new Error(data.error);
+      }
+      
+      console.log(`Function ${functionName} success:`, data.data);
+      return data;
+    } catch (error) {
+      console.error(`Function ${functionName} attempt ${attempt + 1} failed:`, error);
+      
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+    }
+  }
+};
+
 export const learningService = {
   async fetchUserLearningData(clerkUserId: string, totalModules: number): Promise<UserLearningData | null> {
     try {
-      const { data, error } = await supabase.functions.invoke('learning-service', {
-        body: {
-          action: 'fetch',
-          clerkUserId,
-          totalModules
-        }
+      const data = await invokeFunction('learning-service', {
+        action: 'fetch',
+        clerkUserId,
+        totalModules
       });
-
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
       
       return data.data;
     } catch (error) {
@@ -61,16 +90,11 @@ export const learningService = {
         updateData.course_completed_at = new Date().toISOString();
       }
 
-      const { data, error } = await supabase.functions.invoke('learning-service', {
-        body: {
-          action: 'update',
-          clerkUserId,
-          data: updateData
-        }
+      const data = await invokeFunction('learning-service', {
+        action: 'update',
+        clerkUserId,
+        data: updateData
       });
-
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
       
       return data.data;
     } catch (error) {
@@ -81,16 +105,11 @@ export const learningService = {
 
   async updateAssessmentScore(clerkUserId: string, score: number): Promise<UserLearningData> {
     try {
-      const { data, error } = await supabase.functions.invoke('learning-service', {
-        body: {
-          action: 'updateAssessment',
-          clerkUserId,
-          data: { score }
-        }
+      const data = await invokeFunction('learning-service', {
+        action: 'updateAssessment',
+        clerkUserId,
+        data: { score }
       });
-
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
       
       return data.data;
     } catch (error) {
