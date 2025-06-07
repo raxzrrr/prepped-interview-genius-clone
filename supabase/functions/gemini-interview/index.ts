@@ -72,19 +72,15 @@ serve(async (req) => {
         contents: [{
           parts: [{
             text: `Question: ${question}\n\nUser's Answer: ${userAnswer}\n\nProvide a comprehensive evaluation including:
-            1. An ideal/sample answer for this question (use proper markdown formatting with **bold** text and bullet points where appropriate)
+            1. An ideal/sample answer for this question (KEEP IT CONCISE - 3-4 sentences maximum)
             2. Evaluation criteria for what makes a good answer
             3. Score breakdown (clarity, relevance, depth, examples, overall - each out of 100)
             4. Detailed feedback on the user's answer (or note that no answer was provided)
             
-            For the ideal answer, use markdown formatting like:
-            * **Key Point:** Explanation with details
-            * **Another Point:** More details
-            
-            Make the ideal answer comprehensive and well-structured with proper formatting.
+            For the ideal answer, provide a CONCISE, well-structured response that directly answers the question in 3-4 sentences. Focus on the key points without excessive detail.
             
             Format the response as a JSON object with these properties:
-            - "ideal_answer" (string): A comprehensive sample answer with markdown formatting
+            - "ideal_answer" (string): A concise 3-4 sentence sample answer
             - "evaluation_criteria" (array of strings): Key criteria for evaluating this type of question
             - "score_breakdown" (object): {"clarity": number, "relevance": number, "depth": number, "examples": number, "overall": number}
             - "feedback" (string): Detailed feedback on the user's specific answer or note about no answer provided`

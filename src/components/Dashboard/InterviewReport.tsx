@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +31,36 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
+
+  // Helper function to render formatted text
+  const renderFormattedText = (text: string) => {
+    if (!text) return text;
+    
+    // Convert markdown-style formatting to JSX
+    return text
+      .split('\n')
+      .map((line, index) => {
+        // Handle bullet points
+        if (line.trim().startsWith('*')) {
+          const content = line.replace(/^\s*\*\s*/, '');
+          // Handle bold text within bullet points
+          const formattedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          return (
+            <div key={index} className="ml-4 mb-2">
+              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2"></span>
+              <span dangerouslySetInnerHTML={{ __html: formattedContent }} />
+            </div>
+          );
+        }
+        // Handle bold text in regular lines
+        const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return formattedLine ? (
+          <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: formattedLine }} />
+        ) : (
+          <br key={index} />
+        );
+      });
+  };
 
   // Calculate overall score if not provided
   const calculateScore = () => {
@@ -304,18 +333,18 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                       </div>
                       <div className="mb-3">
                         <span className="font-medium text-gray-900">Your Answer:</span>
-                        <p className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
-                          {answer || 'No answer provided'}
-                        </p>
+                        <div className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
+                          {isAnswered ? renderFormattedText(answer) : 'No answer provided'}
+                        </div>
                       </div>
                       
                       {evaluation && (
                         <div className="space-y-4">
                           <div>
                             <span className="font-medium text-gray-900">Ideal Answer:</span>
-                            <p className="mt-1 p-3 rounded-md text-gray-700 bg-green-50">
-                              {evaluation.ideal_answer}
-                            </p>
+                            <div className="mt-1 p-3 rounded-md text-gray-700 bg-green-50">
+                              {renderFormattedText(evaluation.ideal_answer)}
+                            </div>
                           </div>
                           
                           {evaluation.evaluation_criteria && (
@@ -360,9 +389,9 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                           {evaluation.feedback && (
                             <div>
                               <span className="font-medium text-gray-900">Detailed Feedback:</span>
-                              <p className="mt-1 p-3 rounded-md text-gray-700 bg-yellow-50">
-                                {evaluation.feedback}
-                              </p>
+                              <div className="mt-1 p-3 rounded-md text-gray-700 bg-yellow-50">
+                                {renderFormattedText(evaluation.feedback)}
+                              </div>
                             </div>
                           )}
                         </div>

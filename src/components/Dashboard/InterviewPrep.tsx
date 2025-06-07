@@ -491,18 +491,18 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                         </div>
                         <div className="mb-3">
                           <span className="font-medium text-gray-900">Your Answer:</span>
-                          <p className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
-                            {answer || 'No answer provided'}
-                          </p>
+                          <div className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
+                            {isAnswered ? renderFormattedText(answer) : 'No answer provided'}
+                          </div>
                         </div>
                         
                         {evaluation && (
                           <div className="space-y-4">
                             <div>
                               <span className="font-medium text-gray-900">Ideal Answer:</span>
-                              <p className="mt-1 p-3 rounded-md text-gray-700 bg-green-50">
-                                {evaluation.ideal_answer}
-                              </p>
+                              <div className="mt-1 p-3 rounded-md text-gray-700 bg-green-50">
+                                {renderFormattedText(evaluation.ideal_answer)}
+                              </div>
                             </div>
                             
                             {evaluation.evaluation_criteria && (
@@ -547,9 +547,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                             {evaluation.feedback && (
                               <div>
                                 <span className="font-medium text-gray-900">Detailed Feedback:</span>
-                                <p className="mt-1 p-3 rounded-md text-gray-700 bg-yellow-50">
-                                  {evaluation.feedback}
-                                </p>
+                                <div className="mt-1 p-3 rounded-md text-gray-700 bg-yellow-50">
+                                  {renderFormattedText(evaluation.feedback)}
+                                </div>
                               </div>
                             )}
                           </div>
