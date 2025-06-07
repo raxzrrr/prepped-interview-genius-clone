@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import ttsService from '@/services/ttsService';
-import { Mic, MicOff, Video, VideoOff, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, ArrowRight, AlertTriangle, Volume2, VolumeX } from 'lucide-react';
 
 interface InterviewPrepProps {
   questions: string[];
@@ -18,11 +18,13 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [currentAnswer, setCurrentAnswer] = useState('');
   const [facialData, setFacialData] = useState<any[]>([]);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const { toast } = useToast();
   const { getAnswerFeedback, analyzeFacialExpression, updateInterview } = useInterviewApi();
   
@@ -32,10 +34,10 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (questions.length > 0 && currentQuestionIndex < questions.length) {
+    if (questions.length > 0 && currentQuestionIndex < questions.length && ttsEnabled) {
       speakQuestion();
     }
-  }, [currentQuestionIndex, questions]);
+  }, [currentQuestionIndex, questions, ttsEnabled]);
 
   useEffect(() => {
     return () => {
@@ -47,6 +49,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   }, []);
 
   const speakQuestion = async () => {
+    if (!ttsEnabled) return;
+    
     try {
       const currentQuestion = questions[currentQuestionIndex];
       setIsSpeaking(true);
@@ -55,11 +59,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     } catch (error) {
       console.error('Error speaking question:', error);
       setIsSpeaking(false);
-      toast({
-        title: "Text-to-Speech Error",
-        description: "Could not read the question aloud. Please check your TTS configuration.",
-        variant: "destructive"
-      });
+      setApiError('Text-to-Speech is temporarily unavailable. You can still read the question and provide your answer.');
+      // Don't show toast for TTS errors, just disable TTS
+      setTtsEnabled(false);
     }
   }
 
@@ -194,6 +196,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     ttsService.stop();
     setIsSpeaking(false);
     setAnswers(prev => [...prev, "Question skipped"]);
+    setCurrentAnswer('');
     moveToNextQuestion();
   };
 
@@ -202,8 +205,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
       stopRecording();
     }
 
-    const currentAnswer = audioBlob ? "Audio answer recorded" : "No answer provided";
-    const updatedAnswers = [...answers, currentAnswer];
+    const finalAnswer = currentAnswer.trim() || (audioBlob ? "Audio answer recorded" : "No answer provided");
+    const updatedAnswers = [...answers, finalAnswer];
     setAnswers(updatedAnswers);
     
     if (interviewId) {
@@ -219,12 +222,13 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     
     // Try to get feedback, but don't block progression if it fails
     try {
-      await getAnswerFeedback(questions[currentQuestionIndex], currentAnswer);
+      await getAnswerFeedback(questions[currentQuestionIndex], finalAnswer);
     } catch (error) {
       console.error('Error getting feedback:', error);
       setApiError('Answer feedback temporarily unavailable');
     }
     
+    setCurrentAnswer('');
     moveToNextQuestion();
   };
   
@@ -264,7 +268,18 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   const repeatQuestion = () => {
     ttsService.stop();
     setIsSpeaking(false);
-    speakQuestion();
+    if (ttsEnabled) {
+      speakQuestion();
+    }
+  };
+
+  const toggleTTS = () => {
+    if (isSpeaking) {
+      ttsService.stop();
+      setIsSpeaking(false);
+    }
+    setTtsEnabled(!ttsEnabled);
+    setApiError(null);
   };
 
   return (
@@ -289,9 +304,20 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
         <div className="md:col-span-2">
           <Card className="h-full flex flex-col">
             <CardHeader className="bg-gray-50 border-b">
-              <h2 className="text-xl font-medium">
-                Question {currentQuestionIndex + 1}:
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-medium">
+                  Question {currentQuestionIndex + 1}:
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleTTS}
+                  className="flex items-center gap-2"
+                >
+                  {ttsEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  {ttsEnabled ? 'TTS On' : 'TTS Off'}
+                </Button>
+              </div>
               <p className={`mt-2 text-lg ${isSpeaking ? 'text-brand-purple font-medium' : ''}`}>
                 {questions[currentQuestionIndex]}
               </p>
@@ -302,9 +328,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                 </div>
               )}
             </CardHeader>
-            <CardContent className="flex-grow flex flex-col items-center justify-center p-6">
+            <CardContent className="flex-grow flex flex-col p-6">
               {!mediaStream ? (
-                <div className="text-center">
+                <div className="text-center mb-6">
                   <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
                     <Video className="h-10 w-10 text-gray-400" />
                   </div>
@@ -317,8 +343,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                   </Button>
                 </div>
               ) : (
-                <div className="w-full">
-                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video mb-6">
+                <div className="mb-6">
+                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video mb-4">
                     <video
                       ref={videoRef}
                       autoPlay
@@ -356,13 +382,33 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                     <Button 
                       variant="outline" 
                       onClick={repeatQuestion}
-                      disabled={isSpeaking}
+                      disabled={isSpeaking || !ttsEnabled}
                     >
                       Repeat Question
                     </Button>
                   </div>
                 </div>
               )}
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Your Answer (Optional - you can also record audio)
+                  </label>
+                  <Textarea
+                    value={currentAnswer}
+                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                    placeholder="Type your answer here..."
+                    className="min-h-[120px] resize-none"
+                    rows={4}
+                  />
+                </div>
+                {audioBlob && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-700">✓ Audio answer recorded</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
             <CardFooter className="bg-gray-50 border-t flex justify-between">
               <Button 
@@ -381,6 +427,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                 </Button>
                 <Button 
                   onClick={handleNextQuestion}
+                  disabled={!currentAnswer.trim() && !audioBlob}
                 >
                   {currentQuestionIndex < questions.length - 1 ? (
                     <>
@@ -431,7 +478,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start">
                   <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">1</span>
-                  <span>Speak clearly and at a moderate pace</span>
+                  <span>You can type your answer or record audio (or both)</span>
                 </li>
                 <li className="flex items-start">
                   <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">2</span>
