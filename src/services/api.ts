@@ -29,13 +29,6 @@ interface QuestionEvaluation {
   feedback: string;
 }
 
-interface FacialAnalysis {
-  primary_emotion: string;
-  confidence_score: number;
-  engagement_level: number;
-  observations: string[];
-}
-
 interface ResumeAnalysis {
   skills: string[];
   suggested_role: string;
@@ -178,37 +171,6 @@ export const useInterviewApi = () => {
     }
   };
 
-  const analyzeFacialExpression = async (imageBase64: string): Promise<FacialAnalysis | null> => {
-    if (!checkApiKey()) return null;
-    
-    try {
-      console.log('Analyzing facial expression...');
-      
-      const { data, error } = await supabase.functions.invoke('gemini-interview', {
-        body: { 
-          type: 'facial-analysis', 
-          prompt: { image: imageBase64 } 
-        }
-      });
-
-      if (error) {
-        console.error('Edge function error for facial analysis:', error);
-        return null;
-      }
-      
-      if (!data) {
-        console.log('No facial analysis data received');
-        return null;
-      }
-      
-      console.log('Successfully analyzed facial expression');
-      return data;
-    } catch (error: any) {
-      console.error('Error analyzing facial expression:', error);
-      return null;
-    }
-  };
-
   const analyzeResume = async (resumeBase64: string): Promise<ResumeAnalysis | null> => {
     if (!checkApiKey()) return null;
     
@@ -252,7 +214,6 @@ export const useInterviewApi = () => {
     generateInterviewQuestions,
     getAnswerFeedback,
     evaluateAnswer,
-    analyzeFacialExpression,
     analyzeResume
   };
 };

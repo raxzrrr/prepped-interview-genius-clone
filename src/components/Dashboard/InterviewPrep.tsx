@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, Volume2, VolumeX, Play, Pause, SkipForward, CheckCircle, Download, Loader2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Mic, MicOff, Volume2, VolumeX, Play, SkipForward, CheckCircle, Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
@@ -37,7 +39,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
@@ -46,11 +47,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
-  const { getAnswerFeedback, evaluateAnswer, analyzeFacialExpression } = useInterviewApi();
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { getAnswerFeedback, evaluateAnswer } = useInterviewApi();
 
   useEffect(() => {
     console.log('InterviewPrep mounted. Auth state:', {
@@ -60,89 +57,32 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     });
 
     if (questions.length > 0) {
-      initializeCamera();
-      if (audioEnabled) {
-        speakQuestion(questions[0]);
-      }
+      // Set initial answer from answers array
+      setCurrentAnswer(answers[0] || '');
     }
     return () => cleanup();
-  }, [questions, audioEnabled]);
+  }, [questions]);
 
   // Real-time answer saving
   useEffect(() => {
-    if (currentAnswer.trim() && currentQuestionIndex < questions.length) {
+    if (currentQuestionIndex < questions.length) {
       const newAnswers = [...answers];
-      newAnswers[currentQuestionIndex] = currentAnswer.trim();
+      newAnswers[currentQuestionIndex] = currentAnswer;
       setAnswers(newAnswers);
-      console.log('Real-time answer saved for question', currentQuestionIndex + 1, ':', currentAnswer.trim());
+      console.log('Real-time answer saved for question', currentQuestionIndex + 1, ':', currentAnswer);
     }
   }, [currentAnswer, currentQuestionIndex]);
 
+  // Load answer when question changes
+  useEffect(() => {
+    setCurrentAnswer(answers[currentQuestionIndex] || '');
+  }, [currentQuestionIndex, answers]);
+
   const cleanup = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-    }
     if (recordingStream) {
       recordingStream.getTracks().forEach(track => track.stop());
     }
     ttsService.stop();
-  };
-
-  const initializeCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: false 
-      });
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        mediaStreamRef.current = stream;
-      }
-      
-      // Start facial analysis every 10 seconds
-      intervalRef.current = setInterval(() => {
-        if (currentQuestionIndex < questions.length) {
-          captureFacialExpression();
-        }
-      }, 10000);
-      
-    } catch (error) {
-      console.error('Camera access denied:', error);
-      toast({
-        title: "Camera Access",
-        description: "Camera access was denied. Facial analysis will be disabled.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const captureFacialExpression = async () => {
-    if (!videoRef.current) return;
-    
-    try {
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      
-      if (!context) return;
-      
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      
-      context.drawImage(videoRef.current, 0, 0);
-      const imageBase64 = canvas.toDataURL('image/jpeg');
-      
-      const analysis = await analyzeFacialExpression(imageBase64);
-      
-      if (analysis) {
-        setFacialAnalysis(prev => [...prev, analysis]);
-      }
-    } catch (error) {
-      console.error('Facial analysis error:', error);
-    }
   };
 
   const speakQuestion = async (question: string) => {
@@ -162,7 +102,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const startRecording = async () => {
     try {
       setIsRecording(true);
-      setCurrentAnswer('');
       
       const stream = await voiceToTextService.startRecording();
       setRecordingStream(stream);
@@ -205,8 +144,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     } catch (error) {
       console.error('Stop recording error:', error);
       toast({
-        title: "Recording Error",
-        description: "Failed to stop recording.",
+        title: "Recording Error", 
+        description: "Failed to process recording. Please try typing your answer instead.",
         variant: "destructive",
       });
     }
@@ -216,11 +155,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
-      setCurrentAnswer(answers[nextIndex] || '');
-      
-      if (audioEnabled) {
-        speakQuestion(questions[nextIndex]);
-      }
     }
   };
 
@@ -428,7 +362,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         questions,
         answers: finalAnswers,
         evaluations: newEvaluations,
-        facialAnalysis,
+        facialAnalysis: [], // Empty array since we removed facial analysis
         interviewId
       });
       
@@ -643,7 +577,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 setCurrentQuestionIndex(0);
                 setAnswers(new Array(questions.length).fill(''));
                 setCurrentAnswer('');
-                setFacialAnalysis([]);
                 setEvaluations([]);
               }}
             >
@@ -707,20 +640,12 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         </CardContent>
       </Card>
 
-      {/* Video Feed */}
+      {/* Question Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Video Feed</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              className="w-full h-64 bg-gray-100 rounded-lg object-cover"
-            />
-            <div className="absolute top-4 right-4">
+          <div className="flex items-center justify-between">
+            <CardTitle>Current Question</CardTitle>
+            <div className="flex space-x-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -739,17 +664,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                   </>
                 )}
               </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Question Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Current Question</CardTitle>
-            <div className="flex space-x-2">
               {audioEnabled && (
                 <Button
                   variant="outline"
@@ -760,13 +674,13 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 >
                   {isPlaying ? (
                     <>
-                      <Pause className="mr-2 h-4 w-4" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Playing...
                     </>
                   ) : (
                     <>
                       <Play className="mr-2 h-4 w-4" />
-                      Replay
+                      Play Question
                     </>
                   )}
                 </Button>
@@ -778,43 +692,52 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
           <div className="space-y-4">
             <p className="text-lg font-medium">{currentQuestion}</p>
             
-            {/* Recording Controls */}
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={isRecording ? stopRecording : startRecording}
-                variant={isRecording ? "destructive" : "default"}
-                className="flex items-center"
-              >
-                {isRecording ? (
-                  <>
-                    <MicOff className="mr-2 h-4 w-4" />
-                    Stop Recording
-                  </>
-                ) : (
-                  <>
-                    <Mic className="mr-2 h-4 w-4" />
-                    Start Recording
-                  </>
-                )}
-              </Button>
-              
-              {isRecording && (
-                <div className="flex items-center text-red-500">
-                  <div className="animate-pulse w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                  Recording...
-                </div>
-              )}
-            </div>
-            
-            {/* Current Answer Display */}
-            {(currentAnswer || answers[currentQuestionIndex]) && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">Your Answer:</h4>
-                <p className="text-gray-700">
-                  {currentAnswer || answers[currentQuestionIndex] || 'No answer provided'}
-                </p>
+            {/* Answer Input Options */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type your answer:
+                </label>
+                <Textarea
+                  placeholder="Type your answer here..."
+                  value={currentAnswer}
+                  onChange={(e) => setCurrentAnswer(e.target.value)}
+                  className="min-h-[120px]"
+                />
               </div>
-            )}
+              
+              <div className="text-center text-gray-500">
+                — OR —
+              </div>
+              
+              {/* Recording Controls */}
+              <div className="flex items-center justify-center space-x-4">
+                <Button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  variant={isRecording ? "destructive" : "default"}
+                  className="flex items-center"
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff className="mr-2 h-4 w-4" />
+                      Stop Recording
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="mr-2 h-4 w-4" />
+                      Record Answer
+                    </>
+                  )}
+                </Button>
+                
+                {isRecording && (
+                  <div className="flex items-center text-red-500">
+                    <div className="animate-pulse w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                    Recording...
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

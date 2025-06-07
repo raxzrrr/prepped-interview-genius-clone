@@ -79,17 +79,6 @@ serve(async (req) => {
           }]
         }]
       };
-    } else if (type === 'facial-analysis') {
-      url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
-      const { image } = prompt;
-      requestBody = {
-        contents: [{
-          parts: [
-            { text: "Analyze this facial expression during a job interview. What emotions are being expressed? Does the person appear confident, nervous, engaged, or distracted? Provide your analysis as a JSON object with properties: 'primary_emotion', 'confidence_score' (0-100), 'engagement_level' (0-100), 'observations' (array of strings)" },
-            { inline_data: { mime_type: "image/jpeg", data: image.replace(/^data:image\/\w+;base64,/, '') } }
-          ]
-        }]
-      };
     } else if (type === 'resume-analysis') {
       url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       const { resume } = prompt;
