@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,7 +62,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       });
   };
 
-  // Calculate overall score based on AI evaluations
+  // Calculate overall score based on AI evaluations with tougher metrics
   const calculateScore = () => {
     if (score !== undefined) return score;
     
@@ -79,8 +78,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         totalScore += evaluation.score_breakdown.overall;
         validEvaluations++;
       } else if (answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped') {
-        // If no evaluation but has answer, give a moderate score
-        totalScore += 60;
+        // If no evaluation but has answer, give a lower moderate score (tougher)
+        totalScore += 40; // Reduced from 60 to 40
         validEvaluations++;
       }
       // If no answer and no evaluation, contribute 0 to the score
@@ -222,15 +221,17 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     }
   };
 
+  // Tougher score color thresholds
   const getScoreColor = (score: number) => {
-    if (score >= 85) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
+    if (score >= 90) return 'text-green-600'; // Raised from 85 to 90
+    if (score >= 75) return 'text-yellow-600'; // Raised from 70 to 75
     return 'text-red-600';
   };
 
+  // Tougher badge variant thresholds
   const getScoreBadgeVariant = (score: number) => {
-    if (score >= 85) return 'default';
-    if (score >= 70) return 'secondary';
+    if (score >= 90) return 'default'; // Raised from 85 to 90
+    if (score >= 75) return 'secondary'; // Raised from 70 to 75
     return 'destructive';
   };
 
@@ -287,6 +288,11 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                 <span className={getScoreColor(overallScore)}>{overallScore}%</span>
               </div>
               <Progress value={overallScore} className="h-3" />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Poor (0-74%)</span>
+                <span>Good (75-89%)</span>
+                <span>Excellent (90%+)</span>
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">

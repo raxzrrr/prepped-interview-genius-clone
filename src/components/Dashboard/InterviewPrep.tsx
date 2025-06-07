@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Volume2, VolumeX, Play, SkipForward, CheckCircle, Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
-import voiceToTextService from '@/services/voiceToTextService';
-import ttsService from '@/services/ttsService';
-import ResumeAnalysisResults from './ResumeAnalysisResults';
+import { useInterviewApi } from '@/services/api';
+import { Mic, MicOff, Play, Pause, SkipForward, CheckCircle, Loader2, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 
 interface InterviewPrepProps {
@@ -19,69 +16,38 @@ interface InterviewPrepProps {
     questions: string[], 
     answers: string[], 
     evaluations: any[],
-    facialAnalysis: any[], 
+    facialAnalysis: any[],
     interviewId?: string 
   }) => void;
   resumeAnalysis?: any;
-  interviewId?: string;
 }
 
 const InterviewPrep: React.FC<InterviewPrepProps> = ({ 
   questions, 
   onComplete, 
-  resumeAnalysis,
-  interviewId 
+  resumeAnalysis 
 }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { evaluateAnswer } = useInterviewApi();
+  const { toast } = useToast();
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>(new Array(questions.length).fill(''));
-  const [isRecording, setIsRecording] = useState(false);
-  const [currentAnswer, setCurrentAnswer] = useState('');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [finalAnswers, setFinalAnswers] = useState<string[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentAnswer, setCurrentAnswer] = useState('');
   const [isComplete, setIsComplete] = useState(false);
-  const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  
-  const { toast } = useToast();
-  const { user, isAuthenticated } = useAuth();
-  const { getAnswerFeedback, evaluateAnswer } = useInterviewApi();
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
-  // Helper function to render formatted text
-  const renderFormattedText = (text: string) => {
-    if (!text) return text;
-    
-    // Convert markdown-style formatting to JSX
-    return text
-      .split('\n')
-      .map((line, index) => {
-        // Handle bullet points
-        if (line.trim().startsWith('*')) {
-          const content = line.replace(/^\s*\*\s*/, '');
-          // Handle bold text within bullet points
-          const formattedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-          return (
-            <div key={index} className="ml-4 mb-2">
-              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2"></span>
-              <span dangerouslySetInnerHTML={{ __html: formattedContent }} />
-            </div>
-          );
-        }
-        // Handle bold text in regular lines
-        const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        return formattedLine ? (
-          <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: formattedLine }} />
-        ) : (
-          <br key={index} />
-        );
-      });
-  };
-
-  // Calculate overall score based on AI evaluations
+  // Calculate preliminary score (before evaluations)
   const calculateScore = (evaluationsList: any[], answersList: string[]) => {
     let totalScore = 0;
-    let validEvaluations = 0;
     
     for (let i = 0; i < questions.length; i++) {
       const evaluation = evaluationsList[i];
@@ -90,16 +56,13 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       if (evaluation && evaluation.score_breakdown && evaluation.score_breakdown.overall) {
         // Use AI evaluation score
         totalScore += evaluation.score_breakdown.overall;
-        validEvaluations++;
       } else if (answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped') {
-        // If no evaluation but has answer, give a moderate score
-        totalScore += 60;
-        validEvaluations++;
+        // If no evaluation but has answer, give a lower moderate score (tougher)
+        totalScore += 40; // Reduced from 60 to 40
       }
-      // If no answer and no evaluation, contribute 0 to the score
+      // If no answer, contribute 0 to the score
     }
     
-    if (validEvaluations === 0) return 0;
     return Math.round(totalScore / questions.length); // Average across all questions
   };
 
@@ -118,8 +81,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         // Use AI evaluation score
         totalScore += evaluation.score_breakdown.overall;
       } else if (answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped') {
-        // If no evaluation but has answer, give a moderate score
-        totalScore += 60;
+        // If no evaluation but has answer, give a lower moderate score (tougher)
+        totalScore += 40; // Reduced from 60 to 40
       }
       // If no answer, contribute 0 to the score
     }
@@ -128,158 +91,170 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   };
 
   useEffect(() => {
-    console.log('InterviewPrep mounted. Auth state:', {
-      hasUser: !!user,
-      isAuthenticated,
-      questionsLength: questions.length
-    });
+    let stream: MediaStream | null = null;
 
-    if (questions.length > 0) {
-      // Set initial answer from answers array
-      setCurrentAnswer(answers[0] || '');
-    }
-    return () => cleanup();
-  }, [questions]);
+    const getMicrophone = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setAudioStream(stream);
 
-  // Real-time answer saving
-  useEffect(() => {
-    if (currentQuestionIndex < questions.length) {
-      const newAnswers = [...answers];
-      newAnswers[currentQuestionIndex] = currentAnswer;
-      setAnswers(newAnswers);
-      console.log('Real-time answer saved for question', currentQuestionIndex + 1, ':', currentAnswer);
-    }
-  }, [currentAnswer, currentQuestionIndex]);
+        const recorder = new MediaRecorder(stream);
+        setMediaRecorder(recorder);
 
-  // Load answer when question changes
-  useEffect(() => {
-    setCurrentAnswer(answers[currentQuestionIndex] || '');
-  }, [currentQuestionIndex, answers]);
+        recorder.ondataavailable = (event) => {
+          // Handle the recorded data (e.g., upload to server, play locally)
+          console.log('Recorded data:', event.data);
+        };
 
-  const cleanup = () => {
-    if (recordingStream) {
-      recordingStream.getTracks().forEach(track => track.stop());
-    }
-    ttsService.stop();
-  };
-
-  const speakQuestion = async (question: string) => {
-    if (!audioEnabled) return;
-    
-    try {
-      setIsPlaying(true);
-      await ttsService.speak(question);
-    } catch (error) {
-      console.error('TTS Error:', error);
-      console.warn('Audio playback failed, continuing without audio');
-    } finally {
-      setIsPlaying(false);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      setIsRecording(true);
-      
-      const stream = await voiceToTextService.startRecording();
-      setRecordingStream(stream);
-      
-      toast({
-        title: "Recording Started",
-        description: "Speak your answer now...",
-      });
-    } catch (error) {
-      console.error('Recording error:', error);
-      setIsRecording(false);
-      toast({
-        title: "Recording Error",
-        description: "Failed to start recording. Please check microphone permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const stopRecording = async () => {
-    try {
-      setIsRecording(false);
-      
-      if (recordingStream) {
-        recordingStream.getTracks().forEach(track => track.stop());
-        setRecordingStream(null);
-      }
-      
-      const transcription = await voiceToTextService.stopRecording();
-      
-      if (transcription && transcription.trim()) {
-        const answer = transcription.trim();
-        setCurrentAnswer(answer);
-        
+        recorder.onstop = () => {
+          // Handle the end of recording
+          console.log('Recording stopped');
+        };
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
         toast({
-          title: "Answer Recorded",
-          description: "Your answer has been saved.",
+          title: "Microphone Access Denied",
+          description: "Please allow microphone access to use the recording feature.",
+          variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error('Stop recording error:', error);
+    };
+
+    getMicrophone();
+
+    return () => {
+      // Clean up the stream when the component unmounts
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [toast]);
+
+  const handleStartRecording = () => {
+    if (mediaRecorder && mediaRecorder.state === 'inactive' && audioStream) {
+      try {
+        mediaRecorder.start();
+        setIsRecording(true);
+        toast({
+          title: "Recording Started",
+          description: "Your answer is now being recorded.",
+        });
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        toast({
+          title: "Recording Error",
+          description: "Failed to start recording. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } else {
       toast({
-        title: "Recording Error", 
-        description: "Failed to process recording. Please try typing your answer instead.",
+        title: "Recording Error",
+        description: "Please allow microphone access to use the recording feature.",
         variant: "destructive",
       });
     }
   };
 
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1;
-      setCurrentQuestionIndex(nextIndex);
-    }
-  };
-
-  const skipQuestion = () => {
-    const newAnswers = [...answers];
-    if (!newAnswers[currentQuestionIndex] || newAnswers[currentQuestionIndex].trim() === '') {
-      newAnswers[currentQuestionIndex] = 'Question skipped';
-      setAnswers(newAnswers);
-      console.log('Question skipped at index:', currentQuestionIndex);
-    }
-    nextQuestion();
-  };
-
-  const generateEvaluations = async (finalAnswers: string[]) => {
-    setIsEvaluating(true);
-    const newEvaluations: any[] = [];
-    
-    try {
-      // Generate evaluations for ALL questions, including skipped ones
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
-        const answer = finalAnswers[i] || 'No answer provided';
-        
-        console.log(`Generating evaluation for question ${i + 1} (Answer: ${answer})`);
-        const evaluation = await evaluateAnswer(question, answer);
-        newEvaluations[i] = evaluation;
+  const handleStopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      try {
+        mediaRecorder.stop();
+        setIsRecording(false);
+        toast({
+          title: "Recording Stopped",
+          description: "Your recording has been saved.",
+        });
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        toast({
+          title: "Recording Error",
+          description: "Failed to stop recording. Please try again.",
+          variant: "destructive",
+        });
       }
-      
-      setEvaluations(newEvaluations);
-      console.log('All evaluations completed');
+    }
+  };
+
+  const handleNextQuestion = () => {
+    const updatedAnswers = [...answers];
+    updatedAnswers[currentQuestionIndex] = currentAnswer;
+    setAnswers(updatedAnswers);
+    setCurrentAnswer('');
+
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      handleCompleteInterview(updatedAnswers);
+    }
+  };
+
+  const handleSkipQuestion = () => {
+    const updatedAnswers = [...answers];
+    updatedAnswers[currentQuestionIndex] = 'Question skipped';
+    setAnswers(updatedAnswers);
+    setCurrentAnswer('');
+
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      handleCompleteInterview(updatedAnswers);
+    }
+  };
+
+  const handleCompleteInterview = async (finalAnswersList: string[]) => {
+    console.log('Interview completed with answers:', finalAnswersList);
+    setFinalAnswers(finalAnswersList);
+    setIsComplete(true);
+    setIsEvaluating(true);
+
+    // Generate evaluations for all questions
+    const evaluationPromises = questions.map(async (question, index) => {
+      const answer = finalAnswersList[index];
+      try {
+        console.log(`Getting evaluation for question ${index + 1}:`, question);
+        const evaluation = await evaluateAnswer(question, answer);
+        console.log(`Received evaluation for question ${index + 1}:`, evaluation);
+        return evaluation;
+      } catch (error) {
+        console.error(`Error evaluating question ${index + 1}:`, error);
+        return null;
+      }
+    });
+
+    try {
+      const allEvaluations = await Promise.all(evaluationPromises);
+      console.log('All evaluations completed:', allEvaluations);
+      setEvaluations(allEvaluations);
+      setIsEvaluating(false);
+
+      // Call onComplete with the final data
+      onComplete({
+        questions,
+        answers: finalAnswersList,
+        evaluations: allEvaluations,
+        facialAnalysis,
+      });
     } catch (error) {
-      console.error('Error generating evaluations:', error);
+      console.error('Error during evaluation:', error);
+      setIsEvaluating(false);
       toast({
         title: "Evaluation Error",
-        description: "Some evaluations could not be generated, but your interview is still saved.",
+        description: "Some evaluations could not be completed, but your interview has been saved.",
         variant: "destructive",
       });
-    } finally {
-      setIsEvaluating(false);
+
+      // Still call onComplete even if evaluations failed
+      onComplete({
+        questions,
+        answers: finalAnswersList,
+        evaluations: [],
+        facialAnalysis,
+      });
     }
-    
-    return newEvaluations;
   };
 
-  const generatePDF = (finalAnswers: string[], finalEvaluations: any[]) => {
-    setIsGeneratingPDF(true);
-    
+  const generatePDF = () => {
     try {
       const doc = new jsPDF();
       const pageHeight = doc.internal.pageSize.height;
@@ -295,7 +270,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
       yPosition += 8;
       
-      const score = calculateFinalScore(finalEvaluations, finalAnswers) || 0;
+      const score = calculateFinalScore(evaluations, finalAnswers) || 0;
       doc.text(`Overall Score: ${score}%`, 20, yPosition);
       yPosition += 15;
       
@@ -311,17 +286,24 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
           yPosition += 8;
         }
         
+        if (resumeAnalysis.skills && resumeAnalysis.skills.length > 0) {
+          const skillsText = `Skills: ${resumeAnalysis.skills.join(', ')}`;
+          const skillsLines = doc.splitTextToSize(skillsText, 170);
+          doc.text(skillsLines, 20, yPosition);
+          yPosition += skillsLines.length * 5 + 5;
+        }
+        
         yPosition += 5;
       }
       
-      // Questions, Answers, and Evaluations
+      // Questions and Answers
       doc.setFontSize(14);
-      doc.text('Interview Questions & Answers', 20, yPosition);
+      doc.text('Interview Questions and Answers', 20, yPosition);
       yPosition += 10;
       
       questions.forEach((question, index) => {
         // Check if we need a new page
-        if (yPosition > pageHeight - 80) {
+        if (yPosition > pageHeight - 60) {
           doc.addPage();
           yPosition = 20;
         }
@@ -337,50 +319,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         // Answer
         doc.setFont(undefined, 'normal');
         const answer = finalAnswers[index] || 'No answer provided';
-        const answerLines = doc.splitTextToSize(`Your Answer: ${answer}`, 170);
+        const answerLines = doc.splitTextToSize(`Answer: ${answer}`, 170);
         doc.text(answerLines, 20, yPosition);
-        yPosition += answerLines.length * 5 + 5;
-        
-        // Evaluation (if available)
-        const evaluation = finalEvaluations[index];
-        if (evaluation) {
-          doc.setFont(undefined, 'bold');
-          doc.text('Ideal Answer:', 20, yPosition);
-          yPosition += 5;
-          
-          doc.setFont(undefined, 'normal');
-          const idealLines = doc.splitTextToSize(evaluation.ideal_answer, 170);
-          doc.text(idealLines, 20, yPosition);
-          yPosition += idealLines.length * 5 + 5;
-          
-          if (evaluation.score_breakdown) {
-            doc.setFont(undefined, 'bold');
-            doc.text('Score Breakdown:', 20, yPosition);
-            yPosition += 5;
-            
-            doc.setFont(undefined, 'normal');
-            const breakdown = evaluation.score_breakdown;
-            doc.text(`Clarity: ${breakdown.clarity}/100, Relevance: ${breakdown.relevance}/100`, 20, yPosition);
-            yPosition += 5;
-            doc.text(`Depth: ${breakdown.depth}/100, Examples: ${breakdown.examples}/100`, 20, yPosition);
-            yPosition += 5;
-            doc.text(`Overall: ${breakdown.overall}/100`, 20, yPosition);
-            yPosition += 5;
-          }
-          
-          if (evaluation.feedback) {
-            doc.setFont(undefined, 'bold');
-            doc.text('Feedback:', 20, yPosition);
-            yPosition += 5;
-            
-            doc.setFont(undefined, 'normal');
-            const feedbackLines = doc.splitTextToSize(evaluation.feedback, 170);
-            doc.text(feedbackLines, 20, yPosition);
-            yPosition += feedbackLines.length * 5;
-          }
-        }
-        
-        yPosition += 8;
+        yPosition += answerLines.length * 5 + 8;
       });
       
       // Save the PDF
@@ -397,75 +338,33 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         description: "Failed to generate PDF. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsGeneratingPDF(false);
     }
   };
 
-  const finishInterview = async () => {
-    try {
-      console.log('Finishing interview and generating evaluations...');
-      
-      // Ensure final answer is saved
-      const finalAnswers = [...answers];
-      if (currentAnswer.trim()) {
-        finalAnswers[currentQuestionIndex] = currentAnswer.trim();
-        console.log('Final answer saved:', currentAnswer.trim());
-      } else if (!finalAnswers[currentQuestionIndex] || finalAnswers[currentQuestionIndex].trim() === '') {
-        finalAnswers[currentQuestionIndex] = 'No answer provided';
-      }
-      
-      setAnswers(finalAnswers);
-      console.log('Final answers array:', finalAnswers);
-      
-      // Generate evaluations for all answers (including skipped ones)
-      const newEvaluations = await generateEvaluations(finalAnswers);
-      
-      cleanup();
-      setIsComplete(true);
-      
-      toast({
-        title: "Interview Completed",
-        description: "Your interview has been completed and evaluated! You can now download the report.",
-      });
-      
-      // Call onComplete with the final data including evaluations
-      onComplete({
-        questions,
-        answers: finalAnswers,
-        evaluations: newEvaluations,
-        facialAnalysis: [], // Empty array since we removed facial analysis
-        interviewId
-      });
-      
-    } catch (error: any) {
-      console.error('Error finishing interview:', error);
-      toast({
-        title: "Completion Error",
-        description: "There was an issue completing the interview, but your answers are preserved.",
-        variant: "destructive",
-      });
-    }
+  // Tougher score color thresholds
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return 'text-green-600'; // Raised from 85 to 90
+    if (score >= 75) return 'text-yellow-600'; // Raised from 70 to 75
+    return 'text-red-600';
   };
 
-  const toggleAudio = () => {
-    setAudioEnabled(!audioEnabled);
-    if (isPlaying) {
-      ttsService.stop();
-      setIsPlaying(false);
-    }
+  // Tougher badge variant thresholds
+  const getScoreBadgeVariant = (score: number) => {
+    if (score >= 90) return 'default'; // Raised from 85 to 90
+    if (score >= 75) return 'secondary'; // Raised from 70 to 75
+    return 'destructive';
   };
 
-  const replayQuestion = () => {
-    if (audioEnabled && questions[currentQuestionIndex]) {
-      speakQuestion(questions[currentQuestionIndex]);
-    }
-  };
-
-  // Calculate final answers for the completion view
-  const finalAnswers = [...answers];
-  if (currentAnswer.trim()) {
-    finalAnswers[currentQuestionIndex] = currentAnswer.trim();
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-4">Please log in to continue with the interview.</p>
+          <Button onClick={() => navigate('/login')}>Go to Login</Button>
+        </div>
+      </div>
+    );
   }
 
   if (isComplete || isEvaluating) {
@@ -477,13 +376,12 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
 
     return (
       <div className="space-y-6">
-        {resumeAnalysis && (
-          <ResumeAnalysisResults analysis={resumeAnalysis} />
-        )}
-        
-        {isEvaluating && (
+        {isEvaluating ? (
           <Card>
-            <CardContent className="flex items-center justify-center h-32">
+            <CardHeader>
+              <CardTitle>Evaluating Your Performance...</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="text-center">
                 <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
                 <p className="text-gray-600">Generating AI evaluations for your answers...</p>
@@ -491,377 +389,169 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               </div>
             </CardContent>
           </Card>
-        )}
-        
-        {/* Overall Score Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Interview Completed!</span>
-              {isEvaluating ? (
-                <Badge variant="outline" className="text-lg px-3 py-1">
-                  Evaluating...
-                </Badge>
-              ) : (
-                <Badge variant={score && score >= 85 ? "default" : score && score >= 70 ? "secondary" : "destructive"} className="text-lg px-3 py-1">
-                  {score || 0}%
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>{isEvaluating ? 'Evaluating Performance...' : 'Performance Score (Based on AI Evaluation)'}</span>
-                  {isEvaluating ? (
-                    <span className="text-gray-500">Calculating...</span>
-                  ) : (
-                    <span className={score && score >= 85 ? 'text-green-600' : score && score >= 70 ? 'text-yellow-600' : 'text-red-600'}>{score || 0}%</span>
-                  )}
-                </div>
-                <Progress value={isEvaluating ? 0 : (score || 0)} className="h-3" />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-brand-purple">
-                    {questions.length}
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Interview Completed!</span>
+                {isEvaluating ? (
+                  <Badge variant="outline" className="text-lg px-3 py-1">
+                    Evaluating...
+                  </Badge>
+                ) : (
+                  <Badge variant={score && getScoreBadgeVariant(score)} className="text-lg px-3 py-1">
+                    {score || 0}%
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>{isEvaluating ? 'Evaluating Performance...' : 'Performance Score (Based on AI Evaluation)'}</span>
+                    {isEvaluating ? (
+                      <span className="text-gray-500">Calculating...</span>
+                    ) : (
+                      <span className={score && getScoreColor(score)}>{score || 0}%</span>
+                    )}
                   </div>
-                  <div className="text-sm text-gray-500">Total Questions</div>
+                  <Progress value={isEvaluating ? 0 : (score || 0)} className="h-3" />
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {validAnswers.length}
-                  </div>
-                  <div className="text-sm text-gray-500">Answered</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {questions.length - validAnswers.length}
-                  </div>
-                  <div className="text-sm text-gray-500">Skipped</div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Questions, Answers, and Evaluations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Interview Questions, Answers & Evaluations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              {questions.map((question, index) => {
-                const answer = finalAnswers[index];
-                const evaluation = evaluations[index];
-                const isAnswered = answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped';
                 
-                return (
-                  <div key={index} className="border-b border-gray-200 pb-6 last:border-b-0">
-                    <div className="flex items-start space-x-3 mb-4">
-                      <div className="flex-shrink-0">
-                        {isAnswered ? (
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-1" />
-                        ) : (
-                          <div className="h-5 w-5 rounded-full border-2 border-red-500 mt-1" />
-                        )}
-                      </div>
-                      <div className="flex-grow">
-                        <div className="mb-3">
-                          <span className="font-medium text-gray-900">
-                            Question {index + 1}:
-                          </span>
-                          <p className="mt-1 text-gray-700">{question}</p>
-                        </div>
-                        <div className="mb-3">
-                          <span className="font-medium text-gray-900">Your Answer:</span>
-                          <div className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
-                            {isAnswered ? renderFormattedText(answer) : 'No answer provided'}
-                          </div>
-                        </div>
-                        
-                        {evaluation ? (
-                          <div className="space-y-4">
-                            <div>
-                              <span className="font-medium text-gray-900">Ideal Answer:</span>
-                              <div className="mt-1 p-3 rounded-md text-gray-700 bg-green-50">
-                                {renderFormattedText(evaluation.ideal_answer)}
-                              </div>
-                            </div>
-                            
-                            {evaluation.evaluation_criteria && (
-                              <div>
-                                <span className="font-medium text-gray-900">Evaluation Criteria:</span>
-                                <ul className="mt-1 list-disc list-inside text-gray-700">
-                                  {evaluation.evaluation_criteria.map((criteria: string, idx: number) => (
-                                    <li key={idx}>{criteria}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            
-                            {evaluation.score_breakdown && (
-                              <div>
-                                <span className="font-medium text-gray-900">Score Breakdown:</span>
-                                <div className="mt-2 grid grid-cols-2 md:grid-cols-5 gap-2">
-                                  <div className="text-center">
-                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.clarity}</div>
-                                    <div className="text-xs text-gray-500">Clarity</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.relevance}</div>
-                                    <div className="text-xs text-gray-500">Relevance</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.depth}</div>
-                                    <div className="text-xs text-gray-500">Depth</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.examples}</div>
-                                    <div className="text-xs text-gray-500">Examples</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-lg font-bold text-green-600">{evaluation.score_breakdown.overall}</div>
-                                    <div className="text-xs text-gray-500">Overall</div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {evaluation.feedback && (
-                              <div>
-                                <span className="font-medium text-gray-900">Detailed Feedback:</span>
-                                <div className="mt-1 p-3 rounded-md text-gray-700 bg-yellow-50">
-                                  {renderFormattedText(evaluation.feedback)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : isEvaluating ? (
-                          <div className="flex items-center text-gray-500">
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Generating evaluation...
-                          </div>
-                        ) : null}
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-brand-purple">
+                      {questions.length}
                     </div>
+                    <div className="text-sm text-gray-500">Total Questions</div>
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        {!isEvaluating && (
-          <div className="flex justify-between pt-6">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsComplete(false);
-                setCurrentQuestionIndex(0);
-                setAnswers(new Array(questions.length).fill(''));
-                setCurrentAnswer('');
-                setEvaluations([]);
-              }}
-            >
-              Start New Interview
-            </Button>
-            
-            <Button
-              onClick={() => generatePDF(finalAnswers, evaluations)}
-              disabled={isGeneratingPDF}
-              className="flex items-center"
-            >
-              {isGeneratingPDF ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PDF Report
-                </>
-              )}
-            </Button>
-          </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {validAnswers.length}
+                    </div>
+                    <div className="text-sm text-gray-500">Answered</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      {questions.length - validAnswers.length}
+                    </div>
+                    <div className="text-sm text-gray-500">Skipped</div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center space-x-4 pt-4">
+                  <Button
+                    onClick={generatePDF}
+                    className="flex items-center"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Report
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     );
   }
 
-  if (questions.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center h-64">
-          <p className="text-gray-500">No questions available</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-  const currentQuestion = questions[currentQuestionIndex];
-
   return (
     <div className="space-y-6">
-      {resumeAnalysis && (
-        <ResumeAnalysisResults analysis={resumeAnalysis} />
-      )}
-      
-      {/* Progress Bar */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Interview Progress</CardTitle>
-            <Badge variant="outline">
-              Question {currentQuestionIndex + 1} of {questions.length}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Progress value={progress} className="h-3" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Mock Interview</h1>
+          <p className="mt-2 text-gray-600">
+            Question {currentQuestionIndex + 1} of {questions.length}
+          </p>
+        </div>
+        <Badge variant="outline" className="text-lg px-3 py-1">
+          {Math.round(((currentQuestionIndex) / questions.length) * 100)}% Complete
+        </Badge>
+      </div>
 
-      {/* Question Card */}
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center">
+            <span className="mr-3 text-brand-purple">Q{currentQuestionIndex + 1}:</span>
+            {questions[currentQuestionIndex]}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">Your Answer:</label>
+            <textarea
+              value={currentAnswer}
+              onChange={(e) => setCurrentAnswer(e.target.value)}
+              placeholder="Type your answer here or use the microphone to record..."
+              className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-purple focus:border-transparent resize-none"
+            />
+          </div>
+
           <div className="flex items-center justify-between">
-            <CardTitle>Current Question</CardTitle>
-            <div className="flex space-x-2">
+            <div className="flex space-x-3">
               <Button
                 variant="outline"
-                size="sm"
-                onClick={() => setAudioEnabled(!audioEnabled)}
+                onClick={isRecording ? handleStopRecording : handleStartRecording}
                 className="flex items-center"
               >
-                {audioEnabled ? (
+                {isRecording ? (
                   <>
-                    <Volume2 className="mr-2 h-4 w-4" />
-                    Audio On
+                    <MicOff className="mr-2 h-4 w-4" />
+                    Stop Recording
                   </>
                 ) : (
                   <>
-                    <VolumeX className="mr-2 h-4 w-4" />
-                    Audio Off
+                    <Mic className="mr-2 h-4 w-4" />
+                    Start Recording
                   </>
                 )}
               </Button>
-              {audioEnabled && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => speakQuestion(currentQuestion)}
-                  disabled={isPlaying}
-                  className="flex items-center"
-                >
-                  {isPlaying ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Playing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-2 h-4 w-4" />
-                      Play Question
-                    </>
-                  )}
-                </Button>
-              )}
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-lg font-medium">{currentQuestion}</p>
-            
-            {/* Answer Input Options */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Type your answer:
-                </label>
-                <Textarea
-                  placeholder="Type your answer here..."
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  className="min-h-[120px]"
-                />
-              </div>
-              
-              <div className="text-center text-gray-500">
-                — OR —
-              </div>
-              
-              {/* Recording Controls */}
-              <div className="flex items-center justify-center space-x-4">
-                <Button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  variant={isRecording ? "destructive" : "default"}
-                  className="flex items-center"
-                >
-                  {isRecording ? (
-                    <>
-                      <MicOff className="mr-2 h-4 w-4" />
-                      Stop Recording
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="mr-2 h-4 w-4" />
-                      Record Answer
-                    </>
-                  )}
-                </Button>
-                
-                {isRecording && (
-                  <div className="flex items-center text-red-500">
-                    <div className="animate-pulse w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                    Recording...
-                  </div>
+
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleSkipQuestion}
+                className="flex items-center"
+              >
+                <SkipForward className="mr-2 h-4 w-4" />
+                Skip Question
+              </Button>
+              <Button
+                onClick={handleNextQuestion}
+                disabled={!currentAnswer.trim()}
+                className="flex items-center"
+              >
+                {currentQuestionIndex === questions.length - 1 ? (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Complete Interview
+                  </>
+                ) : (
+                  <>
+                    <SkipForward className="mr-2 h-4 w-4" />
+                    Next Question
+                  </>
                 )}
-              </div>
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Navigation Controls */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={skipQuestion}
-              className="flex items-center"
-            >
-              <SkipForward className="mr-2 h-4 w-4" />
-              Skip Question
-            </Button>
-            
-            <div className="flex space-x-3">
-              {currentQuestionIndex < questions.length - 1 ? (
-                <Button
-                  onClick={nextQuestion}
-                  className="flex items-center"
-                >
-                  Next Question
-                  <SkipForward className="ml-2 h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={finishInterview}
-                  className="flex items-center bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Finish Interview
-                </Button>
-              )}
+        <CardHeader>
+          <CardTitle>Interview Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span>Questions Completed</span>
+              <span>{currentQuestionIndex} of {questions.length}</span>
             </div>
+            <Progress value={(currentQuestionIndex / questions.length) * 100} className="h-2" />
           </div>
         </CardContent>
       </Card>
