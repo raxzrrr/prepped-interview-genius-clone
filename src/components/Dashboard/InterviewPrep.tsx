@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +35,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [isComplete, setIsComplete] = useState(false);
   const [actualInterviewId, setActualInterviewId] = useState<string | undefined>(interviewId);
   const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -175,12 +175,16 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       const transcription = await voiceToTextService.stopRecording();
       
       if (transcription && transcription.trim()) {
-        setCurrentAnswer(transcription.trim());
+        const answer = transcription.trim();
+        setCurrentAnswer(answer);
         
-        // Update the answers array with the transcribed answer
+        // Immediately update the answers array
         const newAnswers = [...answers];
-        newAnswers[currentQuestionIndex] = transcription.trim();
+        newAnswers[currentQuestionIndex] = answer;
         setAnswers(newAnswers);
+        
+        console.log('Answer saved:', answer);
+        console.log('Updated answers array:', newAnswers);
         
         toast({
           title: "Answer Recorded",
@@ -198,17 +202,18 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   };
 
   const nextQuestion = () => {
-    // Save current answer if there is one
+    // Ensure current answer is saved before moving to next
     if (currentAnswer.trim()) {
       const newAnswers = [...answers];
       newAnswers[currentQuestionIndex] = currentAnswer.trim();
       setAnswers(newAnswers);
+      console.log('Moving to next question, saved answer:', currentAnswer.trim());
     }
     
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
-      setCurrentAnswer('');
+      setCurrentAnswer(answers[nextIndex] || ''); // Load existing answer if any
       
       if (audioEnabled) {
         speakQuestion(questions[nextIndex]);
@@ -217,91 +222,84 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   };
 
   const skipQuestion = () => {
-    // Mark as skipped but don't overwrite if there's already an answer
     const newAnswers = [...answers];
     if (!newAnswers[currentQuestionIndex] || newAnswers[currentQuestionIndex].trim() === '') {
       newAnswers[currentQuestionIndex] = 'Question skipped';
+      setAnswers(newAnswers);
+      console.log('Question skipped at index:', currentQuestionIndex);
     }
-    setAnswers(newAnswers);
     nextQuestion();
   };
 
   const finishInterview = async () => {
+    setIsSaving(true);
+    
     try {
       console.log('Starting interview finish process...');
       
-      // Check if user is authenticated
       if (!user) {
         toast({
           title: "Authentication Required",
-          description: "You must be logged in to save the interview. Please log in and try again.",
+          description: "You must be logged in to save the interview.",
           variant: "destructive",
         });
         return;
       }
       
-      // Save the current answer if there is one
+      // Ensure final answer is saved
       const finalAnswers = [...answers];
       if (currentAnswer.trim()) {
         finalAnswers[currentQuestionIndex] = currentAnswer.trim();
+        console.log('Final answer saved:', currentAnswer.trim());
       } else if (!finalAnswers[currentQuestionIndex] || finalAnswers[currentQuestionIndex].trim() === '') {
         finalAnswers[currentQuestionIndex] = 'No answer provided';
       }
       
       setAnswers(finalAnswers);
+      console.log('Final answers array:', finalAnswers);
       
-      // Calculate a basic score
+      // Calculate score based on answered questions
       const validAnswers = finalAnswers.filter(answer => 
         answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
       );
       const score = Math.round((validAnswers.length / questions.length) * 100);
       
-      console.log('Final answers:', finalAnswers);
       console.log('Calculated score:', score);
+      console.log('Valid answers count:', validAnswers.length, 'out of', questions.length);
+      
+      // Prepare interview data for saving
+      const interviewData = {
+        status: 'completed',
+        answers: finalAnswers,
+        score: score,
+        facial_analysis: facialAnalysis,
+        completed_at: new Date().toISOString(),
+        questions: questions
+      };
       
       // Save or update the interview
-      try {
-        if (actualInterviewId) {
-          console.log('Updating existing interview:', actualInterviewId);
-          await updateInterview(actualInterviewId, {
-            status: 'completed',
-            answers: finalAnswers,
-            score: score,
-            facial_analysis: facialAnalysis,
-            completed_at: new Date().toISOString()
-          });
-          console.log('Interview updated successfully');
-        } else {
-          console.log('Creating new interview record');
-          const newInterviewData = {
-            user_id: user.id,
-            title: `Interview - ${new Date().toLocaleDateString()}`,
-            questions: questions,
-            answers: finalAnswers,
-            status: 'completed',
-            score: score,
-            facial_analysis: facialAnalysis,
-            completed_at: new Date().toISOString()
-          };
-          
-          const newInterviewId = await saveInterview(newInterviewData);
-          setActualInterviewId(newInterviewId);
-          console.log('New interview created with ID:', newInterviewId);
-        }
+      let savedInterviewId = actualInterviewId;
+      
+      if (actualInterviewId) {
+        console.log('Updating existing interview:', actualInterviewId);
+        await updateInterview(actualInterviewId, interviewData);
+      } else {
+        console.log('Creating new interview record');
+        const newInterviewData = {
+          ...interviewData,
+          user_id: user.id,
+          title: `Interview - ${new Date().toLocaleDateString()}`,
+        };
         
-        toast({
-          title: "Interview Completed",
-          description: "Your interview has been saved successfully!",
-        });
-        
-      } catch (saveError: any) {
-        console.error('Error saving interview:', saveError);
-        toast({
-          title: "Save Warning", 
-          description: "Interview completed but failed to save. You can still view your results.",
-          variant: "destructive",
-        });
+        savedInterviewId = await saveInterview(newInterviewData);
+        setActualInterviewId(savedInterviewId);
+        console.log('New interview created with ID:', savedInterviewId);
       }
+      
+      toast({
+        title: "Interview Completed",
+        description: "Your interview has been saved successfully!",
+      });
       
       cleanup();
       setIsComplete(true);
@@ -311,18 +309,18 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         questions,
         answers: finalAnswers,
         facialAnalysis,
-        interviewId: actualInterviewId
+        interviewId: savedInterviewId
       });
       
     } catch (error: any) {
       console.error('Error finishing interview:', error);
       toast({
-        title: "Error",
-        description: error.message || "An error occurred while finishing the interview.",
+        title: "Save Error",
+        description: error.message || "Failed to save the interview. Your answers are preserved in the report.",
         variant: "destructive",
       });
       
-      // Even if there's an error, show the results
+      // Even if save fails, show the results with preserved answers
       const finalAnswers = [...answers];
       if (currentAnswer.trim()) {
         finalAnswers[currentQuestionIndex] = currentAnswer.trim();
@@ -336,6 +334,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         facialAnalysis,
         interviewId: actualInterviewId
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -482,6 +482,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 onClick={isRecording ? stopRecording : startRecording}
                 variant={isRecording ? "destructive" : "default"}
                 className="flex items-center"
+                disabled={isSaving}
               >
                 {isRecording ? (
                   <>
@@ -525,6 +526,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               variant="outline"
               onClick={skipQuestion}
               className="flex items-center"
+              disabled={isSaving}
             >
               <SkipForward className="mr-2 h-4 w-4" />
               Skip Question
@@ -535,6 +537,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 <Button
                   onClick={nextQuestion}
                   className="flex items-center"
+                  disabled={isSaving}
                 >
                   Next Question
                   <SkipForward className="ml-2 h-4 w-4" />
@@ -543,9 +546,19 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 <Button
                   onClick={finishInterview}
                   className="flex items-center bg-green-600 hover:bg-green-700"
+                  disabled={isSaving}
                 >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Finish Interview
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Finish Interview
+                    </>
+                  )}
                 </Button>
               )}
             </div>

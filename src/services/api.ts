@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
@@ -52,6 +51,43 @@ export const useInterviewApi = () => {
     
     console.log('API key validation successful');
     return true;
+  };
+
+  const getCurrentUser = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('User retrieval error:', error);
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again to continue.",
+          variant: "destructive"
+        });
+        return null;
+      }
+      
+      if (!user) {
+        console.error('No authenticated user found');
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to use this feature.",
+          variant: "destructive"
+        });
+        return null;
+      }
+      
+      console.log('Authenticated user found:', user.id);
+      return user;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      toast({
+        title: "Authentication Error",
+        description: "Please log in again to continue.",
+        variant: "destructive"
+      });
+      return null;
+    }
   };
 
   const getCurrentSession = async () => {
@@ -222,30 +258,42 @@ export const useInterviewApi = () => {
     try {
       console.log('Saving interview with data:', interviewData);
       
-      // Get current session with better error handling
-      const session = await getCurrentSession();
+      const user = await getCurrentUser();
       
-      if (!session?.user?.id) {
-        console.error('No authenticated session found');
-        throw new Error('Please log in to save interviews. Your session may have expired.');
+      if (!user) {
+        throw new Error('Please log in to save interviews.');
       }
       
-      const userId = session.user.id;
-      console.log('Authenticated user ID:', userId);
+      console.log('Authenticated user ID:', user.id);
       
-      // Insert directly into interviews table with current user ID
+      // Ensure we have proper data structure
+      const dataToSave = {
+        user_id: user.id,
+        title: interviewData.title || `Interview - ${new Date().toLocaleDateString()}`,
+        job_title: interviewData.job_title || '',
+        company_name: interviewData.company_name || '',
+        interview_type: interviewData.interview_type || 'general',
+        duration: interviewData.duration || 15,
+        focus_areas: interviewData.focus_areas || [],
+        questions: Array.isArray(interviewData.questions) ? interviewData.questions : [],
+        answers: Array.isArray(interviewData.answers) ? interviewData.answers : [],
+        status: interviewData.status || 'in-progress',
+        score: interviewData.score || null,
+        facial_analysis: interviewData.facial_analysis || [],
+        completed_at: interviewData.completed_at || null
+      };
+      
+      console.log('Data structure prepared for saving:', dataToSave);
+      
       const { data, error } = await supabase
         .from('interviews')
-        .insert({
-          ...interviewData,
-          user_id: userId
-        })
+        .insert(dataToSave)
         .select('id')
         .single();
           
       if (error) {
         console.error('Database insert error:', error);
-        throw new Error(`Database error: ${error.message}`);
+        throw new Error(`Failed to save interview: ${error.message}`);
       }
       
       if (!data?.id) {
@@ -253,12 +301,17 @@ export const useInterviewApi = () => {
       }
       
       console.log('Successfully saved interview with ID:', data.id);
+      toast({
+        title: "Interview Saved",
+        description: "Your interview has been saved successfully!",
+      });
+      
       return data.id;
     } catch (error: any) {
       console.error('Error saving interview:', error);
       toast({
         title: "Save Failed",
-        description: error.message || "Failed to save the interview. Please try logging in again.",
+        description: error.message || "Failed to save the interview. Please try again.",
         variant: "destructive"
       });
       throw error;
@@ -269,34 +322,41 @@ export const useInterviewApi = () => {
     try {
       console.log('Updating interview:', id, 'with data:', interviewData);
       
-      // Get current session with better error handling
-      const session = await getCurrentSession();
+      const user = await getCurrentUser();
       
-      if (!session?.user?.id) {
-        console.error('No authenticated session found');
-        throw new Error('Please log in to update interviews. Your session may have expired.');
+      if (!user) {
+        throw new Error('Please log in to update interviews.');
       }
       
-      const userId = session.user.id;
-      console.log('Authenticated user ID:', userId);
+      console.log('Authenticated user ID:', user.id);
+
+      // Ensure proper data structure for update
+      const updateData = {
+        ...interviewData,
+        updated_at: new Date().toISOString()
+      };
 
       const { error } = await supabase
         .from('interviews')
-        .update(interviewData)
+        .update(updateData)
         .eq('id', id)
-        .eq('user_id', userId); // Ensure user can only update their own interviews
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Database update error:', error);
-        throw new Error(`Database error: ${error.message}`);
+        throw new Error(`Failed to update interview: ${error.message}`);
       }
       
       console.log('Successfully updated interview');
+      toast({
+        title: "Interview Updated",
+        description: "Your interview has been updated successfully!",
+      });
     } catch (error: any) {
       console.error('Error updating interview:', error);
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update the interview. Please try logging in again.",
+        description: error.message || "Failed to update the interview. Please try again.",
         variant: "destructive"
       });
       throw error;
@@ -307,25 +367,24 @@ export const useInterviewApi = () => {
     try {
       console.log('Fetching interviews...');
       
-      // Get current session with better error handling
-      const session = await getCurrentSession();
+      const user = await getCurrentUser();
       
-      if (!session?.user?.id) {
-        console.error('No authenticated session found');
-        throw new Error('Please log in to fetch interviews. Your session may have expired.');
+      if (!user) {
+        console.log('No user found, returning empty array');
+        return [];
       }
       
-      console.log('Fetching interviews for user:', session.user.id);
+      console.log('Fetching interviews for user:', user.id);
       
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Database error:', error);
-        throw new Error(`Database error: ${error.message}`);
+        throw new Error(`Failed to fetch interviews: ${error.message}`);
       }
       
       console.log('Successfully fetched interviews:', data?.length || 0);
@@ -345,24 +404,22 @@ export const useInterviewApi = () => {
     try {
       console.log('Fetching interview by ID:', id);
       
-      // Get current session with better error handling
-      const session = await getCurrentSession();
+      const user = await getCurrentUser();
       
-      if (!session?.user?.id) {
-        console.error('No authenticated session found');
-        throw new Error('Please log in to fetch interview details. Your session may have expired.');
+      if (!user) {
+        throw new Error('Please log in to fetch interview details.');
       }
       
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
         .eq('id', id)
-        .eq('user_id', session.user.id) // Ensure user can only access their own interviews
+        .eq('user_id', user.id)
         .single();
 
       if (error) {
         console.error('Database error:', error);
-        throw new Error(`Database error: ${error.message}`);
+        throw new Error(`Failed to fetch interview: ${error.message}`);
       }
       
       console.log('Successfully fetched interview:', data?.id);
