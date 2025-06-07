@@ -27,12 +27,15 @@ const invokeFunction = async (functionName: string, body: any, retries = 2): Pro
 
       if (error) {
         console.error(`Function ${functionName} error:`, error);
+        if (error.message?.includes('Failed to fetch')) {
+          throw new Error('Network error - function not reachable');
+        }
         throw error;
       }
       
-      if (!data.success) {
-        console.error(`Function ${functionName} returned error:`, data.error);
-        throw new Error(data.error);
+      if (!data?.success) {
+        console.error(`Function ${functionName} returned error:`, data?.error);
+        throw new Error(data?.error || 'Unknown function error');
       }
       
       console.log(`Function ${functionName} success:`, data.data);
@@ -82,7 +85,8 @@ export const learningService = {
 
       const updateData: any = {
         course_progress: courseProgress,
-        completed_modules: completedModulesCount
+        completed_modules: completedModulesCount,
+        total_modules: totalModules
       };
 
       if (isInterviewCourseComplete) {

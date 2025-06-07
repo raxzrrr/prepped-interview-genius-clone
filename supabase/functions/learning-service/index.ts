@@ -112,25 +112,6 @@ Deno.serve(async (req) => {
         }
         break;
 
-      case 'create':
-        console.log('Creating learning record...');
-        const { data: createData, error: createError } = await supabase
-          .from('user_learning')
-          .insert({
-            user_id: supabaseUserId,
-            ...data
-          })
-          .select('*')
-          .single();
-        
-        if (createError) {
-          console.error('Create error:', createError);
-          throw createError;
-        }
-        result = createData;
-        console.log('Created learning record:', result.id);
-        break;
-
       case 'update':
         console.log('Updating learning record...');
         const { data: updateData, error: updateError } = await supabase
