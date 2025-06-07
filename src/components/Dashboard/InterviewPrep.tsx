@@ -253,7 +253,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     return newEvaluations;
   };
 
-  const generatePDF = () => {
+  const generatePDF = (finalAnswers: string[], finalEvaluations: any[]) => {
     setIsGeneratingPDF(true);
     
     try {
@@ -271,7 +271,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
       yPosition += 8;
       
-      const score = calculateScore(evaluations, finalAnswers);
+      const score = calculateScore(finalEvaluations, finalAnswers);
       doc.text(`Overall Score: ${score}%`, 20, yPosition);
       yPosition += 15;
       
@@ -318,7 +318,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         yPosition += answerLines.length * 5 + 5;
         
         // Evaluation (if available)
-        const evaluation = evaluations[index];
+        const evaluation = finalEvaluations[index];
         if (evaluation) {
           doc.setFont(undefined, 'bold');
           doc.text('Ideal Answer:', 20, yPosition);
@@ -445,7 +445,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   }
 
   if (isComplete || isEvaluating) {
-    // Calculate score using new method
+    // Calculate score using current evaluations state (will update as evaluations complete)
     const score = calculateScore(evaluations, finalAnswers);
     const validAnswers = finalAnswers.filter(answer => 
       answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
@@ -463,6 +463,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               <div className="text-center">
                 <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
                 <p className="text-gray-600">Generating AI evaluations for your answers...</p>
+                <p className="text-sm text-gray-500 mt-2">Score will update after evaluation completes</p>
               </div>
             </CardContent>
           </Card>
@@ -482,7 +483,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Performance Score (Based on AI Evaluation)</span>
+                  <span>{isEvaluating ? 'Preliminary Score (Evaluating...)' : 'Performance Score (Based on AI Evaluation)'}</span>
                   <span className={score >= 85 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600'}>{score}%</span>
                 </div>
                 <Progress value={score} className="h-3" />
@@ -548,7 +549,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                           </div>
                         </div>
                         
-                        {evaluation && (
+                        {evaluation ? (
                           <div className="space-y-4">
                             <div>
                               <span className="font-medium text-gray-900">Ideal Answer:</span>
@@ -605,7 +606,12 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                               </div>
                             )}
                           </div>
-                        )}
+                        ) : isEvaluating ? (
+                          <div className="flex items-center text-gray-500">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Generating evaluation...
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -632,7 +638,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
             </Button>
             
             <Button
-              onClick={generatePDF}
+              onClick={() => generatePDF(finalAnswers, evaluations)}
               disabled={isGeneratingPDF}
               className="flex items-center"
             >
