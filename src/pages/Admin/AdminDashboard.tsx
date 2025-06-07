@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Button } from '@/components/ui/button';
 import { 
   Card,
@@ -30,9 +29,15 @@ import { Users, Video, CreditCard, ArrowUpRight } from 'lucide-react';
 const AdminDashboard: React.FC = () => {
   const { user, isAdmin } = useAuth();
   
-  // Redirect if not logged in or not an admin
-  if (!user || !isAdmin()) {
+  // Check for temporary admin access
+  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
+  
+  if (!user && !isTempAdmin) {
     return <Navigate to="/login" />;
+  }
+
+  if (!isAdmin() && !isTempAdmin) {
+    return <Navigate to="/dashboard" />;
   }
   
   // Mock data for charts
