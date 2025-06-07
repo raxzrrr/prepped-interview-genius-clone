@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, Eye, File, TrendingUp, Award } from 'lucide-react';
+import { Clock, Eye, File, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import { Badge } from '@/components/ui/badge';
@@ -193,18 +193,6 @@ const ReportsPage: React.FC = () => {
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </Button>
-                {report.score >= 80 && (
-                  <Button 
-                    size="sm"
-                    onClick={() => {
-                      // Navigate to certificate generation
-                      window.location.href = `/certificates?interview=${report.id}`;
-                    }}
-                  >
-                    <Award className="mr-2 h-4 w-4" />
-                    Certificate
-                  </Button>
-                )}
               </CardFooter>
             </Card>
           ))}

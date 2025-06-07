@@ -2,7 +2,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
-import { generateConsistentUUID } from "@/utils/userUtils";
 
 interface InterviewQuestion {
   id?: string;
@@ -205,26 +204,18 @@ export const useInterviewApi = () => {
 
   const saveInterview = async (interviewData: any): Promise<string> => {
     try {
-      console.log('Saving interview with Clerk user data:', interviewData);
+      console.log('Saving interview with user data:', interviewData);
       
       if (!interviewData.user_id) {
         throw new Error('User ID is required to save interview');
       }
       
-      // Convert Clerk user ID to consistent UUID for Supabase
-      const supabaseUserId = generateConsistentUUID(interviewData.user_id);
-      
-      const dataWithSupabaseUserId = {
-        ...interviewData,
-        user_id: supabaseUserId
-      };
-      
-      console.log('Inserting interview data with Supabase user ID:', supabaseUserId);
+      console.log('Inserting interview data with user ID:', interviewData.user_id);
       
       // Insert directly into interviews table
       const { data, error } = await supabase
         .from('interviews')
-        .insert(dataWithSupabaseUserId)
+        .insert(interviewData)
         .select('id')
         .single();
           
@@ -274,12 +265,10 @@ export const useInterviewApi = () => {
 
   const getInterviews = async (userId: string) => {
     try {
-      const supabaseUserId = generateConsistentUUID(userId);
-      
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
-        .eq('user_id', supabaseUserId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/ClerkAuthContext';
-import { generateConsistentUUID } from '@/utils/userUtils';
 import { useToast } from '@/components/ui/use-toast';
 
 interface UserLearningData {
@@ -61,15 +60,14 @@ export const useLearningData = (totalModules: number) => {
 
     try {
       setError(null);
-      const supabaseUUID = generateConsistentUUID(user.id);
       
-      console.log('Fetching learning data for user:', supabaseUUID);
+      console.log('Fetching learning data for user:', user.id);
       
-      // Try to get existing data from user_learning table
+      // Try to get existing data from user_learning table using Clerk user ID directly
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
-        .eq('user_id', supabaseUUID)
+        .eq('user_id', user.id)
         .maybeSingle();
       
       if (error) {
@@ -85,7 +83,7 @@ export const useLearningData = (totalModules: number) => {
         });
       } else {
         console.log('Creating new learning data for user');
-        await createUserLearningRecord(supabaseUUID, totalModules);
+        await createUserLearningRecord(user.id, totalModules);
       }
     } catch (err: any) {
       console.error('Error fetching user learning data:', err);
@@ -104,7 +102,7 @@ export const useLearningData = (totalModules: number) => {
 
       const localData: UserLearningData = {
         id: 'local-' + user.id,
-        user_id: generateConsistentUUID(user.id),
+        user_id: user.id,
         course_progress: localProgress,
         completed_modules: completedCount,
         total_modules: totalModules,
@@ -129,10 +127,10 @@ export const useLearningData = (totalModules: number) => {
     }
   }, [user?.id, totalModules, toast]);
 
-  const createUserLearningRecord = async (supabaseUUID: string, totalModules: number) => {
+  const createUserLearningRecord = async (userId: string, totalModules: number) => {
     try {
       const newLearningData = {
-        user_id: supabaseUUID,
+        user_id: userId,
         course_progress: {},
         completed_modules: 0,
         total_modules: totalModules,
@@ -204,7 +202,7 @@ export const useLearningData = (totalModules: number) => {
         if (!prevData) {
           return {
             id: 'local-' + user.id,
-            user_id: generateConsistentUUID(user.id),
+            user_id: user.id,
             course_progress: courseProgress,
             completed_modules: completedModulesCount,
             total_modules: totalModules,
@@ -226,8 +224,6 @@ export const useLearningData = (totalModules: number) => {
       });
 
       // Try to update database
-      const supabaseUserId = generateConsistentUUID(user.id);
-      
       console.log('Updating learning progress in database');
       
       const { error } = await supabase
@@ -237,7 +233,7 @@ export const useLearningData = (totalModules: number) => {
           completed_modules: completedModulesCount,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', supabaseUserId);
+        .eq('user_id', user.id);
       
       if (error) {
         console.error('Database update error (continuing with local state):', error);

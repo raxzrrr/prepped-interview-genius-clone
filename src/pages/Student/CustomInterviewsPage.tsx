@@ -12,7 +12,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { generateConsistentUUID } from '@/utils/userUtils';
 
 const topics = [
   { id: 'hr', name: 'HR', description: 'Common HR and behavioral questions' },
@@ -48,14 +47,13 @@ const CustomInterviewsPage: React.FC = () => {
     if (!user) return;
     
     try {
-      const supabaseUserId = generateConsistentUUID(user.id);
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       
       const { data: interviews, error } = await supabase
         .from('interviews')
         .select('id, title')
-        .eq('user_id', supabaseUserId)
+        .eq('user_id', user.id)
         .gte('created_at', firstDayOfMonth.toISOString());
       
       if (error) throw error;
@@ -88,13 +86,12 @@ const CustomInterviewsPage: React.FC = () => {
     
     try {
       const topicToUse = customTopic.trim() || topics.find(t => t.id === selectedTopic)?.name || selectedTopic;
-      const supabaseUserId = generateConsistentUUID(user?.id || '');
       
       // Create a new interview record
       const { data, error } = await supabase
         .from('interviews')
         .insert({
-          user_id: supabaseUserId,
+          user_id: user?.id,
           title: `Custom ${topicToUse} Interview`,
           questions: [],
           status: 'pending'
