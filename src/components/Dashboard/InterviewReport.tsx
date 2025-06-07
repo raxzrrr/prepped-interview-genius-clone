@@ -8,13 +8,16 @@ import { Download, Save, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
+import ResumeAnalysisResults from './ResumeAnalysisResults';
 import jsPDF from 'jspdf';
 
 interface InterviewReportProps {
   questions: string[];
   answers: string[];
   facialAnalysis: any[];
+  resumeAnalysis?: any;
   interviewId?: string;
+  score?: number;
   onDone: () => void;
 }
 
@@ -22,7 +25,9 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   questions,
   answers,
   facialAnalysis,
+  resumeAnalysis,
   interviewId,
+  score,
   onDone
 }) => {
   const [isSaving, setIsSaving] = useState(false);
@@ -31,8 +36,10 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   const { updateInterview } = useInterviewApi();
   const { user } = useAuth();
 
-  // Calculate overall score based on answers quality
+  // Calculate overall score if not provided
   const calculateScore = () => {
+    if (score !== undefined) return score;
+    
     const validAnswers = answers.filter(answer => 
       answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
     );
@@ -40,10 +47,10 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     const avgLength = validAnswers.reduce((sum, answer) => sum + answer.length, 0) / validAnswers.length || 0;
     
     // Score based on completion and answer quality
-    let score = answerRatio * 60; // 60% for completion
-    score += Math.min(avgLength / 200 * 40, 40); // 40% for answer quality/length
+    let calculatedScore = answerRatio * 60; // 60% for completion
+    calculatedScore += Math.min(avgLength / 200 * 40, 40); // 40% for answer quality/length
     
-    return Math.round(Math.min(score, 100));
+    return Math.round(Math.min(calculatedScore, 100));
   };
 
   const overallScore = calculateScore();
@@ -67,6 +74,21 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       yPosition += 8;
       doc.text(`Overall Score: ${overallScore}%`, 20, yPosition);
       yPosition += 15;
+      
+      // Resume Analysis (if available)
+      if (resumeAnalysis) {
+        doc.setFontSize(14);
+        doc.text('Resume Analysis', 20, yPosition);
+        yPosition += 10;
+        
+        if (resumeAnalysis.suggested_role) {
+          doc.setFontSize(11);
+          doc.text(`Suggested Role: ${resumeAnalysis.suggested_role}`, 20, yPosition);
+          yPosition += 8;
+        }
+        
+        yPosition += 5;
+      }
       
       // Questions and Answers
       doc.setFontSize(14);
@@ -212,6 +234,11 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         </div>
       </div>
 
+      {/* Resume Analysis Results (if available) */}
+      {resumeAnalysis && (
+        <ResumeAnalysisResults analysis={resumeAnalysis} />
+      )}
+
       {/* Overall Score Card */}
       <Card>
         <CardHeader>
@@ -308,6 +335,13 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Start New Interview
+        </Button>
+        
+        <Button
+          onClick={() => window.location.href = '/reports'}
+          className="flex items-center"
+        >
+          View All Reports
         </Button>
       </div>
     </div>

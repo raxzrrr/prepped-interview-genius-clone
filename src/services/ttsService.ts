@@ -18,13 +18,9 @@ class TTSService {
           body: { text, voice: 'alloy', speed: 1.0 }
         });
 
-        if (error) {
-          console.warn('Edge function TTS failed:', error);
-          throw new Error('Edge function unavailable');
-        }
-
-        if (data && data.audioData) {
-          const audioBlob = new Blob([Buffer.from(data.audioData, 'base64')], { type: 'audio/mpeg' });
+        if (!error && data && data.audioContent) {
+          // Convert base64 to blob and play
+          const audioBlob = this.base64ToBlob(data.audioContent, 'audio/mpeg');
           const audioUrl = URL.createObjectURL(audioBlob);
           
           this.currentAudio = new Audio(audioUrl);
@@ -35,11 +31,17 @@ class TTSService {
                 URL.revokeObjectURL(audioUrl);
                 resolve();
               };
-              this.currentAudio.onerror = () => {
+              this.currentAudio.onerror = (e) => {
+                console.error('Audio playback error:', e);
                 URL.revokeObjectURL(audioUrl);
-                reject(new Error('Audio playback failed'));
+                // Don't reject, fall back to browser TTS
+                this.fallbackToBrowserTTS(text).then(resolve).catch(reject);
               };
-              this.currentAudio.play().catch(reject);
+              this.currentAudio.play().catch((playError) => {
+                console.warn('Audio play failed, falling back to browser TTS:', playError);
+                URL.revokeObjectURL(audioUrl);
+                this.fallbackToBrowserTTS(text).then(resolve).catch(reject);
+              });
             }
           });
         }
@@ -48,29 +50,46 @@ class TTSService {
       }
 
       // Fallback to browser TTS
-      if ('speechSynthesis' in window) {
-        return new Promise((resolve, reject) => {
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 0.9;
-          utterance.pitch = 1.0;
-          utterance.volume = 0.8;
-          
-          utterance.onend = () => resolve();
-          utterance.onerror = (event) => {
-            console.error('Browser TTS error:', event);
-            reject(new Error('Browser TTS failed'));
-          };
-          
-          window.speechSynthesis.speak(utterance);
-        });
-      } else {
-        throw new Error('TTS not supported in this browser');
-      }
+      return this.fallbackToBrowserTTS(text);
 
     } catch (error) {
       console.error('TTS Error:', error);
       this.isSupported = false;
-      throw error;
+      // Don't throw error, just log it so the app continues working
+      console.warn('TTS not available, continuing without audio');
+    }
+  }
+
+  private base64ToBlob(base64: string, mimeType: string): Blob {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  }
+
+  private fallbackToBrowserTTS(text: string): Promise<void> {
+    if ('speechSynthesis' in window) {
+      return new Promise((resolve, reject) => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.8;
+        
+        utterance.onend = () => resolve();
+        utterance.onerror = (event) => {
+          console.error('Browser TTS error:', event);
+          // Don't reject, just resolve to continue
+          resolve();
+        };
+        
+        window.speechSynthesis.speak(utterance);
+      });
+    } else {
+      console.warn('Browser TTS not supported');
+      return Promise.resolve();
     }
   }
 

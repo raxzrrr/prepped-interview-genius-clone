@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [actualInterviewId, setActualInterviewId] = useState<string | undefined>(interviewId);
   const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [interviewCompleteData, setInterviewCompleteData] = useState<any>(null);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -54,6 +56,16 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     }
     return () => cleanup();
   }, [questions, audioEnabled]);
+
+  // Real-time answer saving
+  useEffect(() => {
+    if (currentAnswer.trim() && currentQuestionIndex < questions.length) {
+      const newAnswers = [...answers];
+      newAnswers[currentQuestionIndex] = currentAnswer.trim();
+      setAnswers(newAnswers);
+      console.log('Real-time answer saved for question', currentQuestionIndex + 1, ':', currentAnswer.trim());
+    }
+  }, [currentAnswer, currentQuestionIndex]);
 
   const cleanup = () => {
     if (intervalRef.current) {
@@ -130,11 +142,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       await ttsService.speak(question);
     } catch (error) {
       console.error('TTS Error:', error);
-      toast({
-        title: "Text-to-Speech Error",
-        description: "Audio playback failed. You can still read the question.",
-        variant: "destructive",
-      });
+      // Don't show error toast, just log it
+      console.warn('Audio playback failed, continuing without audio');
     } finally {
       setIsPlaying(false);
     }
@@ -178,14 +187,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         const answer = transcription.trim();
         setCurrentAnswer(answer);
         
-        // Immediately update the answers array
-        const newAnswers = [...answers];
-        newAnswers[currentQuestionIndex] = answer;
-        setAnswers(newAnswers);
-        
-        console.log('Answer saved:', answer);
-        console.log('Updated answers array:', newAnswers);
-        
         toast({
           title: "Answer Recorded",
           description: "Your answer has been saved.",
@@ -202,18 +203,10 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   };
 
   const nextQuestion = () => {
-    // Ensure current answer is saved before moving to next
-    if (currentAnswer.trim()) {
-      const newAnswers = [...answers];
-      newAnswers[currentQuestionIndex] = currentAnswer.trim();
-      setAnswers(newAnswers);
-      console.log('Moving to next question, saved answer:', currentAnswer.trim());
-    }
-    
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
-      setCurrentAnswer(answers[nextIndex] || ''); // Load existing answer if any
+      setCurrentAnswer(answers[nextIndex] || '');
       
       if (audioEnabled) {
         speakQuestion(questions[nextIndex]);
@@ -267,14 +260,15 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       console.log('Calculated score:', score);
       console.log('Valid answers count:', validAnswers.length, 'out of', questions.length);
       
-      // Prepare interview data for saving
-      const interviewData = {
+      // Prepare complete interview data
+      const completeInterviewData = {
         status: 'completed',
         answers: finalAnswers,
         score: score,
         facial_analysis: facialAnalysis,
         completed_at: new Date().toISOString(),
-        questions: questions
+        questions: questions,
+        resumeAnalysis: resumeAnalysis
       };
       
       // Save or update the interview
@@ -282,11 +276,11 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       
       if (actualInterviewId) {
         console.log('Updating existing interview:', actualInterviewId);
-        await updateInterview(actualInterviewId, interviewData);
+        await updateInterview(actualInterviewId, completeInterviewData);
       } else {
         console.log('Creating new interview record');
         const newInterviewData = {
-          ...interviewData,
+          ...completeInterviewData,
           user_id: user.id,
           title: `Interview - ${new Date().toLocaleDateString()}`,
         };
@@ -302,6 +296,17 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       });
       
       cleanup();
+      
+      // Store complete data for the report
+      setInterviewCompleteData({
+        questions,
+        answers: finalAnswers,
+        facialAnalysis,
+        resumeAnalysis,
+        interviewId: savedInterviewId,
+        score
+      });
+      
       setIsComplete(true);
       
       // Call onComplete with the final data
@@ -327,7 +332,17 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       }
       
       cleanup();
+      
+      setInterviewCompleteData({
+        questions,
+        answers: finalAnswers,
+        facialAnalysis,
+        resumeAnalysis,
+        interviewId: actualInterviewId
+      });
+      
       setIsComplete(true);
+      
       onComplete({
         questions,
         answers: finalAnswers,
@@ -353,19 +368,22 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     }
   };
 
-  if (isComplete) {
+  if (isComplete && interviewCompleteData) {
     return (
       <InterviewReport
-        questions={questions}
-        answers={answers}
-        facialAnalysis={facialAnalysis}
-        interviewId={actualInterviewId}
+        questions={interviewCompleteData.questions}
+        answers={interviewCompleteData.answers}
+        facialAnalysis={interviewCompleteData.facialAnalysis}
+        resumeAnalysis={interviewCompleteData.resumeAnalysis}
+        interviewId={interviewCompleteData.interviewId}
+        score={interviewCompleteData.score}
         onDone={() => {
           setIsComplete(false);
           setCurrentQuestionIndex(0);
           setAnswers(new Array(questions.length).fill(''));
           setCurrentAnswer('');
           setFacialAnalysis([]);
+          setInterviewCompleteData(null);
         }}
       />
     );

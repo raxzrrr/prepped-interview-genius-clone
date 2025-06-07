@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
@@ -43,7 +44,7 @@ export const useInterviewApi = () => {
       console.error('No Gemini API key found in any source');
       toast({
         title: "API Key Required",
-        description: "Please set up your Gemini API key in Settings to use this feature. Check both environment variables and Settings page.",
+        description: "Please set up your Gemini API key in Settings to use this feature.",
         variant: "destructive"
       });
       return false;
@@ -55,54 +56,29 @@ export const useInterviewApi = () => {
 
   const getCurrentUser = async () => {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      // First check current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (error) {
-        console.error('User retrieval error:', error);
-        toast({
-          title: "Authentication Error",
-          description: "Please log in again to continue.",
-          variant: "destructive"
-        });
-        return null;
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error('Session expired. Please log in again.');
       }
       
-      if (!user) {
-        console.error('No authenticated user found');
-        toast({
-          title: "Authentication Required",
-          description: "Please log in to use this feature.",
-          variant: "destructive"
-        });
-        return null;
+      if (!session?.user) {
+        console.error('No active session found');
+        throw new Error('No active session. Please log in.');
       }
       
-      console.log('Authenticated user found:', user.id);
-      return user;
+      console.log('Valid session found for user:', session.user.id);
+      return session.user;
     } catch (error) {
-      console.error('Error getting user:', error);
+      console.error('Authentication error:', error);
       toast({
         title: "Authentication Error",
         description: "Please log in again to continue.",
         variant: "destructive"
       });
-      return null;
-    }
-  };
-
-  const getCurrentSession = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Session retrieval error:', error);
-        return null;
-      }
-      
-      return session;
-    } catch (error) {
-      console.error('Error getting session:', error);
-      return null;
+      throw error;
     }
   };
 
@@ -146,7 +122,7 @@ export const useInterviewApi = () => {
       
       toast({
         title: "API Error",
-        description: `Failed to generate interview questions: ${errorMessage}. Please check your API configuration and network connection.`,
+        description: `Failed to generate interview questions: ${errorMessage}`,
         variant: "destructive"
       });
       throw error;
@@ -247,7 +223,7 @@ export const useInterviewApi = () => {
       console.error('Error analyzing resume:', error);
       toast({
         title: "API Error",
-        description: `Failed to analyze resume: ${error.message}. Please check your API configuration.`,
+        description: `Failed to analyze resume: ${error.message}`,
         variant: "destructive"
       });
       throw error;
@@ -259,14 +235,9 @@ export const useInterviewApi = () => {
       console.log('Saving interview with data:', interviewData);
       
       const user = await getCurrentUser();
-      
-      if (!user) {
-        throw new Error('Please log in to save interviews.');
-      }
-      
       console.log('Authenticated user ID:', user.id);
       
-      // Ensure we have proper data structure
+      // Ensure we have proper data structure with all required fields
       const dataToSave = {
         user_id: user.id,
         title: interviewData.title || `Interview - ${new Date().toLocaleDateString()}`,
@@ -274,16 +245,17 @@ export const useInterviewApi = () => {
         company_name: interviewData.company_name || '',
         interview_type: interviewData.interview_type || 'general',
         duration: interviewData.duration || 15,
-        focus_areas: interviewData.focus_areas || [],
+        focus_areas: Array.isArray(interviewData.focus_areas) ? interviewData.focus_areas : [],
         questions: Array.isArray(interviewData.questions) ? interviewData.questions : [],
         answers: Array.isArray(interviewData.answers) ? interviewData.answers : [],
         status: interviewData.status || 'in-progress',
         score: interviewData.score || null,
-        facial_analysis: interviewData.facial_analysis || [],
-        completed_at: interviewData.completed_at || null
+        facial_analysis: Array.isArray(interviewData.facial_analysis) ? interviewData.facial_analysis : [],
+        completed_at: interviewData.completed_at || null,
+        date: new Date().toISOString()
       };
       
-      console.log('Data structure prepared for saving:', dataToSave);
+      console.log('Final data structure for saving:', dataToSave);
       
       const { data, error } = await supabase
         .from('interviews')
@@ -323,18 +295,17 @@ export const useInterviewApi = () => {
       console.log('Updating interview:', id, 'with data:', interviewData);
       
       const user = await getCurrentUser();
-      
-      if (!user) {
-        throw new Error('Please log in to update interviews.');
-      }
-      
       console.log('Authenticated user ID:', user.id);
 
       // Ensure proper data structure for update
       const updateData = {
         ...interviewData,
+        answers: Array.isArray(interviewData.answers) ? interviewData.answers : [],
+        facial_analysis: Array.isArray(interviewData.facial_analysis) ? interviewData.facial_analysis : [],
         updated_at: new Date().toISOString()
       };
+
+      console.log('Update data structure:', updateData);
 
       const { error } = await supabase
         .from('interviews')
@@ -368,12 +339,6 @@ export const useInterviewApi = () => {
       console.log('Fetching interviews...');
       
       const user = await getCurrentUser();
-      
-      if (!user) {
-        console.log('No user found, returning empty array');
-        return [];
-      }
-      
       console.log('Fetching interviews for user:', user.id);
       
       const { data, error } = await supabase
@@ -388,6 +353,7 @@ export const useInterviewApi = () => {
       }
       
       console.log('Successfully fetched interviews:', data?.length || 0);
+      console.log('Interview data:', data);
       return data || [];
     } catch (error: any) {
       console.error('Error fetching interviews:', error);
@@ -405,10 +371,6 @@ export const useInterviewApi = () => {
       console.log('Fetching interview by ID:', id);
       
       const user = await getCurrentUser();
-      
-      if (!user) {
-        throw new Error('Please log in to fetch interview details.');
-      }
       
       const { data, error } = await supabase
         .from('interviews')
