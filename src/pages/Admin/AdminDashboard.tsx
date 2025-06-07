@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -40,23 +41,9 @@ const AdminDashboard: React.FC = () => {
     return <Navigate to="/dashboard" />;
   }
   
-  // Mock data for charts
-  const userActivityData = [
-    { name: 'Jan', users: 400 },
-    { name: 'Feb', users: 600 },
-    { name: 'Mar', users: 800 },
-    { name: 'Apr', users: 1200 },
-    { name: 'May', users: 1600 },
-    { name: 'Jun', users: 1800 },
-    { name: 'Jul', users: 2400 },
-  ];
-  
-  const subscriptionData = [
-    { name: 'Free', value: 65 },
-    { name: 'Pro', value: 30 },
-    { name: 'Enterprise', value: 5 },
-  ];
-  
+  // TODO: Replace with actual data fetching
+  const userActivityData = [];
+  const subscriptionData = [];
   const COLORS = ['#E5E7EB', '#7C4DFF', '#4285F4'];
   
   return (
@@ -76,10 +63,9 @@ const AdminDashboard: React.FC = () => {
               <Users className="w-4 h-4 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">2,453</div>
-              <div className="flex items-center text-xs text-green-500">
-                <ArrowUpRight className="w-3 h-3 mr-1" />
-                <span>+12.5% from last month</span>
+              <div className="text-2xl font-bold">-</div>
+              <div className="text-xs text-gray-500">
+                Data will be available when connected to database
               </div>
             </CardContent>
           </Card>
@@ -90,10 +76,9 @@ const AdminDashboard: React.FC = () => {
               <Video className="w-4 h-4 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,876</div>
-              <div className="flex items-center text-xs text-green-500">
-                <ArrowUpRight className="w-3 h-3 mr-1" />
-                <span>+8.2% from last month</span>
+              <div className="text-2xl font-bold">-</div>
+              <div className="text-xs text-gray-500">
+                Data will be available when connected to database
               </div>
             </CardContent>
           </Card>
@@ -104,10 +89,9 @@ const AdminDashboard: React.FC = () => {
               <Users className="w-4 h-4 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">864</div>
-              <div className="flex items-center text-xs text-green-500">
-                <ArrowUpRight className="w-3 h-3 mr-1" />
-                <span>+4.6% from last month</span>
+              <div className="text-2xl font-bold">-</div>
+              <div className="text-xs text-gray-500">
+                Data will be available when connected to database
               </div>
             </CardContent>
           </Card>
@@ -118,10 +102,9 @@ const AdminDashboard: React.FC = () => {
               <CreditCard className="w-4 h-4 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">$32,845</div>
-              <div className="flex items-center text-xs text-green-500">
-                <ArrowUpRight className="w-3 h-3 mr-1" />
-                <span>+16.3% from last month</span>
+              <div className="text-2xl font-bold">-</div>
+              <div className="text-xs text-gray-500">
+                Data will be available when connected to database
               </div>
             </CardContent>
           </Card>
@@ -136,24 +119,11 @@ const AdminDashboard: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={userActivityData}
-                    margin={{
-                      top: 20,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="users" fill="#7C4DFF" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <p>No data available</p>
+                  <p className="text-sm">Connect to database to view user growth metrics</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -166,28 +136,11 @@ const AdminDashboard: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={subscriptionData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {subscriptionData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend />
-                    <Tooltip formatter={(value) => `${value}%`} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <p>No data available</p>
+                  <p className="text-sm">Connect to database to view subscription metrics</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -202,47 +155,13 @@ const AdminDashboard: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100">
-                    <span className="text-sm font-medium">JD</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">John Doe</p>
-                    <p className="text-xs text-gray-500">john.doe@example.com</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100">
-                    <span className="text-sm font-medium">AS</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Alice Smith</p>
-                    <p className="text-xs text-gray-500">alice.smith@example.com</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100">
-                    <span className="text-sm font-medium">RW</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Robert Wilson</p>
-                    <p className="text-xs text-gray-500">robert.wilson@example.com</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100">
-                    <span className="text-sm font-medium">EJ</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Emily Johnson</p>
-                    <p className="text-xs text-gray-500">emily.johnson@example.com</p>
-                  </div>
-                </div>
+              <div className="text-center py-8 text-gray-500">
+                <p>No recent signups</p>
+                <p className="text-sm">Data will appear when users start signing up</p>
               </div>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" disabled>
                 View All Users
               </Button>
             </CardFooter>
@@ -256,55 +175,13 @@ const AdminDashboard: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Mastering Behavioral Interviews</p>
-                    <div className="flex space-x-2 text-xs text-gray-500">
-                      <span>5,680 enrolled</span>
-                      <span>•</span>
-                      <span>4.8 rating</span>
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-brand-purple">1</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Resume Building Workshop</p>
-                    <div className="flex space-x-2 text-xs text-gray-500">
-                      <span>6,250 enrolled</span>
-                      <span>•</span>
-                      <span>4.9 rating</span>
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-brand-purple">2</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Technical Interview Fundamentals</p>
-                    <div className="flex space-x-2 text-xs text-gray-500">
-                      <span>4,230 enrolled</span>
-                      <span>•</span>
-                      <span>4.7 rating</span>
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-brand-purple">3</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Interview Anxiety Management</p>
-                    <div className="flex space-x-2 text-xs text-gray-500">
-                      <span>5,380 enrolled</span>
-                      <span>•</span>
-                      <span>4.8 rating</span>
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-brand-purple">4</span>
-                </div>
+              <div className="text-center py-8 text-gray-500">
+                <p>No courses available</p>
+                <p className="text-sm">Add courses to see popularity metrics</p>
               </div>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" disabled>
                 View All Courses
               </Button>
             </CardFooter>
@@ -318,51 +195,13 @@ const AdminDashboard: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <p className="text-sm font-medium">Michael Brown</p>
-                    <p className="text-sm font-medium">$19.99</p>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Pro Subscription</span>
-                    <span>2 hours ago</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <p className="text-sm font-medium">Sarah Williams</p>
-                    <p className="text-sm font-medium">$49.99</p>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Enterprise Subscription</span>
-                    <span>5 hours ago</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <p className="text-sm font-medium">David Miller</p>
-                    <p className="text-sm font-medium">$19.99</p>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Pro Subscription</span>
-                    <span>8 hours ago</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <p className="text-sm font-medium">Jennifer Lee</p>
-                    <p className="text-sm font-medium">$19.99</p>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Pro Subscription</span>
-                    <span>10 hours ago</span>
-                  </div>
-                </div>
+              <div className="text-center py-8 text-gray-500">
+                <p>No recent payments</p>
+                <p className="text-sm">Payment data will appear when users subscribe</p>
               </div>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" disabled>
                 View All Payments
               </Button>
             </CardFooter>
