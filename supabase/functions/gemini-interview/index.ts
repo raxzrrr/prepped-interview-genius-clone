@@ -59,6 +59,26 @@ serve(async (req) => {
           }]
         }]
       };
+    } else if (type === 'evaluation') {
+      url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
+      const { question, answer } = prompt;
+      requestBody = {
+        contents: [{
+          parts: [{
+            text: `Question: ${question}\n\nUser's Answer: ${answer}\n\nProvide a comprehensive evaluation including:
+            1. An ideal/sample answer for this question
+            2. Evaluation criteria for what makes a good answer
+            3. Score breakdown (clarity, relevance, depth, examples, overall - each out of 100)
+            4. Detailed feedback on the user's answer
+            
+            Format the response as a JSON object with these properties:
+            - "ideal_answer" (string): A comprehensive sample answer
+            - "evaluation_criteria" (array of strings): Key criteria for evaluating this type of question
+            - "score_breakdown" (object): {"clarity": number, "relevance": number, "depth": number, "examples": number, "overall": number}
+            - "feedback" (string): Detailed feedback on the user's specific answer`
+          }]
+        }]
+      };
     } else if (type === 'facial-analysis') {
       url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       const { image } = prompt;

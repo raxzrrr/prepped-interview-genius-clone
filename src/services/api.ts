@@ -16,6 +16,19 @@ interface AnswerFeedback {
   suggestion: string;
 }
 
+interface QuestionEvaluation {
+  ideal_answer: string;
+  evaluation_criteria: string[];
+  score_breakdown: {
+    clarity: number;
+    relevance: number;
+    depth: number;
+    examples: number;
+    overall: number;
+  };
+  feedback: string;
+}
+
 interface FacialAnalysis {
   primary_emotion: string;
   confidence_score: number;
@@ -134,6 +147,37 @@ export const useInterviewApi = () => {
     }
   };
 
+  const evaluateAnswer = async (question: string, userAnswer: string): Promise<QuestionEvaluation | null> => {
+    if (!checkApiKey()) return null;
+    
+    try {
+      console.log('Getting evaluation for question:', question.substring(0, 50) + '...');
+      
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { 
+          type: 'evaluation', 
+          prompt: { question, answer: userAnswer } 
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error for evaluation:', error);
+        return null;
+      }
+      
+      if (!data) {
+        console.log('No evaluation data received');
+        return null;
+      }
+      
+      console.log('Successfully received evaluation');
+      return data;
+    } catch (error: any) {
+      console.error('Error getting answer evaluation:', error);
+      return null;
+    }
+  };
+
   const analyzeFacialExpression = async (imageBase64: string): Promise<FacialAnalysis | null> => {
     if (!checkApiKey()) return null;
     
@@ -207,6 +251,7 @@ export const useInterviewApi = () => {
   return {
     generateInterviewQuestions,
     getAnswerFeedback,
+    evaluateAnswer,
     analyzeFacialExpression,
     analyzeResume
   };

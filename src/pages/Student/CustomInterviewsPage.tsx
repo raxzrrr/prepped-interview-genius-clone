@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -25,6 +24,7 @@ const CustomInterviewsPage: React.FC = () => {
   const [jobRole, setJobRole] = useState('');
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [evaluations, setEvaluations] = useState<any[]>([]);
   const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
   const [resumeAnalysis, setResumeAnalysis] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -82,6 +82,7 @@ const CustomInterviewsPage: React.FC = () => {
   const handleInterviewComplete = (data: { 
     questions: string[], 
     answers: string[], 
+    evaluations: any[],
     facialAnalysis: any[],
     interviewId?: string 
   }) => {
@@ -89,6 +90,7 @@ const CustomInterviewsPage: React.FC = () => {
     
     setQuestions(data.questions);
     setAnswers(data.answers);
+    setEvaluations(data.evaluations || []);
     setFacialAnalysis(data.facialAnalysis);
     setCurrentStep('completed');
   };
@@ -98,6 +100,7 @@ const CustomInterviewsPage: React.FC = () => {
     setJobRole('');
     setQuestions([]);
     setAnswers([]);
+    setEvaluations([]);
     setFacialAnalysis([]);
     setResumeAnalysis(null);
     setActiveTab('role');
@@ -121,6 +124,7 @@ const CustomInterviewsPage: React.FC = () => {
         <InterviewReport
           questions={questions}
           answers={answers}
+          evaluations={evaluations}
           facialAnalysis={facialAnalysis}
           resumeAnalysis={resumeAnalysis}
           onDone={resetInterview}

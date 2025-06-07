@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, Volume2, VolumeX, Play, Pause, SkipForward, CheckCircle, Download } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Play, Pause, SkipForward, CheckCircle, Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
@@ -15,7 +14,13 @@ import jsPDF from 'jspdf';
 
 interface InterviewPrepProps {
   questions: string[];
-  onComplete: (data: { questions: string[], answers: string[], facialAnalysis: any[], interviewId?: string }) => void;
+  onComplete: (data: { 
+    questions: string[], 
+    answers: string[], 
+    evaluations: any[],
+    facialAnalysis: any[], 
+    interviewId?: string 
+  }) => void;
   resumeAnalysis?: any;
   interviewId?: string;
 }
@@ -33,13 +38,15 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
+  const [evaluations, setEvaluations] = useState<any[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
-  const { getAnswerFeedback, analyzeFacialExpression } = useInterviewApi();
+  const { getAnswerFeedback, evaluateAnswer, analyzeFacialExpression } = useInterviewApi();
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -227,6 +234,40 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     nextQuestion();
   };
 
+  const generateEvaluations = async (finalAnswers: string[]) => {
+    setIsEvaluating(true);
+    const newEvaluations: any[] = [];
+    
+    try {
+      for (let i = 0; i < questions.length; i++) {
+        const question = questions[i];
+        const answer = finalAnswers[i] || 'No answer provided';
+        
+        if (answer !== 'No answer provided' && answer !== 'Question skipped') {
+          console.log(`Generating evaluation for question ${i + 1}`);
+          const evaluation = await evaluateAnswer(question, answer);
+          newEvaluations[i] = evaluation;
+        } else {
+          newEvaluations[i] = null;
+        }
+      }
+      
+      setEvaluations(newEvaluations);
+      console.log('All evaluations completed');
+    } catch (error) {
+      console.error('Error generating evaluations:', error);
+      toast({
+        title: "Evaluation Error",
+        description: "Some evaluations could not be generated, but your interview is still saved.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEvaluating(false);
+    }
+    
+    return newEvaluations;
+  };
+
   const generatePDF = () => {
     setIsGeneratingPDF(true);
     
@@ -267,14 +308,14 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         yPosition += 5;
       }
       
-      // Questions and Answers
+      // Questions, Answers, and Evaluations
       doc.setFontSize(14);
       doc.text('Interview Questions & Answers', 20, yPosition);
       yPosition += 10;
       
       questions.forEach((question, index) => {
         // Check if we need a new page
-        if (yPosition > pageHeight - 50) {
+        if (yPosition > pageHeight - 80) {
           doc.addPage();
           yPosition = 20;
         }
@@ -290,9 +331,50 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         // Answer
         doc.setFont(undefined, 'normal');
         const answer = finalAnswers[index] || 'No answer provided';
-        const answerLines = doc.splitTextToSize(`A: ${answer}`, 170);
+        const answerLines = doc.splitTextToSize(`Your Answer: ${answer}`, 170);
         doc.text(answerLines, 20, yPosition);
-        yPosition += answerLines.length * 5 + 8;
+        yPosition += answerLines.length * 5 + 5;
+        
+        // Evaluation (if available)
+        const evaluation = evaluations[index];
+        if (evaluation) {
+          doc.setFont(undefined, 'bold');
+          doc.text('Ideal Answer:', 20, yPosition);
+          yPosition += 5;
+          
+          doc.setFont(undefined, 'normal');
+          const idealLines = doc.splitTextToSize(evaluation.ideal_answer, 170);
+          doc.text(idealLines, 20, yPosition);
+          yPosition += idealLines.length * 5 + 5;
+          
+          if (evaluation.score_breakdown) {
+            doc.setFont(undefined, 'bold');
+            doc.text('Score Breakdown:', 20, yPosition);
+            yPosition += 5;
+            
+            doc.setFont(undefined, 'normal');
+            const breakdown = evaluation.score_breakdown;
+            doc.text(`Clarity: ${breakdown.clarity}/100, Relevance: ${breakdown.relevance}/100`, 20, yPosition);
+            yPosition += 5;
+            doc.text(`Depth: ${breakdown.depth}/100, Examples: ${breakdown.examples}/100`, 20, yPosition);
+            yPosition += 5;
+            doc.text(`Overall: ${breakdown.overall}/100`, 20, yPosition);
+            yPosition += 5;
+          }
+          
+          if (evaluation.feedback) {
+            doc.setFont(undefined, 'bold');
+            doc.text('Feedback:', 20, yPosition);
+            yPosition += 5;
+            
+            doc.setFont(undefined, 'normal');
+            const feedbackLines = doc.splitTextToSize(evaluation.feedback, 170);
+            doc.text(feedbackLines, 20, yPosition);
+            yPosition += feedbackLines.length * 5;
+          }
+        }
+        
+        yPosition += 8;
       });
       
       // Save the PDF
@@ -314,9 +396,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     }
   };
 
-  const finishInterview = () => {
+  const finishInterview = async () => {
     try {
-      console.log('Finishing interview without database save...');
+      console.log('Finishing interview and generating evaluations...');
       
       // Ensure final answer is saved
       const finalAnswers = [...answers];
@@ -330,18 +412,22 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       setAnswers(finalAnswers);
       console.log('Final answers array:', finalAnswers);
       
+      // Generate evaluations for all answers
+      const newEvaluations = await generateEvaluations(finalAnswers);
+      
       cleanup();
       setIsComplete(true);
       
       toast({
         title: "Interview Completed",
-        description: "Your interview has been completed! You can now download the report.",
+        description: "Your interview has been completed and evaluated! You can now download the report.",
       });
       
-      // Call onComplete with the final data
+      // Call onComplete with the final data including evaluations
       onComplete({
         questions,
         answers: finalAnswers,
+        evaluations: newEvaluations,
         facialAnalysis,
         interviewId
       });
@@ -376,7 +462,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     finalAnswers[currentQuestionIndex] = currentAnswer.trim();
   }
 
-  if (isComplete) {
+  if (isComplete || isEvaluating) {
     // Calculate score
     const validAnswers = finalAnswers.filter(answer => 
       answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
@@ -387,6 +473,17 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       <div className="space-y-6">
         {resumeAnalysis && (
           <ResumeAnalysisResults analysis={resumeAnalysis} />
+        )}
+        
+        {isEvaluating && (
+          <Card>
+            <CardContent className="flex items-center justify-center h-32">
+              <div className="text-center">
+                <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
+                <p className="text-gray-600">Generating AI evaluations for your answers...</p>
+              </div>
+            </CardContent>
+          </Card>
         )}
         
         {/* Overall Score Card */}
@@ -433,20 +530,21 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
           </CardContent>
         </Card>
 
-        {/* Questions and Answers */}
+        {/* Questions, Answers, and Evaluations */}
         <Card>
           <CardHeader>
-            <CardTitle>Interview Questions & Answers</CardTitle>
+            <CardTitle>Interview Questions, Answers & Evaluations</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
+            <div className="space-y-8">
               {questions.map((question, index) => {
                 const answer = finalAnswers[index];
+                const evaluation = evaluations[index];
                 const isAnswered = answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped';
                 
                 return (
-                  <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
-                    <div className="flex items-start space-x-3">
+                  <div key={index} className="border-b border-gray-200 pb-6 last:border-b-0">
+                    <div className="flex items-start space-x-3 mb-4">
                       <div className="flex-shrink-0">
                         {isAnswered ? (
                           <CheckCircle className="h-5 w-5 text-green-500 mt-1" />
@@ -455,18 +553,77 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                         )}
                       </div>
                       <div className="flex-grow">
-                        <div className="mb-2">
+                        <div className="mb-3">
                           <span className="font-medium text-gray-900">
                             Question {index + 1}:
                           </span>
                           <p className="mt-1 text-gray-700">{question}</p>
                         </div>
-                        <div>
-                          <span className="font-medium text-gray-900">Answer:</span>
-                          <p className={`mt-1 ${isAnswered ? 'text-gray-700' : 'text-gray-500 italic'}`}>
+                        <div className="mb-3">
+                          <span className="font-medium text-gray-900">Your Answer:</span>
+                          <p className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
                             {answer || 'No answer provided'}
                           </p>
                         </div>
+                        
+                        {evaluation && (
+                          <div className="space-y-4">
+                            <div>
+                              <span className="font-medium text-gray-900">Ideal Answer:</span>
+                              <p className="mt-1 p-3 rounded-md text-gray-700 bg-green-50">
+                                {evaluation.ideal_answer}
+                              </p>
+                            </div>
+                            
+                            {evaluation.evaluation_criteria && (
+                              <div>
+                                <span className="font-medium text-gray-900">Evaluation Criteria:</span>
+                                <ul className="mt-1 list-disc list-inside text-gray-700">
+                                  {evaluation.evaluation_criteria.map((criteria: string, idx: number) => (
+                                    <li key={idx}>{criteria}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            {evaluation.score_breakdown && (
+                              <div>
+                                <span className="font-medium text-gray-900">Score Breakdown:</span>
+                                <div className="mt-2 grid grid-cols-2 md:grid-cols-5 gap-2">
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.clarity}</div>
+                                    <div className="text-xs text-gray-500">Clarity</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.relevance}</div>
+                                    <div className="text-xs text-gray-500">Relevance</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.depth}</div>
+                                    <div className="text-xs text-gray-500">Depth</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-blue-600">{evaluation.score_breakdown.examples}</div>
+                                    <div className="text-xs text-gray-500">Examples</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-lg font-bold text-green-600">{evaluation.score_breakdown.overall}</div>
+                                    <div className="text-xs text-gray-500">Overall</div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {evaluation.feedback && (
+                              <div>
+                                <span className="font-medium text-gray-900">Detailed Feedback:</span>
+                                <p className="mt-1 p-3 rounded-md text-gray-700 bg-yellow-50">
+                                  {evaluation.feedback}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -477,38 +634,41 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         </Card>
 
         {/* Actions */}
-        <div className="flex justify-between pt-6">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIsComplete(false);
-              setCurrentQuestionIndex(0);
-              setAnswers(new Array(questions.length).fill(''));
-              setCurrentAnswer('');
-              setFacialAnalysis([]);
-            }}
-          >
-            Start New Interview
-          </Button>
-          
-          <Button
-            onClick={generatePDF}
-            disabled={isGeneratingPDF}
-            className="flex items-center"
-          >
-            {isGeneratingPDF ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Generating...
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" />
-                Download PDF Report
-              </>
-            )}
-          </Button>
-        </div>
+        {!isEvaluating && (
+          <div className="flex justify-between pt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsComplete(false);
+                setCurrentQuestionIndex(0);
+                setAnswers(new Array(questions.length).fill(''));
+                setCurrentAnswer('');
+                setFacialAnalysis([]);
+                setEvaluations([]);
+              }}
+            >
+              Start New Interview
+            </Button>
+            
+            <Button
+              onClick={generatePDF}
+              disabled={isGeneratingPDF}
+              className="flex items-center"
+            >
+              {isGeneratingPDF ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF Report
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
