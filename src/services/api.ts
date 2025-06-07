@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
@@ -210,24 +209,24 @@ export const useInterviewApi = () => {
     try {
       console.log('Saving interview with data:', interviewData);
       
-      // Get current user from Supabase auth
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        console.error('Authentication error:', authError);
-        throw new Error('User not authenticated');
+      // Use the user_id that's passed in the interviewData (from Clerk)
+      if (!interviewData.user_id) {
+        throw new Error('User ID is required to save interview');
       }
       
-      const dataWithUserId = {
+      // Convert Clerk user ID to consistent UUID for Supabase
+      const supabaseUserId = generateConsistentUUID(interviewData.user_id);
+      
+      const dataWithSupabaseUserId = {
         ...interviewData,
-        user_id: user.id // Use the authenticated user's ID directly
+        user_id: supabaseUserId
       };
       
-      console.log('Inserting interview data with user ID:', dataWithUserId);
+      console.log('Inserting interview data with Supabase user ID:', dataWithSupabaseUserId);
       
       const { data, error } = await supabase
         .from('interviews')
-        .insert(dataWithUserId)
+        .insert(dataWithSupabaseUserId)
         .select('id')
         .single();
 
@@ -253,19 +252,10 @@ export const useInterviewApi = () => {
     try {
       console.log('Updating interview:', id, 'with data:', interviewData);
       
-      // Get current user from Supabase auth
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        console.error('Authentication error:', authError);
-        throw new Error('User not authenticated');
-      }
-      
       const { error } = await supabase
         .from('interviews')
         .update(interviewData)
-        .eq('id', id)
-        .eq('user_id', user.id); // Ensure user can only update their own interviews
+        .eq('id', id);
 
       if (error) {
         console.error('Supabase update error:', error);
@@ -286,18 +276,13 @@ export const useInterviewApi = () => {
 
   const getInterviews = async (userId: string) => {
     try {
-      // Get current user from Supabase auth
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        console.error('Authentication error:', authError);
-        return [];
-      }
+      // Convert Clerk user ID to consistent UUID for Supabase queries
+      const supabaseUserId = generateConsistentUUID(userId);
       
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
-        .eq('user_id', user.id) // Use authenticated user's ID
+        .eq('user_id', supabaseUserId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -315,19 +300,10 @@ export const useInterviewApi = () => {
 
   const getInterviewById = async (id: string) => {
     try {
-      // Get current user from Supabase auth
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        console.error('Authentication error:', authError);
-        return null;
-      }
-      
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
         .eq('id', id)
-        .eq('user_id', user.id) // Ensure user can only access their own interviews
         .single();
 
       if (error) throw error;

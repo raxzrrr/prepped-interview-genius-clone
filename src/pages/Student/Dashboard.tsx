@@ -169,13 +169,15 @@ const Dashboard: React.FC = () => {
       
       setInterviewQuestions(questionTexts);
       
+      // Pass the Clerk user ID directly
       const newInterviewData = {
-        user_id: user.id,
+        user_id: user.id, // This is the Clerk user ID
         title: `${selectedJobRole} Interview Practice`,
         questions: questionTexts,
         status: 'in-progress'
       };
       
+      console.log('Creating interview with user ID:', user.id);
       const id = await saveInterview(newInterviewData);
       setInterviewId(id);
       
