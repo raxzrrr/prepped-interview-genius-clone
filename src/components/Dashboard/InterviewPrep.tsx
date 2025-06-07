@@ -209,6 +209,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     const updatedAnswers = [...answers, finalAnswer];
     setAnswers(updatedAnswers);
     
+    // Update interview in database
     if (interviewId) {
       try {
         await updateInterview(interviewId, {
@@ -217,12 +218,15 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
         });
       } catch (error) {
         console.error('Error updating interview:', error);
+        // Don't block progression for database errors
       }
     }
     
     // Try to get feedback, but don't block progression if it fails
     try {
-      await getAnswerFeedback(questions[currentQuestionIndex], finalAnswer);
+      if (finalAnswer && finalAnswer !== "No answer provided" && finalAnswer !== "Question skipped") {
+        await getAnswerFeedback(questions[currentQuestionIndex], finalAnswer);
+      }
     } catch (error) {
       console.error('Error getting feedback:', error);
       setApiError('Answer feedback temporarily unavailable');
@@ -259,6 +263,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
         });
       } catch (error) {
         console.error('Error completing interview:', error);
+        // Don't block completion for database errors
       }
     }
     

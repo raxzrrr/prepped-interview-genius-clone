@@ -116,8 +116,8 @@ export const useInterviewApi = () => {
       });
 
       if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message);
+        console.error('Edge function error for feedback:', error);
+        throw new Error(error.message || 'Failed to get answer feedback');
       }
       
       if (!data) {
@@ -128,12 +128,8 @@ export const useInterviewApi = () => {
       return data;
     } catch (error: any) {
       console.error('Error getting answer feedback:', error);
-      toast({
-        title: "API Error",
-        description: `Failed to analyze your answer: ${error.message}. Please check your API configuration.`,
-        variant: "destructive"
-      });
-      throw error;
+      // Don't throw error for feedback - just log it and return null
+      return null;
     }
   };
 
@@ -151,8 +147,8 @@ export const useInterviewApi = () => {
       });
 
       if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message);
+        console.error('Edge function error for facial analysis:', error);
+        throw new Error(error.message || 'Failed to analyze facial expression');
       }
       
       if (!data) {
@@ -163,12 +159,8 @@ export const useInterviewApi = () => {
       return data;
     } catch (error: any) {
       console.error('Error analyzing facial expression:', error);
-      toast({
-        title: "API Error",
-        description: `Failed to analyze facial expressions: ${error.message}. Please check your API configuration.`,
-        variant: "destructive"
-      });
-      throw error;
+      // Don't throw error for facial analysis - just log it and return null
+      return null;
     }
   };
 
@@ -213,13 +205,18 @@ export const useInterviewApi = () => {
 
   const saveInterview = async (interviewData: any): Promise<string> => {
     try {
+      console.log('Saving interview with data:', interviewData);
+      
       // Convert Clerk user ID to consistent UUID
       const supabaseUserId = generateConsistentUUID(interviewData.user_id);
+      console.log('Generated Supabase user ID:', supabaseUserId);
       
       const dataWithUUID = {
         ...interviewData,
         user_id: supabaseUserId
       };
+      
+      console.log('Inserting interview data:', dataWithUUID);
       
       const { data, error } = await supabase
         .from('interviews')
@@ -227,13 +224,18 @@ export const useInterviewApi = () => {
         .select('id')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw error;
+      }
+      
+      console.log('Successfully saved interview:', data);
       return data.id;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving interview:', error);
       toast({
         title: "Database Error",
-        description: "Failed to save the interview. Please try again.",
+        description: `Failed to save the interview: ${error.message}. Please try again.`,
         variant: "destructive"
       });
       throw error;
@@ -242,17 +244,24 @@ export const useInterviewApi = () => {
 
   const updateInterview = async (id: string, interviewData: any): Promise<void> => {
     try {
+      console.log('Updating interview:', id, 'with data:', interviewData);
+      
       const { error } = await supabase
         .from('interviews')
         .update(interviewData)
         .eq('id', id);
 
-      if (error) throw error;
-    } catch (error) {
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+      
+      console.log('Successfully updated interview');
+    } catch (error: any) {
       console.error('Error updating interview:', error);
       toast({
         title: "Database Error",
-        description: "Failed to update the interview. Please try again.",
+        description: `Failed to update the interview: ${error.message}. Please try again.`,
         variant: "destructive"
       });
       throw error;
