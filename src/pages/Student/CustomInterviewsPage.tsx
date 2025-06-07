@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { X, Upload, Briefcase, Users, Target, FileText } from 'lucide-react';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import ResumeUpload from '@/components/Dashboard/ResumeUpload';
+import ResumeAnalysisResults from '@/components/Dashboard/ResumeAnalysisResults';
 import { useInterviewApi } from '@/services/api';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -143,8 +144,13 @@ const CustomInterviewsPage: React.FC = () => {
     }
   };
 
-  const handleResumeUpload = (analysis: any) => {
-    setResumeAnalysis(analysis);
+  const handleResumeAnalysisComplete = (analysisData: any) => {
+    console.log('Resume analysis completed:', analysisData);
+    setResumeAnalysis(analysisData);
+    // Don't automatically proceed to interview - let user review the analysis
+  };
+
+  const proceedToInterview = () => {
     setStep('interview');
   };
 
@@ -411,30 +417,48 @@ const CustomInterviewsPage: React.FC = () => {
         )}
 
         {step === 'upload' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Upload className="mr-2 h-5 w-5" />
-                Resume Upload (Optional)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-gray-600">
-                  Upload your resume to get personalized feedback and questions tailored to your background.
-                </p>
-                <ResumeUpload 
-                  onAnalysisComplete={handleResumeUpload}
-                  onAnalysisResults={(analysis) => setResumeAnalysis(analysis)}
-                />
-                <div className="flex justify-center">
-                  <Button variant="outline" onClick={skipResumeUpload}>
-                    Skip Resume Upload
-                  </Button>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Upload className="mr-2 h-5 w-5" />
+                  Resume Upload (Optional)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-gray-600">
+                    Upload your resume to get personalized feedback and questions tailored to your background.
+                  </p>
+                  <ResumeUpload 
+                    onAnalysisResults={handleResumeAnalysisComplete}
+                  />
+                  
+                  {resumeAnalysis && (
+                    <div className="mt-6">
+                      <ResumeAnalysisResults analysis={resumeAnalysis} />
+                      <div className="flex justify-center space-x-4 mt-4">
+                        <Button onClick={proceedToInterview}>
+                          Start Interview with Analysis
+                        </Button>
+                        <Button variant="outline" onClick={skipResumeUpload}>
+                          Start Interview without Resume
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!resumeAnalysis && (
+                    <div className="flex justify-center">
+                      <Button variant="outline" onClick={skipResumeUpload}>
+                        Skip Resume Upload
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </DashboardLayout>
