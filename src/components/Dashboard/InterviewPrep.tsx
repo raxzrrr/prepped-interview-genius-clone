@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -209,7 +210,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     const updatedAnswers = [...answers, finalAnswer];
     setAnswers(updatedAnswers);
     
-    // Update interview in database
+    // Update interview in database (don't block if it fails)
     if (interviewId) {
       try {
         await updateInterview(interviewId, {
@@ -218,18 +219,21 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
         });
       } catch (error) {
         console.error('Error updating interview:', error);
-        // Don't block progression for database errors
+        // Continue without blocking the user
       }
     }
     
     // Try to get feedback, but don't block progression if it fails
-    try {
-      if (finalAnswer && finalAnswer !== "No answer provided" && finalAnswer !== "Question skipped") {
-        await getAnswerFeedback(questions[currentQuestionIndex], finalAnswer);
+    if (finalAnswer && finalAnswer !== "No answer provided" && finalAnswer !== "Question skipped") {
+      try {
+        const feedback = await getAnswerFeedback(questions[currentQuestionIndex], finalAnswer);
+        if (!feedback) {
+          console.log('No feedback received, but continuing interview');
+        }
+      } catch (error) {
+        console.error('Error getting feedback:', error);
+        // Continue without blocking the user
       }
-    } catch (error) {
-      console.error('Error getting feedback:', error);
-      setApiError('Answer feedback temporarily unavailable');
     }
     
     setCurrentAnswer('');
