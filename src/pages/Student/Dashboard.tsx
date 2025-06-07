@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/card';
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/components/ui/use-toast';
-import { BriefcaseIcon, Clock, PlayCircle, AlertCircle, Upload } from 'lucide-react';
+import { BriefcaseIcon, Clock, PlayCircle, AlertCircle, Upload, FileText, User, Briefcase } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 const Dashboard: React.FC = () => {
   const { user, isStudent } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
   const [interviewAnswers, setInterviewAnswers] = useState<string[]>([]);
   const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
@@ -267,7 +268,6 @@ const Dashboard: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Remove fake statistics data for new users */}
             {userStats.totalInterviews > 0 ? (
               <>
                 <Card>
@@ -355,6 +355,85 @@ const Dashboard: React.FC = () => {
               </>
             )}
           </div>
+
+          {/* Performance Cards for users with interview history */}
+          {userStats.totalInterviews > 0 && (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Improvement Tips</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    <li className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-600">
+                        Practice maintaining consistent eye contact
+                      </span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-600">
+                        Use the STAR method for behavioral questions
+                      </span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-600">
+                        Include more quantifiable results in your answers
+                      </span>
+                    </li>
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" className="w-full">
+                    <FileText className="w-4 h-4 mr-2" />
+                    View Full Report
+                  </Button>
+                </CardFooter>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline"
+                      onClick={() => navigate('/custom-interviews')}
+                    >
+                      <Briefcase className="w-4 h-4 mr-2" />
+                      Start Role-Based Interview
+                    </Button>
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline"
+                      onClick={() => navigate('/interviews')}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      View All Interviews
+                    </Button>
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline"
+                      onClick={() => navigate('/reports')}
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      View Reports
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           
           <Card>
             <CardHeader>
@@ -417,6 +496,34 @@ const Dashboard: React.FC = () => {
                     }
                   }}
                 />
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Role-Based Interview</CardTitle>
+              <CardDescription>
+                Practice interviews for specific job roles with customized questions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500">
+                    Enter a specific job role and get targeted interview questions tailored to that position.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full"
+                onClick={() => navigate('/custom-interviews')}
+                disabled={usageData.custom_interviews >= 10}
+              >
+                <Briefcase className="mr-2 h-4 w-4" />
+                {usageData.custom_interviews >= 10 ? 'Monthly Limit Reached' : 'Start Role-Based Interview'}
               </Button>
             </CardFooter>
           </Card>
