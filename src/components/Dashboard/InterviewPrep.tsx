@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +34,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [actualInterviewId, setActualInterviewId] = useState<string | undefined>(interviewId);
+  const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -61,8 +61,10 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
     }
+    if (recordingStream) {
+      recordingStream.getTracks().forEach(track => track.stop());
+    }
     ttsService.stop();
-    voiceToTextService.stop();
   };
 
   const initializeCamera = async () => {
@@ -142,9 +144,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       setIsRecording(true);
       setCurrentAnswer('');
       
-      await voiceToTextService.start((text) => {
-        setCurrentAnswer(text);
-      });
+      const stream = await voiceToTextService.startRecording();
+      setRecordingStream(stream);
       
       toast({
         title: "Recording Started",
@@ -164,12 +165,20 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const stopRecording = async () => {
     try {
       setIsRecording(false);
-      await voiceToTextService.stop();
       
-      if (currentAnswer.trim()) {
-        // Update the answers array with the current answer
+      if (recordingStream) {
+        recordingStream.getTracks().forEach(track => track.stop());
+        setRecordingStream(null);
+      }
+      
+      const transcription = await voiceToTextService.stopRecording();
+      
+      if (transcription && transcription.trim()) {
+        setCurrentAnswer(transcription.trim());
+        
+        // Update the answers array with the transcribed answer
         const newAnswers = [...answers];
-        newAnswers[currentQuestionIndex] = currentAnswer.trim();
+        newAnswers[currentQuestionIndex] = transcription.trim();
         setAnswers(newAnswers);
         
         toast({

@@ -273,7 +273,10 @@ const CustomInterviewsPage: React.FC = () => {
         <InterviewPrep
           questions={questions}
           interviewId={interviewId}
-          onInterviewComplete={handleInterviewComplete}
+          resumeAnalysis={analysisResults}
+          onComplete={(data) => {
+            handleInterviewComplete(data.answers, data.facialAnalysis, data.interviewId);
+          }}
         />
       </DashboardLayout>
     );

@@ -4,13 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 class VoiceToTextService {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: BlobPart[] = [];
+  private stream: MediaStream | null = null;
 
   async startRecording(): Promise<MediaStream> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       this.audioChunks = [];
-      this.mediaRecorder = new MediaRecorder(stream);
+      this.mediaRecorder = new MediaRecorder(this.stream);
       
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -19,7 +20,7 @@ class VoiceToTextService {
       };
       
       this.mediaRecorder.start();
-      return stream;
+      return this.stream;
     } catch (error) {
       console.error('Error starting audio recording:', error);
       throw new Error('Failed to access microphone. Please check permissions.');
@@ -56,8 +57,9 @@ class VoiceToTextService {
       this.mediaRecorder.stop();
       
       // Stop all tracks to release microphone
-      if (this.mediaRecorder.stream) {
-        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      if (this.stream) {
+        this.stream.getTracks().forEach(track => track.stop());
+        this.stream = null;
       }
     });
   }
@@ -77,6 +79,17 @@ class VoiceToTextService {
 
   isRecording(): boolean {
     return this.mediaRecorder?.state === 'recording';
+  }
+
+  // Legacy methods for backward compatibility
+  start(callback: (text: string) => void): Promise<void> {
+    console.warn('start() method is deprecated, use startRecording() instead');
+    return this.startRecording().then(() => {});
+  }
+
+  stop(): Promise<void> {
+    console.warn('stop() method is deprecated, use stopRecording() instead');
+    return this.stopRecording().then(() => {});
   }
 }
 
