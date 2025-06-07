@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -45,7 +46,7 @@ const Dashboard: React.FC = () => {
     completedInterviews: []
   });
   
-  const { getInterviews } = useInterviewApi();
+  const { getInterviews, saveInterview } = useInterviewApi();
 
   // Check if API key is configured when component mounts
   useEffect(() => {
@@ -80,8 +81,12 @@ const Dashboard: React.FC = () => {
         return;
       }
       
-      const custom = interviews?.filter(i => i.title.includes('Custom') || !i.title.includes('Resume-based')).length || 0;
-      const resume = interviews?.filter(i => i.title.includes('Resume-based')).length || 0;
+      const custom = interviews?.filter(i => 
+        i.title.includes('Custom') && !i.title.includes('Resume-based')
+      ).length || 0;
+      const resume = interviews?.filter(i => 
+        i.title.includes('Resume-based') || i.title.includes('Resume')
+      ).length || 0;
       
       setUsageData({ 
         custom_interviews: custom,
@@ -152,7 +157,32 @@ const Dashboard: React.FC = () => {
     });
   };
   
-  const handleResumeAnalysisComplete = (questions: string[]) => {
+  const handleResumeAnalysisComplete = async (questions: string[]) => {
+    // Save resume-based interview to database
+    if (user && questions.length > 0) {
+      try {
+        const newInterviewData = {
+          user_id: user.id,
+          title: `Resume-based Interview`,
+          questions: questions,
+          status: 'in-progress'
+        };
+        
+        const savedInterviewId = await saveInterview(newInterviewData);
+        setInterviewId(savedInterviewId);
+        
+        // Refresh usage data after saving
+        fetchUserInterviewUsage();
+      } catch (error) {
+        console.error("Error saving resume-based interview:", error);
+        toast({
+          title: "Warning",
+          description: "Interview questions generated but failed to save session. You can still proceed.",
+          variant: "destructive",
+        });
+      }
+    }
+    
     setInterviewQuestions(questions);
     setStage('interview');
   };
@@ -213,6 +243,20 @@ const Dashboard: React.FC = () => {
                       <div 
                         className={`h-full rounded-full ${usageData.resume_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
                         style={{ width: `${(usageData.resume_interviews / 10) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">Custom Interviews</span>
+                      <span className={`text-sm font-medium ${usageData.custom_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
+                        {usageData.custom_interviews}/10
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${usageData.custom_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
+                        style={{ width: `${(usageData.custom_interviews / 10) * 100}%` }}
                       ></div>
                     </div>
                   </div>

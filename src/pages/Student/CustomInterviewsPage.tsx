@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
+import { generateConsistentUUID } from '@/utils/userUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 type InterviewType = 'resume' | 'prep' | 'report' | 'selection';
 
@@ -25,6 +26,10 @@ const CustomInterviewsPage: React.FC = () => {
   const [answers, setAnswers] = useState<string[]>([]);
   const [facialData, setFacialData] = useState<any[]>([]);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
+  const [usageData, setUsageData] = useState<{ custom_interviews: number, resume_interviews: number }>({ 
+    custom_interviews: 0, 
+    resume_interviews: 0 
+  });
   
   // Role-based interview state
   const [customRole, setCustomRole] = useState('');
@@ -33,6 +38,48 @@ const CustomInterviewsPage: React.FC = () => {
   
   const { generateInterviewQuestions, saveInterview } = useInterviewApi();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchUsageData();
+    }
+  }, [user]);
+
+  const fetchUsageData = async () => {
+    if (!user) return;
+    
+    try {
+      const supabaseUserId = generateConsistentUUID(user.id);
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const { data: interviews, error } = await supabase
+        .from('interviews')
+        .select('id, title')
+        .eq('user_id', supabaseUserId)
+        .gte('created_at', firstDayOfMonth.toISOString());
+      
+      if (error) {
+        console.error('Error fetching usage data:', error);
+        return;
+      }
+      
+      const custom = interviews?.filter(i => 
+        i.title.includes('Custom') && !i.title.includes('Resume-based')
+      ).length || 0;
+      const resume = interviews?.filter(i => 
+        i.title.includes('Resume-based') || i.title.includes('Resume')
+      ).length || 0;
+      
+      setUsageData({ 
+        custom_interviews: custom,
+        resume_interviews: resume
+      });
+      
+    } catch (error) {
+      console.error('Error fetching usage data:', error);
+    }
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -69,6 +116,7 @@ const CustomInterviewsPage: React.FC = () => {
     setAnswers(interviewAnswers);
     setFacialData(facialAnalysisData);
     setCurrentView('report');
+    fetchUsageData(); // Refresh usage data after completing interview
   };
 
   const handleRoleBasedInterview = async () => {
@@ -85,6 +133,15 @@ const CustomInterviewsPage: React.FC = () => {
       toast({
         title: "Authentication Required",
         description: "Please log in to start an interview.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (usageData.custom_interviews >= 10) {
+      toast({
+        title: "Monthly Limit Reached",
+        description: "You have reached your monthly limit of 10 custom interviews.",
         variant: "destructive",
       });
       return;
@@ -153,6 +210,7 @@ const CustomInterviewsPage: React.FC = () => {
     setInterviewId(undefined);
     setCustomRole('');
     setRoleDescription('');
+    fetchUsageData(); // Refresh usage data when starting new interview
   };
 
   if (currentView === 'prep' && questions.length > 0) {
@@ -218,10 +276,54 @@ const CustomInterviewsPage: React.FC = () => {
           </p>
         </div>
 
+        {/* Monthly Limits Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center">
+              Monthly Limits
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-500">Custom Interviews</span>
+                  <span className={`text-sm font-medium ${usageData.custom_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
+                    {usageData.custom_interviews}/10
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full ${usageData.custom_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
+                    style={{ width: `${(usageData.custom_interviews / 10) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-500">Resume-based Interviews</span>
+                  <span className={`text-sm font-medium ${usageData.resume_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
+                    {usageData.resume_interviews}/10
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full ${usageData.resume_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
+                    style={{ width: `${(usageData.resume_interviews / 10) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-gray-500 pt-2 border-t border-gray-100">
+              <p>Limits reset every 30 days</p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Interview Options */}
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Resume-Based Interview */}
-          <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
+          <Card className={`border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg ${usageData.resume_interviews >= 10 ? 'opacity-60' : ''}`}>
             <CardHeader className="text-center pb-4">
               <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <FileText className="h-8 w-8 text-primary" />
@@ -245,12 +347,13 @@ const CustomInterviewsPage: React.FC = () => {
                     onChange={handleFileUpload}
                     className="hidden"
                     id="resume-upload"
+                    disabled={usageData.resume_interviews >= 10}
                   />
                   <Label htmlFor="resume-upload">
-                    <Button asChild className="mt-4 cursor-pointer">
+                    <Button asChild className="mt-4 cursor-pointer" disabled={usageData.resume_interviews >= 10}>
                       <span>
                         <FileText className="mr-2 h-4 w-4" />
-                        Choose PDF File
+                        {usageData.resume_interviews >= 10 ? 'Monthly Limit Reached' : 'Choose PDF File'}
                       </span>
                     </Button>
                   </Label>
@@ -275,7 +378,7 @@ const CustomInterviewsPage: React.FC = () => {
           </Card>
 
           {/* Role-Based Interview */}
-          <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
+          <Card className={`border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg ${usageData.custom_interviews >= 10 ? 'opacity-60' : ''}`}>
             <CardHeader className="text-center pb-4">
               <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <Briefcase className="h-8 w-8 text-primary" />
@@ -295,6 +398,7 @@ const CustomInterviewsPage: React.FC = () => {
                     value={customRole}
                     onChange={(e) => setCustomRole(e.target.value)}
                     className="w-full"
+                    disabled={usageData.custom_interviews >= 10}
                   />
                 </div>
                 
@@ -306,16 +410,19 @@ const CustomInterviewsPage: React.FC = () => {
                     value={roleDescription}
                     onChange={(e) => setRoleDescription(e.target.value)}
                     className="w-full min-h-[80px] resize-none"
+                    disabled={usageData.custom_interviews >= 10}
                   />
                 </div>
                 
                 <Button 
                   onClick={handleRoleBasedInterview}
-                  disabled={!customRole.trim() || isGeneratingQuestions}
+                  disabled={!customRole.trim() || isGeneratingQuestions || usageData.custom_interviews >= 10}
                   className="w-full"
                   size="lg"
                 >
-                  {isGeneratingQuestions ? (
+                  {usageData.custom_interviews >= 10 ? (
+                    'Monthly Limit Reached'
+                  ) : isGeneratingQuestions ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                       Generating Questions...
