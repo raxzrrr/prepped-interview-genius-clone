@@ -45,6 +45,14 @@ export const useLearningData = (totalModules: number) => {
     }
   };
 
+  // Helper function to safely convert Json to Record<string, any>
+  const safeJsonToRecord = (json: any): Record<string, any> => {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+      return {};
+    }
+    return json as Record<string, any>;
+  };
+
   const fetchUserLearningData = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
@@ -73,7 +81,7 @@ export const useLearningData = (totalModules: number) => {
         console.log('Found existing learning data:', existingData);
         setUserLearningData({
           ...existingData,
-          course_progress: existingData.course_progress || {}
+          course_progress: safeJsonToRecord(existingData.course_progress)
         });
       } else {
         console.log('Creating new learning data for user');
@@ -148,7 +156,11 @@ export const useLearningData = (totalModules: number) => {
       
       if (createdData) {
         console.log('Created new learning data:', createdData);
-        setUserLearningData(createdData);
+        const formattedData: UserLearningData = {
+          ...createdData,
+          course_progress: safeJsonToRecord(createdData.course_progress)
+        };
+        setUserLearningData(formattedData);
       }
     } catch (err: any) {
       console.error('Error creating learning record:', err);
