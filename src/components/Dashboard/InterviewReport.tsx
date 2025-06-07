@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Download, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { Download, ArrowLeft, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import ResumeAnalysisResults from './ResumeAnalysisResults';
 import jsPDF from 'jspdf';
@@ -30,7 +31,32 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   onDone
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [expandedAnswers, setExpandedAnswers] = useState<{ [key: number]: boolean }>({});
   const { toast } = useToast();
+
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLines: number = 3) => {
+    if (!text) return text;
+    const lines = text.split('\n');
+    if (lines.length <= maxLines) {
+      return text;
+    }
+    return lines.slice(0, maxLines).join('\n');
+  };
+
+  // Helper function to check if text needs truncation
+  const needsTruncation = (text: string, maxLines: number = 3) => {
+    if (!text) return false;
+    return text.split('\n').length > maxLines || text.length > 200;
+  };
+
+  // Toggle answer expansion
+  const toggleAnswerExpansion = (index: number) => {
+    setExpandedAnswers(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   // Helper function to render formatted text
   const renderFormattedText = (text: string) => {
@@ -330,6 +356,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
               const answer = answers[index];
               const evaluation = evaluations[index];
               const isAnswered = answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped';
+              const isExpanded = expandedAnswers[index];
+              const answerNeedsTruncation = needsTruncation(answer);
               
               return (
                 <div key={index} className="border-b border-gray-200 pb-6 last:border-b-0">
@@ -351,10 +379,41 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                       <div className="mb-3">
                         <span className="font-medium text-gray-900">Your Answer:</span>
                         <div className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
-                          {isAnswered ? renderFormattedText(answer) : 'No answer provided'}
+                          {isAnswered ? (
+                            <div>
+                              {renderFormattedText(
+                                answerNeedsTruncation && !isExpanded 
+                                  ? truncateText(answer) 
+                                  : answer
+                              )}
+                              {answerNeedsTruncation && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="mt-2 p-0 h-auto text-blue-600 hover:text-blue-800"
+                                  onClick={() => toggleAnswerExpansion(index)}
+                                >
+                                  {isExpanded ? (
+                                    <>
+                                      <ChevronUp className="h-4 w-4 mr-1" />
+                                      Show less
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="h-4 w-4 mr-1" />
+                                      Show more
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            'No answer provided'
+                          )}
                         </div>
                       </div>
                       
+                      {/* Always show evaluation if available */}
                       {evaluation && (
                         <div className="space-y-4">
                           <div>
