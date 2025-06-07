@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -11,11 +12,8 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Clock, Sparkles, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
-import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
 import envService from '@/services/env';
-import { generateConsistentUUID } from '@/utils/userUtils';
-import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard: React.FC = () => {
   const { user, isStudent } = useAuth();
@@ -32,8 +30,6 @@ const Dashboard: React.FC = () => {
     totalQuestions: 0,
     completedInterviews: []
   });
-  
-  const { getInterviews } = useInterviewApi();
 
   // Check if API key is configured when component mounts
   useEffect(() => {
@@ -41,76 +37,7 @@ const Dashboard: React.FC = () => {
     if (!geminiApiKey) {
       setShowApiSettings(true);
     }
-    
-    if (user) {
-      fetchUserInterviewUsage();
-      fetchUserStats();
-    }
   }, [user]);
-  
-  // Fetch interview usage
-  const fetchUserInterviewUsage = async () => {
-    if (!user) return;
-    
-    try {
-      const supabaseUserId = generateConsistentUUID(user.id);
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      const { data: interviews, error } = await supabase
-        .from('interviews')
-        .select('id, title')
-        .eq('user_id', supabaseUserId)
-        .gte('created_at', firstDayOfMonth.toISOString());
-      
-      if (error) {
-        console.error('Error fetching usage data:', error);
-        return;
-      }
-      
-      const custom = interviews?.filter(i => 
-        i.title.includes('Custom') && !i.title.includes('Resume-based')
-      ).length || 0;
-      const resume = interviews?.filter(i => 
-        i.title.includes('Resume-based') || i.title.includes('Resume')
-      ).length || 0;
-      
-      setUsageData({ 
-        custom_interviews: custom,
-        resume_interviews: resume
-      });
-      
-    } catch (error) {
-      console.error('Error fetching user interview usage:', error);
-    }
-  };
-  
-  // Fetch user statistics
-  const fetchUserStats = async () => {
-    if (!user) return;
-    
-    try {
-      const interviews = await getInterviews();
-      
-      if (interviews) {
-        const completed = interviews.filter(interview => interview.status === 'completed');
-        const questionCount = interviews.reduce((acc, curr) => 
-          acc + (Array.isArray(curr.questions) ? curr.questions.length : 0), 0);
-        const avgScore = completed.length > 0 
-          ? Math.round(completed.reduce((acc, curr) => acc + (curr.score || 0), 0) / completed.length) 
-          : 0;
-          
-        setUserStats({
-          totalInterviews: interviews.length,
-          averageScore: avgScore,
-          totalQuestions: questionCount,
-          completedInterviews: completed
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching user stats:', error);
-    }
-  };
 
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
@@ -230,20 +157,11 @@ const Dashboard: React.FC = () => {
               <CardTitle>Recent Feedback</CardTitle>
             </CardHeader>
             <CardContent>
-              {userStats.completedInterviews.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    "Your technical answers are solid, but try to include more specific examples from your experience."
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    "Good engagement and facial expressions. You appear confident and engaged during the interview."
-                  </p>
-                </div>
-              ) : (
+              <div className="space-y-2">
                 <p className="text-sm text-gray-600">
                   Complete an interview to receive feedback on your performance.
                 </p>
-              )}
+              </div>
             </CardContent>
           </Card>
         </div>

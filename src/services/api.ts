@@ -242,10 +242,38 @@ export const useInterviewApi = () => {
     }
   };
 
+  // Mock functions that no longer save to database but return success for compatibility
+  const saveInterview = async (interviewData: any): Promise<string> => {
+    console.log('Mock saveInterview called with:', interviewData);
+    // Generate a mock ID for compatibility
+    return 'mock-interview-' + Date.now();
+  };
+
+  const updateInterview = async (interviewId: string, updateData: any): Promise<void> => {
+    console.log('Mock updateInterview called with:', interviewId, updateData);
+    // No-op for compatibility
+  };
+
+  const getInterviews = async (): Promise<any[]> => {
+    console.log('Mock getInterviews called - returning empty array');
+    // Return empty array since we're not storing interviews
+    return [];
+  };
+
+  const getInterviewById = async (interviewId: string): Promise<any | null> => {
+    console.log('Mock getInterviewById called with:', interviewId);
+    // Return null since we're not storing interviews
+    return null;
+  };
+
   return {
     generateInterviewQuestions,
     getAnswerFeedback,
     analyzeFacialExpression,
-    analyzeResume
+    analyzeResume,
+    saveInterview,
+    updateInterview,
+    getInterviews,
+    getInterviewById
   };
 };

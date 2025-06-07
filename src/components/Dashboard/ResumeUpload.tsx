@@ -26,7 +26,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
   const [progress, setProgress] = useState<string>('');
   const [uploadedFile, setUploadedFile] = useState<string | null>(file || null);
   const { toast } = useToast();
-  const { generateInterviewQuestions, analyzeResume, saveInterview } = useInterviewApi();
+  const { generateInterviewQuestions, analyzeResume } = useInterviewApi();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -98,29 +98,6 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       }
       
       console.log("Generated questions:", questions);
-      
-      // Step 3: Create interview record in the database
-      setProgress('Saving interview session...');
-      try {
-        const newInterviewData = {
-          user_id: user.id,
-          title: `Resume-based ${suggestedRole} Interview`,
-          questions: questions.map(q => q.question),
-          status: 'in-progress'
-        };
-        
-        console.log("Saving interview with data:", newInterviewData);
-        const interviewId = await saveInterview(newInterviewData);
-        console.log('Created interview with ID:', interviewId);
-      } catch (saveError: any) {
-        console.error("Error saving interview:", saveError);
-        // Continue with the flow even if saving fails
-        toast({
-          title: "Warning",
-          description: "Interview questions generated but failed to save session. You can still proceed with the interview.",
-          variant: "destructive",
-        });
-      }
 
       setProgress('Complete!');
       setSuccess(true);

@@ -18,7 +18,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 const CustomInterviewsPage: React.FC = () => {
   const { user, isStudent } = useAuth();
-  const { generateInterviewQuestions, saveInterview } = useInterviewApi();
+  const { generateInterviewQuestions } = useInterviewApi();
   const { toast } = useToast();
   
   // Redirect if not logged in or not a student
@@ -101,27 +101,8 @@ const CustomInterviewsPage: React.FC = () => {
         );
         setQuestions(questionStrings);
 
-        // Save the interview setup
-        const interviewData = {
-          title: `${interviewType.charAt(0).toUpperCase() + interviewType.slice(1)} Interview - ${jobTitle}`,
-          job_title: jobTitle,
-          company_name: companyName,
-          interview_type: interviewType,
-          duration: parseInt(interviewDuration),
-          focus_areas: focusAreas,
-          questions: questionStrings,
-          status: 'in-progress',
-          user_id: user.id
-        };
-
-        try {
-          const savedInterviewId = await saveInterview(interviewData);
-          setInterviewId(savedInterviewId);
-          console.log('Interview setup saved with ID:', savedInterviewId);
-        } catch (saveError) {
-          console.error('Failed to save interview setup:', saveError);
-          // Continue anyway - user can still do the interview
-        }
+        // Generate a mock interview ID for compatibility
+        setInterviewId('mock-interview-' + Date.now());
 
         setStep('upload');
         

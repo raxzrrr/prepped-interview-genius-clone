@@ -4,10 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Download, Save, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { Download, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useInterviewApi } from '@/services/api';
-import { useAuth } from '@/contexts/ClerkAuthContext';
 import ResumeAnalysisResults from './ResumeAnalysisResults';
 import jsPDF from 'jspdf';
 
@@ -30,11 +28,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   score,
   onDone
 }) => {
-  const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
-  const { updateInterview } = useInterviewApi();
-  const { user } = useAuth();
 
   // Calculate overall score if not provided
   const calculateScore = () => {
@@ -137,43 +132,6 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     }
   };
 
-  const saveReport = async () => {
-    if (!interviewId) {
-      toast({
-        title: "Save Failed",
-        description: "No interview ID found. Cannot save report.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    
-    try {
-      await updateInterview(interviewId, {
-        status: 'completed',
-        answers: answers,
-        score: overallScore,
-        facial_analysis: facialAnalysis,
-        completed_at: new Date().toISOString()
-      });
-      
-      toast({
-        title: "Report Saved",
-        description: "Your interview report has been saved successfully.",
-      });
-    } catch (error) {
-      console.error('Error saving report:', error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save the report. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-green-600';
     if (score >= 70) return 'text-yellow-600';
@@ -196,24 +154,6 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
           </p>
         </div>
         <div className="flex space-x-3">
-          <Button
-            variant="outline"
-            onClick={saveReport}
-            disabled={isSaving}
-            className="flex items-center"
-          >
-            {isSaving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Report
-              </>
-            )}
-          </Button>
           <Button
             onClick={generatePDF}
             disabled={isDownloading}
@@ -335,13 +275,6 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Start New Interview
-        </Button>
-        
-        <Button
-          onClick={() => window.location.href = '/reports'}
-          className="flex items-center"
-        >
-          View All Reports
         </Button>
       </div>
     </div>
