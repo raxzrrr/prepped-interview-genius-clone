@@ -57,21 +57,23 @@ export const useLearningData = (totalModules: number) => {
       
       console.log('Fetching learning data for user:', supabaseUUID);
       
-      // First try to get existing data
+      // Try to get existing data from user_learning table
       const { data: existingData, error } = await supabase
-        .rpc('get_user_learning_bypass_rls', { p_user_id: supabaseUUID });
+        .from('user_learning')
+        .select('*')
+        .eq('user_id', supabaseUUID)
+        .maybeSingle();
       
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Database error:', error);
         throw error;
       }
       
-      if (existingData && existingData.length > 0) {
-        const data = existingData[0];
-        console.log('Found existing learning data:', data);
+      if (existingData) {
+        console.log('Found existing learning data:', existingData);
         setUserLearningData({
-          ...data,
-          course_progress: data.course_progress || {}
+          ...existingData,
+          course_progress: existingData.course_progress || {}
         });
       } else {
         console.log('Creating new learning data for user');
@@ -134,12 +136,10 @@ export const useLearningData = (totalModules: number) => {
       };
       
       const { data: createdData, error: createError } = await supabase
-        .rpc('insert_user_learning_bypass_rls', {
-          p_user_id: supabaseUUID,
-          p_course_progress: newLearningData.course_progress,
-          p_completed_modules: newLearningData.completed_modules,
-          p_total_modules: newLearningData.total_modules
-        });
+        .from('user_learning')
+        .insert(newLearningData)
+        .select('*')
+        .single();
       
       if (createError) {
         console.error('Error creating learning data:', createError);
@@ -148,12 +148,7 @@ export const useLearningData = (totalModules: number) => {
       
       if (createdData) {
         console.log('Created new learning data:', createdData);
-        setUserLearningData({
-          id: createdData,
-          ...newLearningData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+        setUserLearningData(createdData);
       }
     } catch (err: any) {
       console.error('Error creating learning record:', err);
@@ -224,11 +219,13 @@ export const useLearningData = (totalModules: number) => {
       console.log('Updating learning progress in database');
       
       const { error } = await supabase
-        .rpc('update_user_learning_bypass_rls', {
-          p_user_id: supabaseUserId,
-          p_course_progress: courseProgress,
-          p_completed_modules: completedModulesCount
-        });
+        .from('user_learning')
+        .update({
+          course_progress: courseProgress,
+          completed_modules: completedModulesCount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', supabaseUserId);
       
       if (error) {
         console.error('Database update error (continuing with local state):', error);

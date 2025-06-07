@@ -221,35 +221,20 @@ export const useInterviewApi = () => {
       
       console.log('Inserting interview data with Supabase user ID:', supabaseUserId);
       
-      // Temporarily disable RLS for this operation
+      // Insert directly into interviews table
       const { data, error } = await supabase
-        .rpc('insert_interview_bypass_rls', {
-          p_user_id: supabaseUserId,
-          p_title: dataWithSupabaseUserId.title,
-          p_questions: dataWithSupabaseUserId.questions,
-          p_status: dataWithSupabaseUserId.status || 'in-progress'
-        });
-
-      if (error) {
-        console.error('RPC insert error:', error);
-        // Fallback to direct insert if RPC fails
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('interviews')
-          .insert(dataWithSupabaseUserId)
-          .select('id')
-          .single();
+        .from('interviews')
+        .insert(dataWithSupabaseUserId)
+        .select('id')
+        .single();
           
-        if (fallbackError) {
-          console.error('Fallback insert error:', fallbackError);
-          throw fallbackError;
-        }
-        
-        console.log('Successfully saved interview via fallback:', fallbackData);
-        return fallbackData.id;
+      if (error) {
+        console.error('Insert error:', error);
+        throw error;
       }
       
-      console.log('Successfully saved interview via RPC:', data);
-      return data;
+      console.log('Successfully saved interview:', data);
+      return data.id;
     } catch (error: any) {
       console.error('Error saving interview:', error);
       toast({
