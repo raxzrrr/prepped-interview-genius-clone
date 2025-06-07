@@ -78,6 +78,31 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       });
   };
 
+  // Calculate overall score based on AI evaluations
+  const calculateScore = (evaluationsList: any[], answersList: string[]) => {
+    let totalScore = 0;
+    let validEvaluations = 0;
+    
+    for (let i = 0; i < questions.length; i++) {
+      const evaluation = evaluationsList[i];
+      const answer = answersList[i];
+      
+      if (evaluation && evaluation.score_breakdown && evaluation.score_breakdown.overall) {
+        // Use AI evaluation score
+        totalScore += evaluation.score_breakdown.overall;
+        validEvaluations++;
+      } else if (answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped') {
+        // If no evaluation but has answer, give a moderate score
+        totalScore += 60;
+        validEvaluations++;
+      }
+      // If no answer and no evaluation, contribute 0 to the score
+    }
+    
+    if (validEvaluations === 0) return 0;
+    return Math.round(totalScore / questions.length); // Average across all questions
+  };
+
   useEffect(() => {
     console.log('InterviewPrep mounted. Auth state:', {
       hasUser: !!user,
@@ -246,10 +271,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
       yPosition += 8;
       
-      const validAnswers = finalAnswers.filter(answer => 
-        answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
-      );
-      const score = Math.round((validAnswers.length / questions.length) * 100);
+      const score = calculateScore(evaluations, finalAnswers);
       doc.text(`Overall Score: ${score}%`, 20, yPosition);
       yPosition += 15;
       
@@ -423,11 +445,11 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   }
 
   if (isComplete || isEvaluating) {
-    // Calculate score
+    // Calculate score using new method
+    const score = calculateScore(evaluations, finalAnswers);
     const validAnswers = finalAnswers.filter(answer => 
       answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
     );
-    const score = Math.round((validAnswers.length / questions.length) * 100);
 
     return (
       <div className="space-y-6">
@@ -460,7 +482,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Performance Score</span>
+                  <span>Performance Score (Based on AI Evaluation)</span>
                   <span className={score >= 85 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600'}>{score}%</span>
                 </div>
                 <Progress value={score} className="h-3" />

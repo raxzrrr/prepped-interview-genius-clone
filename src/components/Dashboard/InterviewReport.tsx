@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,21 +63,31 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       });
   };
 
-  // Calculate overall score if not provided
+  // Calculate overall score based on AI evaluations
   const calculateScore = () => {
     if (score !== undefined) return score;
     
-    const validAnswers = answers.filter(answer => 
-      answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
-    );
-    const answerRatio = validAnswers.length / questions.length;
-    const avgLength = validAnswers.reduce((sum, answer) => sum + answer.length, 0) / validAnswers.length || 0;
+    let totalScore = 0;
+    let validEvaluations = 0;
     
-    // Score based on completion and answer quality
-    let calculatedScore = answerRatio * 60; // 60% for completion
-    calculatedScore += Math.min(avgLength / 200 * 40, 40); // 40% for answer quality/length
+    for (let i = 0; i < questions.length; i++) {
+      const evaluation = evaluations[i];
+      const answer = answers[i];
+      
+      if (evaluation && evaluation.score_breakdown && evaluation.score_breakdown.overall) {
+        // Use AI evaluation score
+        totalScore += evaluation.score_breakdown.overall;
+        validEvaluations++;
+      } else if (answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped') {
+        // If no evaluation but has answer, give a moderate score
+        totalScore += 60;
+        validEvaluations++;
+      }
+      // If no answer and no evaluation, contribute 0 to the score
+    }
     
-    return Math.round(Math.min(calculatedScore, 100));
+    if (validEvaluations === 0) return 0;
+    return Math.round(totalScore / questions.length); // Average across all questions
   };
 
   const overallScore = calculateScore();
@@ -272,7 +283,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
           <div className="space-y-4">
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span>Performance Score</span>
+                <span>Performance Score (Based on AI Evaluation)</span>
                 <span className={getScoreColor(overallScore)}>{overallScore}%</span>
               </div>
               <Progress value={overallScore} className="h-3" />
@@ -405,7 +416,6 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         </CardContent>
       </Card>
 
-      {/* Navigation */}
       <div className="flex justify-between pt-6">
         <Button
           variant="outline"
