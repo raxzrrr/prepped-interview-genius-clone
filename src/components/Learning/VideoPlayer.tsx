@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ interface VideoPlayerProps {
   initialProgress?: number;
   moduleId: string;
   onCompleted: (moduleId: string) => void;
-  onAdvanceToNext?: () => void; // New prop for advancing to next video
+  onAdvanceToNext?: () => void;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -44,37 +45,32 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [toast]);
   
-  // Track video progress - with a slower increment for more realistic tracking
+  // Track video progress
   useEffect(() => {
     let progressInterval: NodeJS.Timeout;
     
     if (!loading && !error) {
-      // Update progress every 3 seconds for more realistic tracking
       progressInterval = setInterval(() => {
         setProgress(prevProgress => {
-          // Cap progress at 100%
           const newProgress = Math.min(prevProgress + 5, 100);
           
-          // Call the onProgress callback
           if (newProgress !== prevProgress) {
             onProgress(newProgress);
           }
           
-          // Auto-complete when progress reaches 100%
           if (newProgress === 100 && prevProgress !== 100) {
             onCompleted(moduleId);
             
-            // Auto-advance to next video if available
             if (onAdvanceToNext) {
               setTimeout(() => {
                 onAdvanceToNext();
-              }, 1500); // Small delay before advancing
+              }, 1500);
             }
           }
           
           return newProgress;
         });
-      }, 3000); // Update every 3 seconds for more realistic progress
+      }, 3000);
     }
     
     return () => {
@@ -82,7 +78,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [loading, error, onProgress, onCompleted, moduleId, onAdvanceToNext]);
   
-  // Handle iframe loading
   const handleIframeLoad = () => {
     setLoading(false);
   };
@@ -92,13 +87,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setError('Failed to load video. Please try again later.');
   };
 
-  // Handle marking video as completed
   const handleMarkAsCompleted = () => {
-    // Update progress to 100% and call the onProgress callback
     setProgress(100);
     onProgress(100);
-    
-    // Call the explicit completion handler with the module ID
     onCompleted(moduleId);
     
     toast({
@@ -106,24 +97,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       description: "This module has been marked as completed.",
     });
     
-    // Auto-advance to next video if available
     if (onAdvanceToNext) {
       setTimeout(() => {
         onAdvanceToNext();
-      }, 1500); // Small delay before advancing
+      }, 1500);
     }
   };
   
-  const isYouTubeVideo = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
-  const isVimeoVideo = videoUrl.includes('vimeo.com');
-  
-  // Ensure the URL has the necessary parameters for embedding
   const getEmbedUrl = () => {
     let url = videoUrl;
     
-    // Add necessary params for YouTube to disable downloading
-    if (isYouTubeVideo) {
-      // Ensure it's an embed URL
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
       if (!url.includes('embed')) {
         const videoId = url.includes('v=') 
           ? new URLSearchParams(url.split('?')[1]).get('v')
@@ -131,14 +115,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         url = `https://www.youtube.com/embed/${videoId}`;
       }
       
-      // Add parameters
       url = url.includes('?') 
         ? `${url}&rel=0&modestbranding=1&enablejsapi=1` 
         : `${url}?rel=0&modestbranding=1&enablejsapi=1`;
     }
     
-    // Add necessary params for Vimeo
-    if (isVimeoVideo && !url.includes('player.vimeo.com')) {
+    if (url.includes('vimeo.com') && !url.includes('player.vimeo.com')) {
       const videoId = url.split('/').pop();
       url = `https://player.vimeo.com/video/${videoId}`;
     }
@@ -194,7 +176,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </div>
         </div>
         
-        {/* Mark as Completed button with improved styling */}
         <div className="flex justify-end">
           <Button 
             onClick={handleMarkAsCompleted}
