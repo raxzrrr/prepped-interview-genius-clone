@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { generateConsistentUUID } from '@/utils/userUtils';
 
 interface UserLearningData {
   id: string;
@@ -63,11 +64,14 @@ export const useLearningData = (totalModules: number) => {
       
       console.log('Fetching learning data for user:', user.id);
       
-      // Use Clerk user ID directly since RLS policies are now properly set up
+      // Convert Clerk user ID to UUID for database queries
+      const supabaseUserId = generateConsistentUUID(user.id);
+      console.log('Using Supabase user ID:', supabaseUserId);
+      
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', supabaseUserId)
         .maybeSingle();
       
       if (error) {
@@ -83,7 +87,7 @@ export const useLearningData = (totalModules: number) => {
         });
       } else {
         console.log('Creating new learning data for user');
-        await createUserLearningRecord(user.id, totalModules);
+        await createUserLearningRecord(supabaseUserId, totalModules);
       }
     } catch (err: any) {
       console.error('Error fetching user learning data:', err);
@@ -107,7 +111,7 @@ export const useLearningData = (totalModules: number) => {
         completed_modules: completedCount,
         total_modules: totalModules,
         course_score: null,
-        course_completed_at: null,
+        course_completed_at: completedCount === totalModules ? new Date().toISOString() : null,
         assessment_attempted: false,
         assessment_score: null,
         assessment_completed_at: null,
@@ -194,6 +198,13 @@ export const useLearningData = (totalModules: number) => {
         }
       });
 
+      // Check if course is completed (for interview-mastery course specifically)
+      const interviewCourseProgress = courseProgress['interview-mastery'] || {};
+      const interviewModulesCompleted = Object.keys(interviewCourseProgress).filter(
+        key => interviewCourseProgress[key] === true
+      ).length;
+      const isInterviewCourseComplete = interviewModulesCompleted >= 5; // 5 modules in interview course
+
       // Always save to localStorage first
       saveLocalProgress(courseProgress);
 
@@ -206,8 +217,8 @@ export const useLearningData = (totalModules: number) => {
             course_progress: courseProgress,
             completed_modules: completedModulesCount,
             total_modules: totalModules,
-            course_score: null,
-            course_completed_at: null,
+            course_score: isInterviewCourseComplete ? 85 : null,
+            course_completed_at: isInterviewCourseComplete ? new Date().toISOString() : null,
             assessment_attempted: false,
             assessment_score: null,
             assessment_completed_at: null,
@@ -219,21 +230,31 @@ export const useLearningData = (totalModules: number) => {
           ...prevData,
           course_progress: courseProgress,
           completed_modules: completedModulesCount,
+          course_score: isInterviewCourseComplete ? 85 : prevData.course_score,
+          course_completed_at: isInterviewCourseComplete ? new Date().toISOString() : prevData.course_completed_at,
           updated_at: new Date().toISOString()
         };
       });
 
-      // Try to update database using Clerk user ID directly
+      // Try to update database using converted UUID
       console.log('Updating learning progress in database');
+      const supabaseUserId = generateConsistentUUID(user.id);
+      
+      const updateData: any = {
+        course_progress: courseProgress,
+        completed_modules: completedModulesCount,
+        updated_at: new Date().toISOString()
+      };
+
+      if (isInterviewCourseComplete) {
+        updateData.course_score = 85;
+        updateData.course_completed_at = new Date().toISOString();
+      }
       
       const { error } = await supabase
         .from('user_learning')
-        .update({
-          course_progress: courseProgress,
-          completed_modules: completedModulesCount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
+        .update(updateData)
+        .eq('user_id', supabaseUserId);
       
       if (error) {
         console.error('Database update error (continuing with local state):', error);
@@ -278,7 +299,8 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
-      // Update database
+      // Update database using converted UUID
+      const supabaseUserId = generateConsistentUUID(user.id);
       const { error } = await supabase
         .from('user_learning')
         .update({
@@ -287,7 +309,7 @@ export const useLearningData = (totalModules: number) => {
           assessment_completed_at: now,
           updated_at: now
         })
-        .eq('user_id', user.id);
+        .eq('user_id', supabaseUserId);
       
       if (error) {
         console.error('Database update error for assessment:', error);

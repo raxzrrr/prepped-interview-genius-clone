@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -189,31 +188,20 @@ const LearningPage: React.FC = () => {
       updateCoursesWithUserProgress();
     }, 100);
     
-    // Check for course completion
+    // Check for course completion - now using the updated logic from the hook
     if (courseId === 'interview-mastery') {
       const course = courses.find(c => c.id === courseId);
-      if (course && user) {
-        const allModulesCompleted = course.modules.every(
-          m => userLearningData?.course_progress?.[courseId]?.[m.id] === true || m.id === moduleId
-        );
+      if (course) {
+        const currentProgress = userLearningData?.course_progress?.[courseId] || {};
+        const completedModules = Object.keys(currentProgress).filter(
+          key => currentProgress[key] === true || key === moduleId
+        ).length;
         
-        if (allModulesCompleted) {
-          try {
-            await supabase
-              .from('user_learning')
-              .update({
-                course_score: 85,
-                course_completed_at: new Date().toISOString()
-              })
-              .eq('user_id', user.id);
-              
-            toast({
-              title: "Course Completed!",
-              description: "Congratulations! You've completed the Interview Mastery Course! You can now take the assessment.",
-            });
-          } catch (error) {
-            console.error('Error updating course completion:', error);
-          }
+        if (completedModules >= 5) { // All 5 modules completed
+          toast({
+            title: "Course Completed!",
+            description: "Congratulations! You've completed the Interview Mastery Course! You can now take the assessment.",
+          });
         }
       }
     }
@@ -269,8 +257,13 @@ const LearningPage: React.FC = () => {
   };
 
   const canTakeAssessment = () => {
-    const courseCompleted = userLearningData?.course_completed_at !== null;
-    return courseCompleted;
+    // Check if all interview mastery modules are completed
+    const interviewProgress = userLearningData?.course_progress?.['interview-mastery'] || {};
+    const completedModules = Object.keys(interviewProgress).filter(
+      key => interviewProgress[key] === true
+    ).length;
+    
+    return completedModules >= 5 || userLearningData?.course_completed_at !== null;
   };
   
   if (learningLoading) {
@@ -393,10 +386,16 @@ const LearningPage: React.FC = () => {
                   
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Course Status:</p>
-                    {userLearningData?.course_completed_at ? (
-                      <p className="text-green-600">Course completed</p>
+                    {canTakeAssessment() ? (
+                      <p className="text-green-600">Course completed - Assessment unlocked!</p>
                     ) : (
-                      <p className="text-orange-600">Complete all modules to unlock assessment</p>
+                      <p className="text-orange-600">
+                        Complete all modules to unlock assessment ({
+                          Object.keys(userLearningData?.course_progress?.['interview-mastery'] || {}).filter(
+                            key => userLearningData?.course_progress?.['interview-mastery']?.[key] === true
+                          ).length
+                        }/5 modules completed)
+                      </p>
                     )}
                   </div>
                   
