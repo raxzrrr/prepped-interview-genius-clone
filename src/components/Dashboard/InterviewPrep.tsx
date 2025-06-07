@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -348,8 +349,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     return 'text-red-600';
   };
 
-  // Tougher badge variant thresholds
-  const getScoreBadgeVariant = (score: number): "default" | "destructive" | "secondary" | "outline" => {
+  // Tougher badge variant thresholds - Fixed to handle undefined/null scores
+  const getScoreBadgeVariant = (score: number | null | undefined): "default" | "destructive" | "secondary" | "outline" => {
+    if (score === null || score === undefined) return 'outline';
     if (score >= 90) return 'default'; // Raised from 85 to 90
     if (score >= 75) return 'secondary'; // Raised from 70 to 75
     return 'destructive';
@@ -399,7 +401,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                     Evaluating...
                   </Badge>
                 ) : (
-                  <Badge variant={score && getScoreBadgeVariant(score)} className="text-lg px-3 py-1">
+                  <Badge variant={getScoreBadgeVariant(score)} className="text-lg px-3 py-1">
                     {score || 0}%
                   </Badge>
                 )}
@@ -417,6 +419,11 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                     )}
                   </div>
                   <Progress value={isEvaluating ? 0 : (score || 0)} className="h-3" />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Poor (0-74%)</span>
+                    <span>Good (75-89%)</span>
+                    <span>Excellent (90%+)</span>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
