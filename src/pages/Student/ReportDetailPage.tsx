@@ -45,8 +45,11 @@ const ReportDetailPage: React.FC = () => {
       setInterview(interviewData);
       
       // Generate feedback for questions and answers if they exist
-      if (interviewData.questions && interviewData.answers) {
-        generateFeedback(interviewData.questions, interviewData.answers);
+      const questions = ensureStringArray(interviewData.questions);
+      const answers = ensureStringArray(interviewData.answers);
+      
+      if (questions.length > 0 && answers.length > 0) {
+        generateFeedback(questions, answers);
       }
     } catch (error) {
       console.error('Error fetching interview details:', error);
@@ -58,6 +61,25 @@ const ReportDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const ensureStringArray = (data: any): string[] => {
+    if (!data) return [];
+    if (Array.isArray(data)) {
+      return data.map(item => typeof item === 'string' ? item : String(item));
+    }
+    if (typeof data === 'string') {
+      try {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => typeof item === 'string' ? item : String(item));
+        }
+      } catch {
+        // If parsing fails, treat as single string
+        return [data];
+      }
+    }
+    return [String(data)];
   };
 
   const generateFeedback = async (questions: string[], answers: string[]) => {
@@ -93,7 +115,7 @@ const ReportDetailPage: React.FC = () => {
   };
 
   const calculateEmotionData = () => {
-    if (!interview?.facial_analysis || interview.facial_analysis.length === 0) {
+    if (!interview?.facial_analysis || !Array.isArray(interview.facial_analysis) || interview.facial_analysis.length === 0) {
       return { 
         primaryEmotion: 'neutral',
         confidenceAvg: 0,
@@ -160,8 +182,8 @@ const ReportDetailPage: React.FC = () => {
   }
 
   const { primaryEmotion, confidenceAvg, engagementAvg } = calculateEmotionData();
-  const questions = Array.isArray(interview.questions) ? interview.questions : [];
-  const answers = Array.isArray(interview.answers) ? interview.answers : [];
+  const questions = ensureStringArray(interview.questions);
+  const answers = ensureStringArray(interview.answers);
 
   return (
     <DashboardLayout>
@@ -368,7 +390,7 @@ const ReportDetailPage: React.FC = () => {
                 <CardTitle>Facial Expression Analysis</CardTitle>
               </CardHeader>
               <CardContent>
-                {interview.facial_analysis && interview.facial_analysis.length > 0 ? (
+                {interview.facial_analysis && Array.isArray(interview.facial_analysis) && interview.facial_analysis.length > 0 ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                       <div className="text-center">
@@ -404,7 +426,7 @@ const ReportDetailPage: React.FC = () => {
                             <div>
                               <span className="font-medium">Observations:</span>
                               <ul className="list-disc pl-5 mt-1">
-                                {analysis.observations.slice(0, 3).map((obs: string, i: number) => (
+                                {Array.isArray(analysis.observations) && analysis.observations.slice(0, 3).map((obs: string, i: number) => (
                                   <li key={i} className="text-sm text-gray-700">{obs}</li>
                                 ))}
                               </ul>
