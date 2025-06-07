@@ -1,7 +1,7 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
+import { generateConsistentUUID } from "@/utils/userUtils";
 
 interface InterviewQuestion {
   id?: string;
@@ -210,12 +210,17 @@ export const useInterviewApi = () => {
         throw new Error('User ID is required to save interview');
       }
       
-      console.log('Inserting interview data with user ID:', interviewData.user_id);
+      // Convert Clerk user ID to UUID format for database
+      const supabaseUserId = generateConsistentUUID(interviewData.user_id);
+      console.log('Inserting interview data with converted user ID:', supabaseUserId);
       
-      // Insert directly into interviews table
+      // Insert directly into interviews table with converted user ID
       const { data, error } = await supabase
         .from('interviews')
-        .insert(interviewData)
+        .insert({
+          ...interviewData,
+          user_id: supabaseUserId
+        })
         .select('id')
         .single();
           
@@ -265,13 +270,24 @@ export const useInterviewApi = () => {
 
   const getInterviews = async (userId: string) => {
     try {
+      console.log('Fetching interviews for user:', userId);
+      
+      // Convert Clerk user ID to UUID format for database query
+      const supabaseUserId = generateConsistentUUID(userId);
+      console.log('Using converted user ID for query:', supabaseUserId);
+      
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', supabaseUserId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+      
+      console.log('Successfully fetched interviews:', data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('Error fetching interviews:', error);
