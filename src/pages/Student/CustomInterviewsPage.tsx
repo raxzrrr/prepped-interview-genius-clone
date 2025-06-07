@@ -12,6 +12,7 @@ import InterviewReport from '@/components/Dashboard/InterviewReport';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
+import DashboardLayout from '@/components/Layout/DashboardLayout';
 
 type InterviewType = 'resume' | 'prep' | 'report' | 'selection';
 
@@ -156,29 +157,33 @@ const CustomInterviewsPage: React.FC = () => {
 
   if (currentView === 'prep' && questions.length > 0) {
     return (
-      <InterviewPrep
-        questions={questions}
-        interviewId={interviewId}
-        onInterviewComplete={handleInterviewComplete}
-      />
+      <DashboardLayout>
+        <InterviewPrep
+          questions={questions}
+          interviewId={interviewId}
+          onInterviewComplete={handleInterviewComplete}
+        />
+      </DashboardLayout>
     );
   }
 
   if (currentView === 'report') {
     return (
-      <InterviewReport
-        questions={questions}
-        answers={answers}
-        facialAnalysis={facialData}
-        onDone={startNewInterview}
-      />
+      <DashboardLayout>
+        <InterviewReport
+          questions={questions}
+          answers={answers}
+          facialAnalysis={facialData}
+          onDone={startNewInterview}
+        />
+      </DashboardLayout>
     );
   }
 
   if (currentView === 'resume' && resumeFile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-accent/20 p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <DashboardLayout>
+        <div className="space-y-6">
           <div className="text-center">
             <h1 className="text-3xl font-bold tracking-tight mb-2">Resume Analysis</h1>
             <p className="text-muted-foreground">
@@ -198,13 +203,13 @@ const CustomInterviewsPage: React.FC = () => {
             </Button>
           </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-accent/20 p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <DashboardLayout>
+      <div className="space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold tracking-tight">Custom Interviews</h1>
@@ -214,7 +219,7 @@ const CustomInterviewsPage: React.FC = () => {
         </div>
 
         {/* Interview Options */}
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Resume-Based Interview */}
           <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
             <CardHeader className="text-center pb-4">
@@ -385,7 +390,7 @@ const CustomInterviewsPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 

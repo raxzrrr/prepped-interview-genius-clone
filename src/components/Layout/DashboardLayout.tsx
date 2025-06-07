@@ -76,18 +76,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const navItems = isAdmin() ? adminNavItems : studentNavItems;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 z-10 bg-brand-darkBlue text-white">
         <div className="flex items-center justify-center h-16 px-4 border-b border-gray-700">
-          <Link to="/" className="text-xl font-bold">
+          <Link to="/" className="text-xl font-bold text-white hover:text-gray-200 transition-colors">
             Interview Genius
           </Link>
         </div>
         
         <div className="flex flex-col flex-grow p-4 overflow-y-auto">
           <div className="mb-8">
-            <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">
+            <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
               Main
             </div>
             <nav className="space-y-1">
@@ -96,40 +96,44 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   key={index}
                   to={item.href}
                   className={cn(
-                    "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+                    "flex items-center px-4 py-3 text-sm rounded-lg transition-all duration-200",
                     location.pathname === item.href
-                      ? "bg-brand-purple text-white"
+                      ? "bg-brand-purple text-white shadow-lg"
                       : "text-gray-300 hover:bg-gray-700 hover:text-white"
                   )}
                 >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  {item.label}
+                  <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
+                  <span className="truncate">{item.label}</span>
                 </Link>
               ))}
             </nav>
           </div>
           
-          <div className="mt-auto">
-            <div className="px-4 py-2 mb-2">
+          <div className="mt-auto border-t border-gray-700 pt-4">
+            <div className="px-4 py-3 mb-2">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-brand-purple flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-brand-purple flex items-center justify-center text-white font-medium">
                     {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
                   </div>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-white">{profile?.full_name || 'User'}</p>
-                  <p className="text-xs text-gray-400">{user.primaryEmailAddress?.emailAddress}</p>
+                <div className="ml-3 min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white truncate">
+                    {profile?.full_name || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {user.primaryEmailAddress?.emailAddress}
+                  </p>
                 </div>
               </div>
             </div>
             <Button
               variant="ghost"
-              className="flex items-center w-full px-4 py-2 text-sm text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
+              className="flex items-center w-full px-4 py-3 text-sm text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-all duration-200"
               onClick={handleLogout}
             >
-              <LogOut className="w-5 h-5 mr-3" />
-              Logout
+              <LogOut className="w-5 h-5 mr-3 flex-shrink-0" />
+              <span>Logout</span>
             </Button>
           </div>
         </div>
@@ -137,8 +141,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       
       {/* Main content */}
       <div className="flex flex-col flex-1 md:ml-64 overflow-hidden">
-        <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 bg-white border-b border-gray-200 md:hidden">
-          <Link to="/" className="text-xl font-bold">
+        <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-6 bg-white border-b border-gray-200 shadow-sm md:hidden">
+          <Link to="/" className="text-xl font-bold text-gray-900">
             Interview Genius
           </Link>
           <Button variant="ghost" size="icon" onClick={() => {}}>
@@ -161,7 +165,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         </header>
         
         <main className="flex-1 p-6 overflow-y-auto bg-gray-50">
-          {children}
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
