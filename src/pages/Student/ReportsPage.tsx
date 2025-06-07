@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { generateConsistentUUID } from '@/utils/userUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 const ReportsPage: React.FC = () => {
   const { user } = useAuth();
@@ -30,47 +32,83 @@ const ReportsPage: React.FC = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const interviews = await getInterviews(user?.id || '');
+      console.log('Fetching reports for user:', user?.id);
       
-      // Filter completed interviews and format for display
-      const completedReports = interviews
-        .filter(interview => interview.status === 'completed')
-        .map(interview => ({
-          id: interview.id,
-          title: interview.title,
-          date: new Date(interview.created_at).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }),
-          questions: Array.isArray(interview.questions) ? interview.questions.length : 0,
-          duration: interview.duration ? `${Math.round(interview.duration / 60)} min` : 'N/A',
-          score: interview.score || 0,
-          answers: interview.answers,
-          facial_analysis: interview.facial_analysis
-        }));
+      if (!user?.id) {
+        console.log('No user ID available');
+        return;
+      }
 
-      setReports(completedReports);
+      // First try to get interviews using the API service
+      try {
+        const interviews = await getInterviews(user.id);
+        console.log('Got interviews from API:', interviews?.length || 0);
+        
+        if (interviews && interviews.length > 0) {
+          processInterviews(interviews);
+          return;
+        }
+      } catch (apiError) {
+        console.log('API service failed, trying direct Supabase query:', apiError);
+      }
 
-      // Calculate statistics
-      const totalQuestions = interviews.reduce((acc, curr) => 
-        acc + (Array.isArray(curr.questions) ? curr.questions.length : 0), 0);
-      const avgScore = completedReports.length > 0 
-        ? Math.round(completedReports.reduce((acc, curr) => acc + curr.score, 0) / completedReports.length) 
-        : 0;
-
-      setStats({
-        totalInterviews: interviews.length,
-        averageScore: avgScore,
-        completedInterviews: completedReports.length,
-        totalQuestions: totalQuestions
-      });
+      // Fallback: Try direct Supabase query with generated UUID
+      const supabaseUserId = generateConsistentUUID(user.id);
+      console.log('Trying direct query with UUID:', supabaseUserId);
+      
+      const { data: directInterviews, error } = await supabase
+        .from('interviews')
+        .select('*')
+        .eq('user_id', supabaseUserId);
+      
+      if (error) {
+        console.error('Direct Supabase query failed:', error);
+      } else {
+        console.log('Got interviews from direct query:', directInterviews?.length || 0);
+        processInterviews(directInterviews || []);
+      }
 
     } catch (error) {
       console.error('Error fetching reports:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const processInterviews = (interviews: any[]) => {
+    // Filter completed interviews and format for display
+    const completedReports = interviews
+      .filter(interview => interview.status === 'completed')
+      .map(interview => ({
+        id: interview.id,
+        title: interview.title,
+        date: new Date(interview.created_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        questions: Array.isArray(interview.questions) ? interview.questions.length : 0,
+        duration: interview.duration ? `${Math.round(interview.duration / 60)} min` : 'N/A',
+        score: interview.score || 0,
+        answers: interview.answers,
+        facial_analysis: interview.facial_analysis
+      }));
+
+    setReports(completedReports);
+
+    // Calculate statistics
+    const totalQuestions = interviews.reduce((acc, curr) => 
+      acc + (Array.isArray(curr.questions) ? curr.questions.length : 0), 0);
+    const avgScore = completedReports.length > 0 
+      ? Math.round(completedReports.reduce((acc, curr) => acc + curr.score, 0) / completedReports.length) 
+      : 0;
+
+    setStats({
+      totalInterviews: interviews.length,
+      averageScore: avgScore,
+      completedInterviews: completedReports.length,
+      totalQuestions: totalQuestions
+    });
   };
 
   const getScoreColor = (score: number) => {

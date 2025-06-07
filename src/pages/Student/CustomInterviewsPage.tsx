@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,10 +6,12 @@ import { Upload, FileText, User } from 'lucide-react';
 import ResumeUpload from '@/components/Dashboard/ResumeUpload';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
+import { useToast } from '@/components/ui/use-toast';
 
 type InterviewType = 'resume' | 'prep' | 'report';
 
 const CustomInterviewsPage: React.FC = () => {
+  const { toast } = useToast();
   const [currentView, setCurrentView] = useState<InterviewType>('resume');
   const [resumeFile, setResumeFile] = useState<string>('');
   const [questions, setQuestions] = useState<string[]>([]);
@@ -19,7 +22,16 @@ const CustomInterviewsPage: React.FC = () => {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload a PDF file only.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;

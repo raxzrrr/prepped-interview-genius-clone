@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -14,16 +15,9 @@ import {
   CardHeader,
   CardTitle 
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/components/ui/use-toast';
-import { BriefcaseIcon, Clock, PlayCircle, AlertCircle } from 'lucide-react';
+import { BriefcaseIcon, Clock, PlayCircle, AlertCircle, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
@@ -34,13 +28,11 @@ import { supabase } from '@/integrations/supabase/client';
 const Dashboard: React.FC = () => {
   const { user, isStudent } = useAuth();
   const { toast } = useToast();
-  const [selectedJobRole, setSelectedJobRole] = useState('Software Engineer');
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
   const [interviewAnswers, setInterviewAnswers] = useState<string[]>([]);
   const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
   const [resumeAnalysis, setResumeAnalysis] = useState<any>(null);
   const [stage, setStage] = useState<'select' | 'interview' | 'report'>('select');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [interviewId, setInterviewId] = useState<string | undefined>();
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [usageData, setUsageData] = useState<{ custom_interviews: number, resume_interviews: number }>({ 
@@ -54,7 +46,7 @@ const Dashboard: React.FC = () => {
     completedInterviews: []
   });
   
-  const { generateInterviewQuestions, saveInterview, getInterviews } = useInterviewApi();
+  const { getInterviews } = useInterviewApi();
 
   // Check if API key is configured when component mounts
   useEffect(() => {
@@ -133,62 +125,6 @@ const Dashboard: React.FC = () => {
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
   }
-
-  const jobRoles = [
-    'Software Engineer',
-    'Product Manager',
-    'Data Scientist',
-    'UX Designer',
-    'Marketing Manager',
-    'Sales Representative',
-    'Project Manager',
-    'Financial Analyst',
-    'Human Resources Specialist',
-    'Customer Success Manager'
-  ];
-
-  const startInterview = async () => {
-    if (usageData.custom_interviews >= 2) {
-      toast({
-        title: "Monthly Limit Reached",
-        description: "You've reached your limit of 2 custom interviews this month.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsGenerating(true);
-
-    try {
-      const questions = await generateInterviewQuestions(selectedJobRole);
-      const questionTexts = questions.map(q => q.question);
-      
-      if (questionTexts.length === 0) {
-        throw new Error('Failed to generate questions');
-      }
-      
-      setInterviewQuestions(questionTexts);
-      
-      // Pass the Clerk user ID directly
-      const newInterviewData = {
-        user_id: user.id, // This is the Clerk user ID
-        title: `${selectedJobRole} Interview Practice`,
-        questions: questionTexts,
-        status: 'in-progress'
-      };
-      
-      console.log('Creating interview with user ID:', user.id);
-      const id = await saveInterview(newInterviewData);
-      setInterviewId(id);
-      
-      setStage('interview');
-    } catch (error) {
-      console.error('Error starting interview:', error);
-      // Don't show generic error message, the specific error is already shown by the API service
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleInterviewComplete = (answers: string[], facialData: any[]) => {
     setInterviewAnswers(answers);
@@ -269,20 +205,6 @@ const Dashboard: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">Custom Interviews</span>
-                      <span className={`text-sm font-medium ${usageData.custom_interviews >= 2 ? 'text-red-500' : 'text-green-500'}`}>
-                        {usageData.custom_interviews}/2
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${usageData.custom_interviews >= 2 ? 'bg-red-500' : 'bg-green-500'}`} 
-                        style={{ width: `${(usageData.custom_interviews / 2) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-500">Resume Interviews</span>
                       <span className={`text-sm font-medium ${usageData.resume_interviews >= 2 ? 'text-red-500' : 'text-green-500'}`}>
                         {usageData.resume_interviews}/2
@@ -359,9 +281,20 @@ const Dashboard: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-600">
-                      Welcome to Interview Genius! Start by choosing a job role and preparing for your first interview.
+                      Welcome to Interview Genius! Start by uploading your resume to get personalized interview questions.
                     </p>
                     <div className="mt-4 space-y-4">
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-brand-purple/10 p-2 rounded-full">
+                          <Upload className="h-5 w-5 text-brand-purple" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium">Upload Your Resume</h4>
+                          <p className="text-xs text-gray-500">
+                            Get tailored questions based on your skills and experience
+                          </p>
+                        </div>
+                      </div>
                       <div className="flex items-start space-x-3">
                         <div className="bg-brand-purple/10 p-2 rounded-full">
                           <PlayCircle className="h-5 w-5 text-brand-purple" />
@@ -370,17 +303,6 @@ const Dashboard: React.FC = () => {
                           <h4 className="text-sm font-medium">Practice with AI</h4>
                           <p className="text-xs text-gray-500">
                             Experience realistic interview scenarios with our AI interviewer
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-3">
-                        <div className="bg-brand-purple/10 p-2 rounded-full">
-                          <BriefcaseIcon className="h-5 w-5 text-brand-purple" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium">Upload Your Resume</h4>
-                          <p className="text-xs text-gray-500">
-                            Get tailored questions based on your skills and experience
                           </p>
                         </div>
                       </div>
@@ -393,44 +315,24 @@ const Dashboard: React.FC = () => {
           
           <Card>
             <CardHeader>
-              <CardTitle>Select Job Role</CardTitle>
+              <CardTitle>Resume-Based Interview</CardTitle>
               <CardDescription>
-                Choose a job role for your interview practice session
+                Upload your resume to get personalized interview questions tailored to your experience
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="job-role">Job Role</Label>
-                  <Select
-                    value={selectedJobRole}
-                    onValueChange={setSelectedJobRole}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a job role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jobRoles.map(role => (
-                        <SelectItem key={role} value={role}>
-                          {role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="resume-file">Upload Resume (PDF only)</Label>
+                  <p className="text-sm text-gray-500">
+                    Our AI will analyze your resume and generate relevant interview questions based on your skills and experience.
+                  </p>
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:space-x-2 sm:space-y-0">
+            <CardFooter>
               <Button 
-                onClick={startInterview}
-                disabled={isGenerating || usageData.custom_interviews >= 2}
-                className="w-full sm:w-1/2"
-              >
-                {isGenerating ? 'Generating Questions...' : 'Start Role-based Interview'}
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full sm:w-1/2"
+                className="w-full"
                 onClick={() => {
                   const uploadInput = document.getElementById('resume-upload');
                   if (uploadInput) {
@@ -439,7 +341,8 @@ const Dashboard: React.FC = () => {
                 }}
                 disabled={usageData.resume_interviews >= 2}
               >
-                Upload Resume for Analysis
+                <Upload className="mr-2 h-4 w-4" />
+                {usageData.resume_interviews >= 2 ? 'Monthly Limit Reached' : 'Upload Resume for Interview'}
                 <input
                   type="file"
                   id="resume-upload"
