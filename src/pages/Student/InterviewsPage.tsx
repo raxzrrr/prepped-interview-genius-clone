@@ -48,9 +48,11 @@ const InterviewsPage: React.FC = () => {
   
   useEffect(() => {
     const fetchInterviews = async () => {
+      if (!user?.id) return;
+      
       try {
         setLoading(true);
-        const data = await getInterviews();
+        const data = await getInterviews(user.id);
         
         if (data) {
           const formattedData = data.map((interview: any) => ({
@@ -73,7 +75,7 @@ const InterviewsPage: React.FC = () => {
     };
     
     fetchInterviews();
-  }, []);
+  }, [user?.id]);
   
   const startNewInterview = () => {
     navigate('/dashboard');
