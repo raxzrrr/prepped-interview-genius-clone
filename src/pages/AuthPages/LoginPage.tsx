@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import MainLayout from '@/components/Layout/MainLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { SignIn } from "@clerk/clerk-react";
@@ -9,11 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const { user, isAdmin, isStudent } = useAuth();
   const location = useLocation();
-  const isAdminLogin = location.pathname.includes('admin') || location.state?.isAdmin;
+  const [searchParams] = useSearchParams();
+  const isAdminLogin = location.pathname.includes('admin') || location.state?.isAdmin || searchParams.get('admin') === 'true';
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,7 +59,12 @@ const LoginPage: React.FC = () => {
   };
   
   const handleSwitchToAdmin = () => {
-    window.history.replaceState({isAdmin: true}, '', '/login');
+    window.history.replaceState({isAdmin: true}, '', '/login?admin=true');
+    window.location.reload();
+  };
+  
+  const handleSwitchToStudent = () => {
+    window.history.replaceState({}, '', '/login');
     window.location.reload();
   };
   
@@ -73,8 +81,18 @@ const LoginPage: React.FC = () => {
                     Login with your administrator credentials to access the dashboard
                   </CardDescription>
                 </CardHeader>
-                <form onSubmit={handleAdminLogin}>
-                  <CardContent className="space-y-4">
+                
+                <CardContent className="space-y-4">
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Admin Credentials:</strong><br />
+                      Username: admin<br />
+                      Password: admin
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <form onSubmit={handleAdminLogin} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="username">Username</Label>
                       <Input
@@ -96,8 +114,6 @@ const LoginPage: React.FC = () => {
                         required
                       />
                     </div>
-                  </CardContent>
-                  <CardFooter>
                     <Button 
                       type="submit" 
                       className="w-full"
@@ -115,8 +131,19 @@ const LoginPage: React.FC = () => {
                         'Login as Admin'
                       )}
                     </Button>
-                  </CardFooter>
-                </form>
+                  </form>
+                </CardContent>
+                
+                <CardFooter>
+                  <Button 
+                    variant="ghost" 
+                    onClick={handleSwitchToStudent}
+                    size="sm"
+                    className="w-full"
+                  >
+                    Switch to Student Login
+                  </Button>
+                </CardFooter>
               </Card>
             ) : (
               <>

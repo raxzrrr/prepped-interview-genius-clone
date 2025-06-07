@@ -1,8 +1,14 @@
-
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 const Footer: React.FC = () => {
+  const navigate = useNavigate();
+  
+  const handleAdminLogin = () => {
+    navigate('/login?admin=true');
+  };
+
   return (
     <footer className="bg-gray-50 border-t border-gray-200">
       <div className="container px-4 py-12 mx-auto">
@@ -82,9 +88,19 @@ const Footer: React.FC = () => {
         </div>
         
         <div className="pt-8 mt-8 border-t border-gray-200">
-          <p className="text-sm text-center text-gray-600">
-            &copy; {new Date().getFullYear()} Interview Genius. All rights reserved.
-          </p>
+          <div className="flex flex-col items-center justify-between space-y-4 md:flex-row md:space-y-0">
+            <p className="text-sm text-center text-gray-600">
+              &copy; {new Date().getFullYear()} Interview Genius. All rights reserved.
+            </p>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleAdminLogin}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Admin Access
+            </Button>
+          </div>
         </div>
       </div>
     </footer>
