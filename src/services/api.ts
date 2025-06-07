@@ -56,44 +56,6 @@ export const useInterviewApi = () => {
     return true;
   };
 
-  const getCurrentUser = () => {
-    try {
-      console.log('Getting current user. Auth state:', {
-        isAuthenticated,
-        hasUser: !!user,
-        hasSession: !!session,
-        sessionActive: session?.isActive
-      });
-
-      if (!isAuthenticated || !user || !session?.isActive) {
-        console.error('Authentication check failed:', {
-          isAuthenticated,
-          hasUser: !!user,
-          hasSession: !!session,
-          sessionActive: session?.isActive
-        });
-        throw new Error('No active session. Please log in again.');
-      }
-      
-      const supabaseUserId = getSupabaseUserId();
-      if (!supabaseUserId) {
-        console.error('No Supabase user ID available');
-        throw new Error('User ID not available. Please log in again.');
-      }
-      
-      console.log('Valid session found for user:', supabaseUserId);
-      return { id: supabaseUserId };
-    } catch (error) {
-      console.error('Authentication error:', error);
-      toast({
-        title: "Authentication Error",
-        description: "Please log in again to continue.",
-        variant: "destructive"
-      });
-      throw error;
-    }
-  };
-
   const generateInterviewQuestions = async (jobRole: string): Promise<InterviewQuestion[]> => {
     if (!checkApiKey()) return [];
     
@@ -242,38 +204,10 @@ export const useInterviewApi = () => {
     }
   };
 
-  // Mock functions that no longer save to database but return success for compatibility
-  const saveInterview = async (interviewData: any): Promise<string> => {
-    console.log('Mock saveInterview called with:', interviewData);
-    // Generate a mock ID for compatibility
-    return 'mock-interview-' + Date.now();
-  };
-
-  const updateInterview = async (interviewId: string, updateData: any): Promise<void> => {
-    console.log('Mock updateInterview called with:', interviewId, updateData);
-    // No-op for compatibility
-  };
-
-  const getInterviews = async (): Promise<any[]> => {
-    console.log('Mock getInterviews called - returning empty array');
-    // Return empty array since we're not storing interviews
-    return [];
-  };
-
-  const getInterviewById = async (interviewId: string): Promise<any | null> => {
-    console.log('Mock getInterviewById called with:', interviewId);
-    // Return null since we're not storing interviews
-    return null;
-  };
-
   return {
     generateInterviewQuestions,
     getAnswerFeedback,
     analyzeFacialExpression,
-    analyzeResume,
-    saveInterview,
-    updateInterview,
-    getInterviews,
-    getInterviewById
+    analyzeResume
   };
 };

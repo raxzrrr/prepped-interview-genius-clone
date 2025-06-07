@@ -82,6 +82,13 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
           yPosition += 8;
         }
         
+        if (resumeAnalysis.skills && resumeAnalysis.skills.length > 0) {
+          const skillsText = `Skills: ${resumeAnalysis.skills.join(', ')}`;
+          const skillsLines = doc.splitTextToSize(skillsText, 170);
+          doc.text(skillsLines, 20, yPosition);
+          yPosition += skillsLines.length * 5 + 5;
+        }
+        
         yPosition += 5;
       }
       
@@ -148,7 +155,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Interview Report</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Interview Completed!</h1>
           <p className="mt-2 text-gray-600">
             Review your performance and download your report
           </p>
@@ -167,7 +174,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Download PDF
+                Download PDF Report
               </>
             )}
           </Button>
@@ -252,8 +259,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                         <p className="mt-1 text-gray-700">{question}</p>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-900">Answer:</span>
-                        <p className={`mt-1 ${isAnswered ? 'text-gray-700' : 'text-gray-500 italic'}`}>
+                        <span className="font-medium text-gray-900">Your Answer:</span>
+                        <p className={`mt-1 p-3 rounded-md ${isAnswered ? 'text-gray-700 bg-blue-50' : 'text-gray-500 italic bg-gray-50'}`}>
                           {answer || 'No answer provided'}
                         </p>
                       </div>

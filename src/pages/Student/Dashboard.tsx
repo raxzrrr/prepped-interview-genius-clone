@@ -24,12 +24,6 @@ const Dashboard: React.FC = () => {
     custom_interviews: 0, 
     resume_interviews: 0 
   });
-  const [userStats, setUserStats] = useState({
-    totalInterviews: 0,
-    averageScore: 0,
-    totalQuestions: 0,
-    completedInterviews: []
-  });
 
   // Check if API key is configured when component mounts
   useEffect(() => {
@@ -126,41 +120,46 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Performance Summary */}
+          {/* Getting Started */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center">
-                Performance Summary
+                Getting Started
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Average Score</span>
-                  <span className="text-lg font-bold text-brand-purple">{userStats.averageScore}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Total Interviews</span>
-                  <span className="text-lg font-bold">{userStats.totalInterviews}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Total Questions</span>
-                  <span className="text-lg font-bold">{userStats.totalQuestions}</span>
+                <p className="text-sm text-gray-600">
+                  Practice your interview skills with AI-powered mock interviews.
+                </p>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-500">Available Features:</p>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    <li>• Resume-based questions</li>
+                    <li>• Role-specific interviews</li>
+                    <li>• Real-time feedback</li>
+                    <li>• Downloadable reports</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          {/* Recent Feedback */}
+          {/* Quick Tips */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle>Recent Feedback</CardTitle>
+              <CardTitle>Quick Tips</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">
-                  Complete an interview to receive feedback on your performance.
+                  Prepare effectively for your next interview with our AI-powered practice sessions.
                 </p>
+                <ul className="text-xs text-gray-600 space-y-1 mt-2">
+                  <li>• Upload your resume for personalized questions</li>
+                  <li>• Choose specific job roles to practice for</li>
+                  <li>• Review your answers after each session</li>
+                </ul>
               </div>
             </CardContent>
           </Card>
