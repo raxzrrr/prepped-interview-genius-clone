@@ -1,574 +1,513 @@
+
 import React, { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Mic, MicOff, Volume2, VolumeX, Play, Pause, SkipForward, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
-import ttsService from '@/services/ttsService';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import voiceToTextService from '@/services/voiceToTextService';
-import { Mic, MicOff, Video, VideoOff, ArrowRight, AlertTriangle, Volume2, VolumeX } from 'lucide-react';
+import ttsService from '@/services/ttsService';
+import InterviewReport from './InterviewReport';
+import ResumeAnalysisResults from './ResumeAnalysisResults';
 
 interface InterviewPrepProps {
   questions: string[];
+  onComplete: (data: { questions: string[], answers: string[], facialAnalysis: any[], interviewId?: string }) => void;
+  resumeAnalysis?: any;
   interviewId?: string;
-  onInterviewComplete: (answers: string[], facialData: any[], interviewId?: string) => void;
 }
 
-const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, onInterviewComplete }) => {
+const InterviewPrep: React.FC<InterviewPrepProps> = ({ 
+  questions, 
+  onComplete, 
+  resumeAnalysis,
+  interviewId 
+}) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
-  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
-  const [answers, setAnswers] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<string[]>(new Array(questions.length).fill(''));
+  const [isRecording, setIsRecording] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState('');
-  const [facialData, setFacialData] = useState<any[]>([]);
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
+  const [isComplete, setIsComplete] = useState(false);
+  const [actualInterviewId, setActualInterviewId] = useState<string | undefined>(interviewId);
+  
   const { toast } = useToast();
-  const { getAnswerFeedback, analyzeFacialExpression, updateInterview } = useInterviewApi();
+  const { user } = useAuth();
+  const { getAnswerFeedback, analyzeFacialExpression, saveInterview, updateInterview } = useInterviewApi();
   
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (questions.length > 0 && currentQuestionIndex < questions.length && ttsEnabled) {
-      speakQuestion();
-    }
-  }, [currentQuestionIndex, questions, ttsEnabled]);
-
-  useEffect(() => {
-    return () => {
-      stopMediaStream();
-      if (analysisIntervalRef.current) {
-        clearInterval(analysisIntervalRef.current);
+    if (questions.length > 0) {
+      initializeCamera();
+      if (audioEnabled) {
+        speakQuestion(questions[0]);
       }
-    };
-  }, []);
-
-  const speakQuestion = async () => {
-    if (!ttsEnabled || !ttsService.isAvailable()) return;
-    
-    try {
-      const currentQuestion = questions[currentQuestionIndex];
-      setIsSpeaking(true);
-      setApiError(null);
-      await ttsService.speak(currentQuestion);
-      setIsSpeaking(false);
-    } catch (error) {
-      console.error('Error speaking question:', error);
-      setIsSpeaking(false);
-      setApiError('Text-to-Speech is temporarily unavailable. You can still read the question and provide your answer.');
-      setTtsEnabled(false);
     }
-  }
+    return () => cleanup();
+  }, [questions, audioEnabled]);
 
-  const requestMediaPermissions = async () => {
+  const cleanup = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    ttsService.stop();
+    voiceToTextService.stop();
+  };
+
+  const initializeCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true, 
-        video: true 
+        video: true, 
+        audio: false 
       });
-      
-      setMediaStream(stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        mediaStreamRef.current = stream;
       }
       
-      return stream;
-    } catch (error) {
-      console.error('Error accessing media devices:', error);
-      toast({
-        title: "Permission Required",
-        description: "Please allow access to your camera and microphone to continue.",
-        variant: "destructive",
-      });
-      return null;
-    }
-  };
-
-  const startVoiceRecording = async () => {
-    try {
-      setIsRecordingVoice(true);
-      setApiError(null);
-      await voiceToTextService.startRecording();
-      
-      toast({
-        title: "Recording Started",
-        description: "Speak your answer clearly. Click stop when finished.",
-      });
-    } catch (error: any) {
-      console.error('Error starting voice recording:', error);
-      setIsRecordingVoice(false);
-      toast({
-        title: "Recording Error",
-        description: error.message || "Failed to start voice recording. Please check your microphone permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const stopVoiceRecording = async () => {
-    try {
-      setIsTranscribing(true);
-      const transcribedText = await voiceToTextService.stopRecording();
-      
-      if (transcribedText.trim()) {
-        setCurrentAnswer(prev => prev ? `${prev} ${transcribedText}` : transcribedText);
-        toast({
-          title: "Voice Recorded",
-          description: "Your answer has been transcribed successfully.",
-        });
-      } else {
-        toast({
-          title: "No Speech Detected",
-          description: "Please try speaking more clearly or check your microphone.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('Error stopping voice recording:', error);
-      toast({
-        title: "Transcription Error",
-        description: error.message || "Failed to convert speech to text. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRecordingVoice(false);
-      setIsTranscribing(false);
-    }
-  };
-
-  const startVideoAnalysis = (stream: MediaStream) => {
-    setIsRecordingVideo(true);
-    
-    if (canvasRef.current && videoRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      
-      analysisIntervalRef.current = setInterval(() => {
-        if (canvas && video && video.videoWidth > 0) {
-          const context = canvas.getContext('2d');
-          if (context) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            const imageBase64 = canvas.toDataURL('image/jpeg');
-            analyzeFace(imageBase64);
-          }
+      // Start facial analysis every 10 seconds
+      intervalRef.current = setInterval(() => {
+        if (currentQuestionIndex < questions.length) {
+          captureFacialExpression();
         }
-      }, 5000);
+      }, 10000);
+      
+    } catch (error) {
+      console.error('Camera access denied:', error);
+      toast({
+        title: "Camera Access",
+        description: "Camera access was denied. Facial analysis will be disabled.",
+        variant: "destructive",
+      });
     }
   };
-  
-  const lastAnalysisTime = useRef(0);
-  const analyzeFace = async (imageBase64: string) => {
-    const now = Date.now();
-    if (now - lastAnalysisTime.current < 5000) {
-      return;
-    }
-    
-    lastAnalysisTime.current = now;
+
+  const captureFacialExpression = async () => {
+    if (!videoRef.current) return;
     
     try {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      if (!context) return;
+      
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      
+      context.drawImage(videoRef.current, 0, 0);
+      const imageBase64 = canvas.toDataURL('image/jpeg');
+      
       const analysis = await analyzeFacialExpression(imageBase64);
+      
       if (analysis) {
-        setFacialData(prevData => [...prevData, analysis]);
+        setFacialAnalysis(prev => [...prev, analysis]);
       }
     } catch (error) {
       console.error('Facial analysis error:', error);
-      setApiError('Facial analysis temporarily unavailable');
     }
   };
 
-  const stopVideoAnalysis = () => {
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
-      analysisIntervalRef.current = null;
+  const speakQuestion = async (question: string) => {
+    if (!audioEnabled) return;
+    
+    try {
+      setIsPlaying(true);
+      await ttsService.speak(question);
+    } catch (error) {
+      console.error('TTS Error:', error);
+      toast({
+        title: "Text-to-Speech Error",
+        description: "Audio playback failed. You can still read the question.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPlaying(false);
     }
-    setIsRecordingVideo(false);
   };
 
-  const stopMediaStream = () => {
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(track => track.stop());
-      setMediaStream(null);
+  const startRecording = async () => {
+    try {
+      setIsRecording(true);
+      setCurrentAnswer('');
+      
+      await voiceToTextService.start((text) => {
+        setCurrentAnswer(text);
+      });
+      
+      toast({
+        title: "Recording Started",
+        description: "Speak your answer now...",
+      });
+    } catch (error) {
+      console.error('Recording error:', error);
+      setIsRecording(false);
+      toast({
+        title: "Recording Error",
+        description: "Failed to start recording. Please check microphone permissions.",
+        variant: "destructive",
+      });
     }
   };
-  
-  const handleSkipQuestion = () => {
-    ttsService.stop();
-    setIsSpeaking(false);
-    
-    const skippedAnswer = "Question skipped";
-    const updatedAnswers = [...answers, skippedAnswer];
-    setAnswers(updatedAnswers);
-    setCurrentAnswer('');
-    
-    // Update interview in database (don't block if it fails)
-    if (interviewId) {
-      try {
-        updateInterview(interviewId, {
-          answers: updatedAnswers,
-          current_question: currentQuestionIndex + 1
+
+  const stopRecording = async () => {
+    try {
+      setIsRecording(false);
+      await voiceToTextService.stop();
+      
+      if (currentAnswer.trim()) {
+        // Update the answers array with the current answer
+        const newAnswers = [...answers];
+        newAnswers[currentQuestionIndex] = currentAnswer.trim();
+        setAnswers(newAnswers);
+        
+        toast({
+          title: "Answer Recorded",
+          description: "Your answer has been saved.",
         });
-      } catch (error) {
-        console.error('Error updating interview:', error);
       }
+    } catch (error) {
+      console.error('Stop recording error:', error);
+      toast({
+        title: "Recording Error",
+        description: "Failed to stop recording.",
+        variant: "destructive",
+      });
     }
-    
-    moveToNextQuestion();
   };
 
-  const handleNextQuestion = async () => {
-    if (isRecordingVoice) {
-      await stopVoiceRecording();
+  const nextQuestion = () => {
+    // Save current answer if there is one
+    if (currentAnswer.trim()) {
+      const newAnswers = [...answers];
+      newAnswers[currentQuestionIndex] = currentAnswer.trim();
+      setAnswers(newAnswers);
     }
     
-    if (isRecordingVideo) {
-      stopVideoAnalysis();
-    }
-
-    const finalAnswer = currentAnswer.trim() || "No answer provided";
-    const updatedAnswers = [...answers, finalAnswer];
-    setAnswers(updatedAnswers);
-    
-    // Update interview in database (don't block if it fails)
-    if (interviewId) {
-      try {
-        await updateInterview(interviewId, {
-          answers: updatedAnswers,
-          current_question: currentQuestionIndex + 1
-        });
-      } catch (error) {
-        console.error('Error updating interview:', error);
-      }
-    }
-    
-    // Try to get feedback, but don't block progression if it fails
-    if (finalAnswer && finalAnswer !== "No answer provided" && finalAnswer !== "Question skipped") {
-      try {
-        const feedback = await getAnswerFeedback(questions[currentQuestionIndex], finalAnswer);
-        if (!feedback) {
-          console.log('No feedback received, but continuing interview');
-        }
-      } catch (error) {
-        console.error('Error getting feedback:', error);
-      }
-    }
-    
-    setCurrentAnswer('');
-    moveToNextQuestion();
-  };
-  
-  const moveToNextQuestion = () => {
-    ttsService.stop();
-    setIsSpeaking(false);
-    
-    const nextIndex = currentQuestionIndex + 1;
-    
-    if (nextIndex < questions.length) {
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
-      setApiError(null);
-    } else {
-      finishInterview();
-    }
-  };
-  
-  const finishInterview = async () => {
-    // Ensure we have the correct number of answers
-    let finalAnswers = [...answers];
-    
-    // If we're missing the last answer, add it
-    if (finalAnswers.length < questions.length) {
-      const missingAnswers = questions.length - finalAnswers.length;
-      for (let i = 0; i < missingAnswers; i++) {
-        if (i === missingAnswers - 1 && currentAnswer.trim()) {
-          // This is the last question and we have a current answer
-          finalAnswers.push(currentAnswer.trim());
-        } else {
-          // Fill missing answers with "No answer provided"
-          finalAnswers.push("No answer provided");
-        }
+      setCurrentAnswer('');
+      
+      if (audioEnabled) {
+        speakQuestion(questions[nextIndex]);
       }
     }
-    
-    if (isRecordingVoice) {
-      await stopVoiceRecording();
+  };
+
+  const skipQuestion = () => {
+    // Mark as skipped but don't overwrite if there's already an answer
+    const newAnswers = [...answers];
+    if (!newAnswers[currentQuestionIndex] || newAnswers[currentQuestionIndex].trim() === '') {
+      newAnswers[currentQuestionIndex] = 'Question skipped';
     }
-    stopVideoAnalysis();
-    stopMediaStream();
-    
-    if (interviewId) {
-      try {
-        await updateInterview(interviewId, {
+    setAnswers(newAnswers);
+    nextQuestion();
+  };
+
+  const finishInterview = async () => {
+    try {
+      // Save the current answer if there is one
+      const finalAnswers = [...answers];
+      if (currentAnswer.trim()) {
+        finalAnswers[currentQuestionIndex] = currentAnswer.trim();
+      } else if (!finalAnswers[currentQuestionIndex] || finalAnswers[currentQuestionIndex].trim() === '') {
+        finalAnswers[currentQuestionIndex] = 'No answer provided';
+      }
+      
+      setAnswers(finalAnswers);
+      
+      // Calculate a basic score
+      const validAnswers = finalAnswers.filter(answer => 
+        answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
+      );
+      const score = Math.round((validAnswers.length / questions.length) * 100);
+      
+      // Save or update the interview
+      if (actualInterviewId) {
+        await updateInterview(actualInterviewId, {
           status: 'completed',
           answers: finalAnswers,
+          score: score,
+          facial_analysis: facialAnalysis,
           completed_at: new Date().toISOString()
         });
-      } catch (error) {
-        console.error('Error completing interview:', error);
+      } else if (user) {
+        const newInterviewData = {
+          user_id: user.id,
+          title: `Interview - ${new Date().toLocaleDateString()}`,
+          questions: questions,
+          answers: finalAnswers,
+          status: 'completed',
+          score: score,
+          facial_analysis: facialAnalysis,
+          completed_at: new Date().toISOString()
+        };
+        
+        const newInterviewId = await saveInterview(newInterviewData);
+        setActualInterviewId(newInterviewId);
       }
-    }
-    
-    onInterviewComplete(finalAnswers, facialData, interviewId);
-  };
-  
-  const repeatQuestion = () => {
-    ttsService.stop();
-    setIsSpeaking(false);
-    if (ttsEnabled && ttsService.isAvailable()) {
-      speakQuestion();
+      
+      cleanup();
+      setIsComplete(true);
+      
+      // Call onComplete with the final data
+      onComplete({
+        questions,
+        answers: finalAnswers,
+        facialAnalysis,
+        interviewId: actualInterviewId
+      });
+      
+    } catch (error) {
+      console.error('Error finishing interview:', error);
+      toast({
+        title: "Save Error",
+        description: "Failed to save interview. You can still view your results.",
+        variant: "destructive",
+      });
+      
+      // Even if save fails, show the results
+      const finalAnswers = [...answers];
+      if (currentAnswer.trim()) {
+        finalAnswers[currentQuestionIndex] = currentAnswer.trim();
+      }
+      
+      cleanup();
+      setIsComplete(true);
+      onComplete({
+        questions,
+        answers: finalAnswers,
+        facialAnalysis,
+        interviewId: actualInterviewId
+      });
     }
   };
 
-  const toggleTTS = () => {
-    if (isSpeaking) {
+  const toggleAudio = () => {
+    setAudioEnabled(!audioEnabled);
+    if (isPlaying) {
       ttsService.stop();
-      setIsSpeaking(false);
+      setIsPlaying(false);
     }
-    setTtsEnabled(!ttsEnabled);
-    setApiError(null);
   };
 
-  // Check if we're on the last question
-  const isLastQuestion = currentQuestionIndex === questions.length - 1;
+  const replayQuestion = () => {
+    if (audioEnabled && questions[currentQuestionIndex]) {
+      speakQuestion(questions[currentQuestionIndex]);
+    }
+  };
+
+  if (isComplete) {
+    return (
+      <InterviewReport
+        questions={questions}
+        answers={answers}
+        facialAnalysis={facialAnalysis}
+        interviewId={actualInterviewId}
+        onDone={() => {
+          setIsComplete(false);
+          setCurrentQuestionIndex(0);
+          setAnswers(new Array(questions.length).fill(''));
+          setCurrentAnswer('');
+          setFacialAnalysis([]);
+        }}
+      />
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center h-64">
+          <p className="text-gray-500">No questions available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const currentQuestion = questions[currentQuestionIndex];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Interview in Progress</h1>
-        <p className="mt-2 text-gray-600">
-          Question {currentQuestionIndex + 1} of {questions.length}
-        </p>
-      </div>
-      
-      {apiError && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <div className="flex items-center">
-            <AlertTriangle className="h-5 w-5 text-amber-600 mr-2" />
-            <span className="text-amber-800">{apiError}</span>
-          </div>
-        </div>
+      {resumeAnalysis && (
+        <ResumeAnalysisResults analysis={resumeAnalysis} />
       )}
       
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <Card className="h-full flex flex-col">
-            <CardHeader className="bg-gray-50 border-b">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-medium">
-                  Question {currentQuestionIndex + 1}:
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleTTS}
-                  className="flex items-center gap-2"
-                >
-                  {ttsEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                  {ttsEnabled ? 'TTS On' : 'TTS Off'}
-                </Button>
-              </div>
-              <p className={`mt-2 text-lg ${isSpeaking ? 'text-brand-purple font-medium' : ''}`}>
-                {questions[currentQuestionIndex]}
-              </p>
-              {isSpeaking && (
-                <div className="mt-3 flex items-center">
-                  <span className="mr-2 inline-block w-2 h-2 bg-brand-purple rounded-full animate-pulse"></span>
-                  <span className="text-sm text-gray-500">AI is speaking...</span>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col p-6">
-              {!mediaStream ? (
-                <div className="text-center mb-6">
-                  <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                    <Video className="h-10 w-10 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">Camera Access Required</h3>
-                  <p className="text-gray-500 mb-6">
-                    We need access to your camera for facial analysis during the interview.
-                  </p>
-                  <Button onClick={requestMediaPermissions}>
-                    Enable Camera
-                  </Button>
-                </div>
-              ) : (
-                <div className="mb-6">
-                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video mb-4">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-full"
-                    ></video>
-                    <canvas ref={canvasRef} className="hidden"></canvas>
-                    
-                    {isRecordingVideo && (
-                      <div className="absolute top-4 right-4 flex items-center bg-black bg-opacity-50 text-white px-3 py-1 rounded-full">
-                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2 animate-pulse"></div>
-                        <span className="text-sm">Analyzing</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex justify-center space-x-3 mb-4">
-                    <Button 
-                      variant={isRecordingVoice ? "destructive" : "outline"} 
-                      onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-                      disabled={isTranscribing}
-                    >
-                      {isTranscribing ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Transcribing...
-                        </>
-                      ) : isRecordingVoice ? (
-                        <>
-                          <MicOff className="mr-2 h-4 w-4" />
-                          Stop Recording
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="mr-2 h-4 w-4" />
-                          Voice Input
-                        </>
-                      )}
-                    </Button>
-                    <Button 
-                      variant={isRecordingVideo ? "destructive" : "outline"} 
-                      onClick={isRecordingVideo ? stopVideoAnalysis : () => startVideoAnalysis(mediaStream)}
-                    >
-                      {isRecordingVideo ? (
-                        <>
-                          <VideoOff className="mr-2 h-4 w-4" />
-                          Stop Analysis
-                        </>
-                      ) : (
-                        <>
-                          <Video className="mr-2 h-4 w-4" />
-                          Start Analysis
-                        </>
-                      )}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={repeatQuestion}
-                      disabled={isSpeaking || !ttsEnabled || !ttsService.isAvailable()}
-                    >
-                      Repeat Question
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Your Answer
-                  </label>
-                  <Textarea
-                    value={currentAnswer}
-                    onChange={(e) => setCurrentAnswer(e.target.value)}
-                    placeholder="Type your answer here or use voice input..."
-                    className="min-h-[120px] resize-none"
-                    rows={4}
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="bg-gray-50 border-t flex justify-between">
-              <Button 
-                variant="ghost"
-                disabled={currentQuestionIndex === 0}
-                onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+      {/* Progress Bar */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Interview Progress</CardTitle>
+            <Badge variant="outline">
+              Question {currentQuestionIndex + 1} of {questions.length}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Progress value={progress} className="h-3" />
+        </CardContent>
+      </Card>
+
+      {/* Video Feed */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Video Feed</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              className="w-full h-64 bg-gray-100 rounded-lg object-cover"
+            />
+            <div className="absolute top-4 right-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleAudio}
+                className="flex items-center"
               >
-                Previous
+                {audioEnabled ? (
+                  <>
+                    <Volume2 className="mr-2 h-4 w-4" />
+                    Audio On
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="mr-2 h-4 w-4" />
+                    Audio Off
+                  </>
+                )}
               </Button>
-              <div className="flex space-x-2">
-                <Button 
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Question Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Current Question</CardTitle>
+            <div className="flex space-x-2">
+              {audioEnabled && (
+                <Button
                   variant="outline"
-                  onClick={handleSkipQuestion}
+                  size="sm"
+                  onClick={replayQuestion}
+                  disabled={isPlaying}
+                  className="flex items-center"
                 >
-                  Skip
-                </Button>
-                <Button 
-                  onClick={isLastQuestion ? finishInterview : handleNextQuestion}
-                >
-                  {isLastQuestion ? (
-                    'Finish Interview'
+                  {isPlaying ? (
+                    <>
+                      <Pause className="mr-2 h-4 w-4" />
+                      Playing...
+                    </>
                   ) : (
                     <>
-                      Next <ArrowRight className="ml-2 h-4 w-4" />
+                      <Play className="mr-2 h-4 w-4" />
+                      Replay
                     </>
                   )}
                 </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-lg font-medium">{currentQuestion}</p>
+            
+            {/* Recording Controls */}
+            <div className="flex items-center space-x-4">
+              <Button
+                onClick={isRecording ? stopRecording : startRecording}
+                variant={isRecording ? "destructive" : "default"}
+                className="flex items-center"
+              >
+                {isRecording ? (
+                  <>
+                    <MicOff className="mr-2 h-4 w-4" />
+                    Stop Recording
+                  </>
+                ) : (
+                  <>
+                    <Mic className="mr-2 h-4 w-4" />
+                    Start Recording
+                  </>
+                )}
+              </Button>
+              
+              {isRecording && (
+                <div className="flex items-center text-red-500">
+                  <div className="animate-pulse w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                  Recording...
+                </div>
+              )}
+            </div>
+            
+            {/* Current Answer Display */}
+            {(currentAnswer || answers[currentQuestionIndex]) && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">Your Answer:</h4>
+                <p className="text-gray-700">
+                  {currentAnswer || answers[currentQuestionIndex] || 'No answer provided'}
+                </p>
               </div>
-            </CardFooter>
-          </Card>
-        </div>
-        
-        <div>
-          <Card className="mb-6">
-            <CardHeader className="pb-2">
-              <h3 className="font-medium">Interview Progress</h3>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {questions.map((q, index) => (
-                  <div 
-                    key={index} 
-                    className={`p-3 rounded-md text-sm ${
-                      index === currentQuestionIndex
-                        ? 'bg-brand-purple text-white'
-                        : index < currentQuestionIndex
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-gray-50 text-gray-500'
-                    }`}
-                  >
-                    Question {index + 1}
-                    {index < currentQuestionIndex && (
-                      <span className="ml-2">✓</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <h3 className="font-medium">Tips</h3>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-start">
-                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">1</span>
-                  <span>Use voice input or type your answers</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">2</span>
-                  <span>Maintain eye contact with the camera</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">3</span>
-                  <span>Structure your answers using the STAR method</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">4</span>
-                  <span>Take a moment to organize your thoughts before answering</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Navigation Controls */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={skipQuestion}
+              className="flex items-center"
+            >
+              <SkipForward className="mr-2 h-4 w-4" />
+              Skip Question
+            </Button>
+            
+            <div className="flex space-x-3">
+              {currentQuestionIndex < questions.length - 1 ? (
+                <Button
+                  onClick={nextQuestion}
+                  className="flex items-center"
+                >
+                  Next Question
+                  <SkipForward className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={finishInterview}
+                  className="flex items-center bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Finish Interview
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

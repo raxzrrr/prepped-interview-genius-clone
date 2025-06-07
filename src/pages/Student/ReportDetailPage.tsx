@@ -42,11 +42,15 @@ const ReportDetailPage: React.FC = () => {
         return;
       }
       
+      console.log('Interview data:', interviewData); // Debug log
       setInterview(interviewData);
       
       // Generate feedback for questions and answers if they exist
       const questions = ensureStringArray(interviewData.questions);
       const answers = ensureStringArray(interviewData.answers);
+      
+      console.log('Questions:', questions); // Debug log
+      console.log('Answers:', answers); // Debug log
       
       if (questions.length > 0 && answers.length > 0) {
         generateFeedback(questions, answers);
@@ -64,21 +68,35 @@ const ReportDetailPage: React.FC = () => {
   };
 
   const ensureStringArray = (data: any): string[] => {
+    console.log('Processing data:', data, 'Type:', typeof data); // Debug log
+    
     if (!data) return [];
+    
     if (Array.isArray(data)) {
-      return data.map(item => typeof item === 'string' ? item : String(item));
+      return data.map(item => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object' && item.question) return item.question;
+        return String(item);
+      });
     }
+    
     if (typeof data === 'string') {
       try {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed)) {
-          return parsed.map(item => typeof item === 'string' ? item : String(item));
+          return parsed.map(item => {
+            if (typeof item === 'string') return item;
+            if (typeof item === 'object' && item.question) return item.question;
+            return String(item);
+          });
         }
+        return [String(parsed)];
       } catch {
         // If parsing fails, treat as single string
         return [data];
       }
     }
+    
     return [String(data)];
   };
 
@@ -273,7 +291,7 @@ const ReportDetailPage: React.FC = () => {
           </TabsList>
 
           <TabsContent value="questions" className="space-y-4">
-            {questions.map((question: string, index: number) => (
+            {questions.length > 0 ? questions.map((question: string, index: number) => (
               <Card key={index}>
                 <CardHeader>
                   <CardTitle className="text-lg">Question {index + 1}</CardTitle>
@@ -337,7 +355,13 @@ const ReportDetailPage: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
-            ))}
+            )) : (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-gray-500">No questions found for this interview.</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="analysis">
@@ -357,10 +381,10 @@ const ReportDetailPage: React.FC = () => {
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span>Questions Answered</span>
-                    <span>{answers.filter((a: string) => a?.trim()).length}/{questions.length}</span>
+                    <span>{answers.filter((a: string) => a && a.trim() && a !== 'No answer provided' && a !== 'Question skipped').length}/{questions.length}</span>
                   </div>
                   <Progress 
-                    value={(answers.filter((a: string) => a?.trim()).length / questions.length) * 100} 
+                    value={questions.length > 0 ? (answers.filter((a: string) => a && a.trim() && a !== 'No answer provided' && a !== 'Question skipped').length / questions.length) * 100 : 0} 
                     className="h-3" 
                   />
                 </div>
@@ -394,7 +418,7 @@ const ReportDetailPage: React.FC = () => {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-brand-purple">{primaryEmotion}</div>
+                        <div className="text-2xl font-bold text-brand-purple capitalize">{primaryEmotion}</div>
                         <p className="text-sm text-gray-600">Primary Emotion</p>
                       </div>
                       <div className="text-center">
@@ -414,7 +438,7 @@ const ReportDetailPage: React.FC = () => {
                             <h4 className="font-medium mb-2">Analysis for Question {index + 1}:</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2 text-sm">
                               <div>
-                                <span className="font-medium">Emotion:</span> {analysis.primary_emotion || 'N/A'}
+                                <span className="font-medium">Emotion:</span> <span className="capitalize">{analysis.primary_emotion || 'N/A'}</span>
                               </div>
                               <div>
                                 <span className="font-medium">Confidence:</span> {analysis.confidence_score || 0}%
