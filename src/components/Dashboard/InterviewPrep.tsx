@@ -349,7 +349,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   };
 
   // Tougher badge variant thresholds
-  const getScoreBadgeVariant = (score: number) => {
+  const getScoreBadgeVariant = (score: number): "default" | "destructive" | "secondary" | "outline" => {
     if (score >= 90) return 'default'; // Raised from 85 to 90
     if (score >= 75) return 'secondary'; // Raised from 70 to 75
     return 'destructive';
