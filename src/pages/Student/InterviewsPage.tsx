@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -52,7 +51,7 @@ const InterviewsPage: React.FC = () => {
       
       try {
         setLoading(true);
-        const data = await getInterviews(user.id);
+        const data = await getInterviews();
         
         if (data) {
           const formattedData = data.map((interview: any) => ({

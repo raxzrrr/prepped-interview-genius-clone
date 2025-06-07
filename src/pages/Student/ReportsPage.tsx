@@ -40,7 +40,7 @@ const ReportsPage: React.FC = () => {
 
       // First try to get interviews using the API service
       try {
-        const interviews = await getInterviews(user.id);
+        const interviews = await getInterviews();
         console.log('Got interviews from API:', interviews?.length || 0);
         
         if (interviews && interviews.length > 0) {

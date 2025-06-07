@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -424,7 +423,10 @@ const CustomInterviewsPage: React.FC = () => {
                 <p className="text-gray-600">
                   Upload your resume to get personalized feedback and questions tailored to your background.
                 </p>
-                <ResumeUpload onAnalysisComplete={handleResumeUpload} />
+                <ResumeUpload 
+                  onAnalysisComplete={handleResumeUpload}
+                  onAnalysisResults={(analysis) => setResumeAnalysis(analysis)}
+                />
                 <div className="flex justify-center">
                   <Button variant="outline" onClick={skipResumeUpload}>
                     Skip Resume Upload

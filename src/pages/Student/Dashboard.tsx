@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -91,7 +90,7 @@ const Dashboard: React.FC = () => {
     if (!user) return;
     
     try {
-      const interviews = await getInterviews(user.id);
+      const interviews = await getInterviews();
       
       if (interviews) {
         const completed = interviews.filter(interview => interview.status === 'completed');

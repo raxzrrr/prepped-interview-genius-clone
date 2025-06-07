@@ -3,15 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { AlertCircle, FileText, CheckCircle, Loader2, XCircle } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Loader2, XCircle, Upload } from 'lucide-react';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 
 interface ResumeUploadProps {
-  file: string;
+  file?: string;
   isLoading?: boolean;
-  onAnalysisComplete: (questions: string[]) => void;
-  onAnalysisResults: (analysis: any) => void;
+  onAnalysisComplete?: (questions: string[]) => void;
+  onAnalysisResults?: (analysis: any) => void;
 }
 
 const ResumeUpload: React.FC<ResumeUploadProps> = ({ 
@@ -24,19 +24,39 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [progress, setProgress] = useState<string>('');
+  const [uploadedFile, setUploadedFile] = useState<string | null>(file || null);
   const { toast } = useToast();
   const { generateInterviewQuestions, analyzeResume, saveInterview } = useInterviewApi();
   const { user } = useAuth();
 
   useEffect(() => {
-    if (file && !analyzing && !success && !error) {
+    if (uploadedFile && !analyzing && !success && !error) {
       analyzeResumeFile();
     }
-  }, [file]);
+  }, [uploadedFile]);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setError('Only PDF files are supported');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setUploadedFile(result);
+      setError(null);
+      setSuccess(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const analyzeResumeFile = async () => {
-    if (!user) {
-      setError('User not authenticated');
+    if (!user || !uploadedFile) {
+      setError('User not authenticated or no file uploaded');
       return;
     }
 
@@ -48,21 +68,21 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       
       console.log("Starting resume analysis...");
       
-      if (!file.includes('application/pdf')) {
+      if (!uploadedFile.includes('application/pdf')) {
         throw new Error('Only PDF files are supported');
       }
       
       // Step 1: Analyze resume
       setProgress('Analyzing your resume...');
       console.log("Calling analyzeResume API...");
-      const analysis = await analyzeResume(file);
+      const analysis = await analyzeResume(uploadedFile);
       
       if (!analysis) {
         throw new Error('Failed to analyze resume - no response from API. Please check your API configuration.');
       }
       
       console.log("Resume analysis successful:", analysis);
-      onAnalysisResults(analysis);
+      onAnalysisResults?.(analysis);
       
       // Step 2: Generate interview questions based on resume analysis
       setProgress('Generating personalized interview questions...');
@@ -104,7 +124,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
 
       setProgress('Complete!');
       setSuccess(true);
-      onAnalysisComplete(questions.map(q => q.question));
+      onAnalysisComplete?.(questions.map(q => q.question));
       
       toast({
         title: "Resume Analysis Complete",
@@ -128,7 +148,9 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
     setError(null);
     setSuccess(false);
     setProgress('');
-    analyzeResumeFile();
+    if (uploadedFile) {
+      analyzeResumeFile();
+    }
   };
 
   return (
@@ -141,6 +163,32 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {!uploadedFile && (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="mt-4">
+                  <label htmlFor="resume-upload" className="cursor-pointer">
+                    <span className="mt-2 block text-sm font-medium text-gray-900">
+                      Upload your resume (PDF only)
+                    </span>
+                  </label>
+                  <input
+                    id="resume-upload"
+                    name="resume-upload"
+                    type="file"
+                    accept=".pdf"
+                    className="sr-only"
+                    onChange={handleFileUpload}
+                  />
+                </div>
+                <Button className="mt-4" onClick={() => document.getElementById('resume-upload')?.click()}>
+                  Choose File
+                </Button>
+              </div>
+            </div>
+          )}
+
           {analyzing && (
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-12 w-12 text-brand-purple animate-spin mb-4" />
