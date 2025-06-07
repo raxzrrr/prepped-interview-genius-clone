@@ -3,7 +3,7 @@ import React from 'react';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, Download, Eye, File } from 'lucide-react';
+import { Clock, Eye, File } from 'lucide-react';
 
 const ReportsPage: React.FC = () => {
   // Dummy data for interview reports
@@ -37,11 +37,6 @@ const ReportsPage: React.FC = () => {
   const handleViewReport = (id: string) => {
     console.log(`Viewing report with ID: ${id}`);
     // This would navigate to a detailed report page
-  };
-
-  const handleDownloadReport = (id: string) => {
-    console.log(`Downloading report with ID: ${id}`);
-    // This would trigger the PDF download
   };
 
   return (
@@ -90,24 +85,14 @@ const ReportsPage: React.FC = () => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between border-t pt-4">
+              <CardFooter className="flex justify-center border-t pt-4">
                 <Button 
                   variant="outline" 
-                  size="sm" 
                   className="flex items-center" 
                   onClick={() => handleViewReport(report.id)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Report
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center" 
-                  onClick={() => handleDownloadReport(report.id)}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PDF
                 </Button>
               </CardFooter>
             </Card>

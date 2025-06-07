@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -6,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import ttsService from '@/services/ttsService';
+import voiceToTextService from '@/services/voiceToTextService';
 import { Mic, MicOff, Video, VideoOff, ArrowRight, AlertTriangle, Volume2, VolumeX } from 'lucide-react';
 
 interface InterviewPrepProps {
@@ -16,20 +16,19 @@ interface InterviewPrepProps {
 
 const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, onInterviewComplete }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [answers, setAnswers] = useState<string[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [facialData, setFacialData] = useState<any[]>([]);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const { toast } = useToast();
   const { getAnswerFeedback, analyzeFacialExpression, updateInterview } = useInterviewApi();
   
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -91,41 +90,55 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     }
   };
 
-  const startRecording = async () => {
-    setAudioBlob(null);
-    setApiError(null);
-    
-    const stream = mediaStream || await requestMediaPermissions();
-    if (!stream) return;
-    
+  const startVoiceRecording = async () => {
     try {
-      const audioChunks: BlobPart[] = [];
-      const mediaRecorder = new MediaRecorder(stream);
+      setIsRecordingVoice(true);
+      setApiError(null);
+      await voiceToTextService.startRecording();
       
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-      
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        setAudioBlob(audioBlob);
-      };
-      
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
-      setIsRecordingAudio(true);
-      
-      startVideoAnalysis(stream);
-      
-    } catch (error) {
-      console.error('Error starting recording:', error);
+      toast({
+        title: "Recording Started",
+        description: "Speak your answer clearly. Click stop when finished.",
+      });
+    } catch (error: any) {
+      console.error('Error starting voice recording:', error);
+      setIsRecordingVoice(false);
       toast({
         title: "Recording Error",
-        description: "Failed to start recording. Please try again.",
+        description: error.message || "Failed to start voice recording. Please check your microphone permissions.",
         variant: "destructive",
       });
+    }
+  };
+
+  const stopVoiceRecording = async () => {
+    try {
+      setIsTranscribing(true);
+      const transcribedText = await voiceToTextService.stopRecording();
+      
+      if (transcribedText.trim()) {
+        setCurrentAnswer(prev => prev ? `${prev} ${transcribedText}` : transcribedText);
+        toast({
+          title: "Voice Recorded",
+          description: "Your answer has been transcribed successfully.",
+        });
+      } else {
+        toast({
+          title: "No Speech Detected",
+          description: "Please try speaking more clearly or check your microphone.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error stopping voice recording:', error);
+      toast({
+        title: "Transcription Error",
+        description: error.message || "Failed to convert speech to text. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecordingVoice(false);
+      setIsTranscribing(false);
     }
   };
 
@@ -172,17 +185,11 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecordingAudio) {
-      mediaRecorderRef.current.stop();
-      setIsRecordingAudio(false);
-    }
-    
+  const stopVideoAnalysis = () => {
     if (analysisIntervalRef.current) {
       clearInterval(analysisIntervalRef.current);
       analysisIntervalRef.current = null;
     }
-    
     setIsRecordingVideo(false);
   };
 
@@ -202,11 +209,15 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   };
 
   const handleNextQuestion = async () => {
-    if (isRecordingAudio) {
-      stopRecording();
+    if (isRecordingVoice) {
+      await stopVoiceRecording();
+    }
+    
+    if (isRecordingVideo) {
+      stopVideoAnalysis();
     }
 
-    const finalAnswer = currentAnswer.trim() || (audioBlob ? "Audio answer recorded" : "No answer provided");
+    const finalAnswer = currentAnswer.trim() || "No answer provided";
     const updatedAnswers = [...answers, finalAnswer];
     setAnswers(updatedAnswers);
     
@@ -219,7 +230,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
         });
       } catch (error) {
         console.error('Error updating interview:', error);
-        // Continue without blocking the user
       }
     }
     
@@ -232,7 +242,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
         }
       } catch (error) {
         console.error('Error getting feedback:', error);
-        // Continue without blocking the user
       }
     }
     
@@ -248,7 +257,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     
     if (nextIndex < questions.length) {
       setCurrentQuestionIndex(nextIndex);
-      setAudioBlob(null);
       setApiError(null);
     } else {
       finishInterview();
@@ -256,7 +264,10 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   };
   
   const finishInterview = async () => {
-    stopRecording();
+    if (isRecordingVoice) {
+      await stopVoiceRecording();
+    }
+    stopVideoAnalysis();
     stopMediaStream();
     
     if (interviewId) {
@@ -267,7 +278,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
         });
       } catch (error) {
         console.error('Error completing interview:', error);
-        // Don't block completion for database errors
       }
     }
     
@@ -345,10 +355,10 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                   </div>
                   <h3 className="text-lg font-medium mb-2">Camera Access Required</h3>
                   <p className="text-gray-500 mb-6">
-                    We need access to your camera and microphone to record your interview responses.
+                    We need access to your camera for facial analysis during the interview.
                   </p>
                   <Button onClick={requestMediaPermissions}>
-                    Enable Camera & Microphone
+                    Enable Camera
                   </Button>
                 </div>
               ) : (
@@ -363,20 +373,26 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                     ></video>
                     <canvas ref={canvasRef} className="hidden"></canvas>
                     
-                    {(isRecordingAudio || isRecordingVideo) && (
+                    {isRecordingVideo && (
                       <div className="absolute top-4 right-4 flex items-center bg-black bg-opacity-50 text-white px-3 py-1 rounded-full">
                         <div className="w-3 h-3 bg-red-500 rounded-full mr-2 animate-pulse"></div>
-                        <span className="text-sm">Recording</span>
+                        <span className="text-sm">Analyzing</span>
                       </div>
                     )}
                   </div>
                   
                   <div className="flex justify-center space-x-3 mb-4">
                     <Button 
-                      variant={isRecordingAudio ? "destructive" : "outline"} 
-                      onClick={isRecordingAudio ? stopRecording : startRecording}
+                      variant={isRecordingVoice ? "destructive" : "outline"} 
+                      onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
+                      disabled={isTranscribing}
                     >
-                      {isRecordingAudio ? (
+                      {isTranscribing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Transcribing...
+                        </>
+                      ) : isRecordingVoice ? (
                         <>
                           <MicOff className="mr-2 h-4 w-4" />
                           Stop Recording
@@ -384,7 +400,23 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                       ) : (
                         <>
                           <Mic className="mr-2 h-4 w-4" />
-                          Start Recording
+                          Voice Input
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant={isRecordingVideo ? "destructive" : "outline"} 
+                      onClick={isRecordingVideo ? stopVideoAnalysis : () => startVideoAnalysis(mediaStream)}
+                    >
+                      {isRecordingVideo ? (
+                        <>
+                          <VideoOff className="mr-2 h-4 w-4" />
+                          Stop Analysis
+                        </>
+                      ) : (
+                        <>
+                          <Video className="mr-2 h-4 w-4" />
+                          Start Analysis
                         </>
                       )}
                     </Button>
@@ -402,21 +434,16 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Your Answer (Optional - you can also record audio)
+                    Your Answer
                   </label>
                   <Textarea
                     value={currentAnswer}
                     onChange={(e) => setCurrentAnswer(e.target.value)}
-                    placeholder="Type your answer here..."
+                    placeholder="Type your answer here or use voice input..."
                     className="min-h-[120px] resize-none"
                     rows={4}
                   />
                 </div>
-                {audioBlob && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-700">✓ Audio answer recorded</p>
-                  </div>
-                )}
               </div>
             </CardContent>
             <CardFooter className="bg-gray-50 border-t flex justify-between">
@@ -436,7 +463,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                 </Button>
                 <Button 
                   onClick={handleNextQuestion}
-                  disabled={!currentAnswer.trim() && !audioBlob}
+                  disabled={!currentAnswer.trim()}
                 >
                   {currentQuestionIndex < questions.length - 1 ? (
                     <>
@@ -487,7 +514,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start">
                   <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">1</span>
-                  <span>You can type your answer or record audio (or both)</span>
+                  <span>Use voice input or type your answers</span>
                 </li>
                 <li className="flex items-start">
                   <span className="inline-block bg-brand-purple text-white w-5 h-5 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">2</span>
