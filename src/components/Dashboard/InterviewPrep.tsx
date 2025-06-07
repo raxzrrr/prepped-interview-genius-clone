@@ -11,7 +11,7 @@ import { Mic, MicOff, Video, VideoOff, ArrowRight, AlertTriangle, Volume2, Volum
 interface InterviewPrepProps {
   questions: string[];
   interviewId?: string;
-  onInterviewComplete: (answers: string[], facialData: any[]) => void;
+  onInterviewComplete: (answers: string[], facialData: any[], interviewId?: string) => void;
 }
 
 const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, onInterviewComplete }) => {
@@ -280,6 +280,17 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   };
   
   const finishInterview = async () => {
+    // Handle final answer for last question if needed
+    let finalAnswers = [...answers];
+    
+    // If we're on the last question and there's a current answer, add it
+    if (currentQuestionIndex === questions.length - 1 && currentAnswer.trim()) {
+      finalAnswers = [...answers, currentAnswer.trim()];
+    } else if (currentQuestionIndex === questions.length - 1 && !currentAnswer.trim()) {
+      // If on last question but no answer, mark as no answer provided
+      finalAnswers = [...answers, "No answer provided"];
+    }
+    
     if (isRecordingVoice) {
       await stopVoiceRecording();
     }
@@ -290,6 +301,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
       try {
         await updateInterview(interviewId, {
           status: 'completed',
+          answers: finalAnswers,
           completed_at: new Date().toISOString()
         });
       } catch (error) {
@@ -297,7 +309,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
       }
     }
     
-    onInterviewComplete(answers, facialData);
+    onInterviewComplete(finalAnswers, facialData, interviewId);
   };
   
   const repeatQuestion = () => {
@@ -482,7 +494,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                 </Button>
                 <Button 
                   onClick={isLastQuestion ? finishInterview : handleNextQuestion}
-                  disabled={!isLastQuestion && !currentAnswer.trim()}
                 >
                   {isLastQuestion ? (
                     'Finish Interview'

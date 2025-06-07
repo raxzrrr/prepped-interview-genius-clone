@@ -5,19 +5,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Check, Download, RefreshCw, Save, Share2 } from 'lucide-react';
 import { useInterviewApi } from '@/services/api';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/ClerkAuthContext';
+import { generateConsistentUUID } from '@/utils/userUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface InterviewReportProps {
   questions: string[];
   answers: string[];
   facialAnalysis?: any[];
   onDone: () => void;
+  interviewId?: string;
 }
 
 const InterviewReport: React.FC<InterviewReportProps> = ({ 
   questions, 
   answers, 
   facialAnalysis = [], 
-  onDone 
+  onDone,
+  interviewId 
 }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const [loading, setLoading] = useState(false);
@@ -25,14 +30,22 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   const [overallScore, setOverallScore] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [reportSaved, setReportSaved] = useState(false);
   const { getAnswerFeedback, updateInterview } = useInterviewApi();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   useEffect(() => {
     if (questions.length > 0 && answers.length > 0) {
       analyzeAnswers();
     }
   }, [questions, answers]);
+
+  useEffect(() => {
+    if (feedback.length > 0 && overallScore > 0 && !reportSaved) {
+      saveReportToDatabase();
+    }
+  }, [feedback, overallScore, reportSaved]);
 
   const analyzeAnswers = async () => {
     setLoading(true);
@@ -62,6 +75,38 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     }
   };
 
+  const saveReportToDatabase = async () => {
+    if (!user || !interviewId) return;
+    
+    try {
+      console.log('Saving interview report to database...');
+      
+      // Calculate duration (estimate based on number of questions)
+      const estimatedDuration = questions.length * 2; // 2 minutes per question average
+      
+      // Update the interview with completion data
+      await updateInterview(interviewId, {
+        status: 'completed',
+        answers: answers,
+        score: overallScore,
+        duration: estimatedDuration,
+        facial_analysis: facialAnalysis,
+        completed_at: new Date().toISOString()
+      });
+      
+      setReportSaved(true);
+      console.log('Interview report saved successfully');
+      
+    } catch (error) {
+      console.error('Error saving report to database:', error);
+      toast({
+        title: "Save Warning",
+        description: "Report generated but not saved to database. You can still download it.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSaveReport = async () => {
     try {
       setIsSaving(true);
@@ -73,7 +118,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         feedback,
         overallScore,
         facialAnalysis,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        interviewId
       };
       
       // Save as JSON file
@@ -92,7 +138,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       
       toast({
         title: "Report Saved",
-        description: "Your interview report has been downloaded successfully.",
+        description: "Your interview report has been downloaded as JSON.",
       });
       
     } catch (error) {
@@ -111,48 +157,235 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     try {
       setIsDownloading(true);
       
-      // Create HTML content for PDF
+      // Create a more comprehensive HTML document for PDF conversion
       const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
+          <meta charset="UTF-8">
           <title>Interview Report</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .score { font-size: 24px; font-weight: bold; color: #6366f1; }
-            .section { margin-bottom: 20px; }
-            .question { font-weight: bold; margin-bottom: 10px; }
-            .answer { margin-bottom: 15px; padding: 10px; background-color: #f9fafb; }
-            .feedback { margin-bottom: 10px; }
-            .strengths { color: #16a34a; }
-            .improvements { color: #ea580c; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              margin: 0;
+              padding: 20px;
+              line-height: 1.6;
+              color: #333;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 40px; 
+              border-bottom: 2px solid #6366f1;
+              padding-bottom: 20px;
+            }
+            .score { 
+              font-size: 32px; 
+              font-weight: bold; 
+              color: #6366f1; 
+              margin: 10px 0;
+            }
+            .section { 
+              margin-bottom: 30px; 
+              break-inside: avoid;
+            }
+            .question { 
+              font-weight: bold; 
+              margin-bottom: 10px; 
+              color: #1f2937;
+              font-size: 16px;
+            }
+            .answer { 
+              margin-bottom: 15px; 
+              padding: 15px; 
+              background-color: #f8fafc; 
+              border-left: 4px solid #6366f1;
+              border-radius: 4px;
+            }
+            .feedback { 
+              margin-bottom: 15px; 
+              padding: 15px;
+              background-color: #fefefe;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+            }
+            .strengths { 
+              color: #16a34a; 
+              margin-bottom: 10px;
+            }
+            .improvements { 
+              color: #ea580c; 
+              margin-bottom: 10px;
+            }
+            .suggestion {
+              color: #2563eb;
+              margin-bottom: 10px;
+            }
+            .score-badge {
+              display: inline-block;
+              padding: 4px 12px;
+              border-radius: 20px;
+              font-weight: bold;
+              font-size: 14px;
+            }
+            .score-excellent { background-color: #dcfce7; color: #166534; }
+            .score-good { background-color: #fef3c7; color: #92400e; }
+            .score-needs-improvement { background-color: #fee2e2; color: #991b1b; }
+            .summary-section {
+              background-color: #f9fafb;
+              padding: 20px;
+              border-radius: 8px;
+              margin-bottom: 30px;
+            }
+            .metrics-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 20px;
+              margin: 20px 0;
+            }
+            .metric-card {
+              text-align: center;
+              padding: 15px;
+              background-color: white;
+              border-radius: 8px;
+              border: 1px solid #e5e7eb;
+            }
+            .metric-value {
+              font-size: 24px;
+              font-weight: bold;
+              color: #6366f1;
+            }
+            .metric-label {
+              font-size: 14px;
+              color: #6b7280;
+              margin-top: 5px;
+            }
+            ul {
+              padding-left: 20px;
+            }
+            li {
+              margin-bottom: 5px;
+            }
+            @media print {
+              body { margin: 0; }
+              .section { page-break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1>Interview Report</h1>
-            <div class="score">Overall Score: ${overallScore}%</div>
-            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            <h1>Interview Performance Report</h1>
+            <div class="score">${overallScore}%</div>
+            <p>Generated on: ${new Date().toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
           </div>
           
-          ${questions.map((question, index) => `
-            <div class="section">
-              <div class="question">Question ${index + 1}: ${question}</div>
-              <div class="answer"><strong>Answer:</strong> ${answers[index] || 'No answer provided'}</div>
-              ${feedback[index] ? `
-                <div class="feedback">
-                  <div class="strengths"><strong>Strengths:</strong> ${feedback[index].strengths?.join(', ') || 'None'}</div>
-                  <div class="improvements"><strong>Areas to Improve:</strong> ${feedback[index].areas_to_improve?.join(', ') || 'None'}</div>
-                </div>
-              ` : ''}
+          <div class="summary-section">
+            <h2>Performance Summary</h2>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-value">${overallScore}%</div>
+                <div class="metric-label">Overall Score</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value">${answers.filter(a => a && a.trim() !== '' && a !== 'No answer provided' && a !== 'Question skipped').length}</div>
+                <div class="metric-label">Questions Answered</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value">${questions.length}</div>
+                <div class="metric-label">Total Questions</div>
+              </div>
             </div>
-          `).join('')}
+            <p><strong>Performance Level:</strong> ${
+              overallScore >= 85 ? 'Excellent - You demonstrated strong knowledge and communication skills' :
+              overallScore >= 70 ? 'Good - Solid performance with room for improvement' :
+              overallScore >= 55 ? 'Average - Consider focusing on specific areas for improvement' :
+              'Needs Improvement - Additional practice recommended'
+            }</p>
+          </div>
+          
+          <h2>Detailed Question Analysis</h2>
+          ${questions.map((question, index) => {
+            const answer = answers[index] || 'No answer provided';
+            const questionFeedback = feedback[index];
+            const scoreClass = questionFeedback?.score >= 80 ? 'score-excellent' : 
+                             questionFeedback?.score >= 60 ? 'score-good' : 'score-needs-improvement';
+            
+            return `
+              <div class="section">
+                <div class="question">Question ${index + 1}: ${question}</div>
+                <div class="answer">
+                  <strong>Your Answer:</strong><br>
+                  ${answer === 'Question skipped' ? '<em>Question was skipped</em>' : answer}
+                </div>
+                ${questionFeedback ? `
+                  <div class="feedback">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                      <strong>AI Feedback</strong>
+                      <span class="score-badge ${scoreClass}">${questionFeedback.score}/100</span>
+                    </div>
+                    ${questionFeedback.strengths && questionFeedback.strengths.length > 0 ? `
+                      <div class="strengths">
+                        <strong>✓ Strengths:</strong>
+                        <ul>
+                          ${questionFeedback.strengths.map((s: string) => `<li>${s}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    ${questionFeedback.areas_to_improve && questionFeedback.areas_to_improve.length > 0 ? `
+                      <div class="improvements">
+                        <strong>⚠ Areas to Improve:</strong>
+                        <ul>
+                          ${questionFeedback.areas_to_improve.map((s: string) => `<li>${s}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    ${questionFeedback.suggestion ? `
+                      <div class="suggestion">
+                        <strong>💡 Suggestion:</strong> ${questionFeedback.suggestion}
+                      </div>
+                    ` : ''}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+          
+          ${facialAnalysis && facialAnalysis.length > 0 ? `
+            <div class="summary-section">
+              <h2>Non-Verbal Communication Analysis</h2>
+              <p>Based on facial expression analysis during your interview:</p>
+              <ul>
+                <li><strong>Primary Emotion:</strong> ${calculateEmotionData().primaryEmotion}</li>
+                <li><strong>Average Confidence:</strong> ${calculateEmotionData().confidenceAvg}%</li>
+                <li><strong>Average Engagement:</strong> ${calculateEmotionData().engagementAvg}%</li>
+              </ul>
+              <p><em>Tip: Maintain eye contact and show enthusiasm to improve your non-verbal communication scores.</em></p>
+            </div>
+          ` : ''}
+          
+          <div class="summary-section">
+            <h2>Next Steps & Recommendations</h2>
+            <ul>
+              <li>Review the areas marked for improvement in each question</li>
+              <li>Practice answering similar questions using the STAR method (Situation, Task, Action, Result)</li>
+              <li>Work on providing more specific examples from your experience</li>
+              <li>Consider taking another practice interview to track your progress</li>
+            </ul>
+          </div>
+          
+          <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px;">
+            <p>This report was generated by AI Interview Coach. Use this feedback to improve your interview performance.</p>
+          </footer>
         </body>
         </html>
       `;
       
-      // Create blob and download
+      // Create blob and trigger download
       const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       
@@ -166,8 +399,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       URL.revokeObjectURL(url);
       
       toast({
-        title: "PDF Downloaded",
-        description: "Your interview report has been downloaded as HTML (can be converted to PDF by printing).",
+        title: "Report Downloaded",
+        description: "Your interview report has been downloaded as HTML. You can print it as PDF from your browser (Ctrl+P).",
       });
       
     } catch (error) {
@@ -249,6 +482,11 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
           <h1 className="text-3xl font-bold tracking-tight">Interview Report</h1>
           <p className="mt-2 text-gray-600">
             Review your performance and feedback
+            {reportSaved && (
+              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Saved to Reports
+              </span>
+            )}
           </p>
         </div>
         <div className="flex space-x-2">
@@ -317,12 +555,12 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
               <div>
                 <div className="flex justify-between mb-1">
                   <span className="text-sm font-medium">Questions Answered</span>
-                  <span className="text-sm font-medium">{answers.filter(a => a.trim()).length}/{questions.length}</span>
+                  <span className="text-sm font-medium">{answers.filter(a => a && a.trim() !== '' && a !== 'No answer provided' && a !== 'Question skipped').length}/{questions.length}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className="bg-brand-purple h-2 rounded-full" 
-                    style={{width: `${(answers.filter(a => a.trim()).length / questions.length) * 100}%`}}
+                    style={{width: `${(answers.filter(a => a && a.trim() !== '' && a !== 'No answer provided' && a !== 'Question skipped').length / questions.length) * 100}%`}}
                   ></div>
                 </div>
               </div>
@@ -607,7 +845,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                Save Report
+                Save JSON
               </>
             )}
           </Button>
@@ -619,7 +857,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
             {isDownloading ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2" />
-                Downloading...
+                Preparing...
               </>
             ) : (
               <>

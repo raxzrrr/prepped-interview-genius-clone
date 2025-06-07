@@ -53,9 +53,11 @@ const CustomInterviewsPage: React.FC = () => {
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       
+      console.log('Fetching usage data for user:', supabaseUserId);
+      
       const { data: interviews, error } = await supabase
         .from('interviews')
-        .select('id, title')
+        .select('id, title, created_at')
         .eq('user_id', supabaseUserId)
         .gte('created_at', firstDayOfMonth.toISOString());
       
@@ -64,12 +66,20 @@ const CustomInterviewsPage: React.FC = () => {
         return;
       }
       
-      const custom = interviews?.filter(i => 
-        i.title.includes('Custom') && !i.title.includes('Resume-based')
-      ).length || 0;
-      const resume = interviews?.filter(i => 
-        i.title.includes('Resume-based') || i.title.includes('Resume')
-      ).length || 0;
+      console.log('Raw interviews data:', interviews);
+      
+      // Count custom and resume-based interviews more accurately
+      const custom = interviews?.filter(i => {
+        const title = i.title?.toLowerCase() || '';
+        return title.includes('custom') && !title.includes('resume');
+      }).length || 0;
+      
+      const resume = interviews?.filter(i => {
+        const title = i.title?.toLowerCase() || '';
+        return title.includes('resume') || title.includes('resume-based');
+      }).length || 0;
+      
+      console.log('Usage counts - Custom:', custom, 'Resume:', resume);
       
       setUsageData({ 
         custom_interviews: custom,
@@ -81,13 +91,23 @@ const CustomInterviewsPage: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type !== 'application/pdf') {
         toast({
           title: "Invalid File Type",
           description: "Please upload a PDF file only.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check resume interview limit before processing
+      if (usageData.resume_interviews >= 10) {
+        toast({
+          title: "Monthly Limit Reached",
+          description: "You have reached your monthly limit of 10 resume-based interviews.",
           variant: "destructive",
         });
         return;
@@ -103,18 +123,44 @@ const CustomInterviewsPage: React.FC = () => {
     }
   };
 
-  const handleResumeAnalysisComplete = (generatedQuestions: string[]) => {
-    setQuestions(generatedQuestions);
-    setCurrentView('prep');
+  const handleResumeAnalysisComplete = async (generatedQuestions: string[]) => {
+    if (!user) return;
+
+    try {
+      // Save resume-based interview session
+      const newInterviewData = {
+        user_id: user.id,
+        title: 'Resume-based Interview',
+        questions: generatedQuestions,
+        status: 'in-progress'
+      };
+      
+      const savedInterviewId = await saveInterview(newInterviewData);
+      setInterviewId(savedInterviewId);
+      setQuestions(generatedQuestions);
+      setCurrentView('prep');
+      
+      // Refresh usage data
+      fetchUsageData();
+      
+    } catch (error) {
+      console.error('Error saving resume interview:', error);
+      setQuestions(generatedQuestions);
+      setCurrentView('prep');
+    }
   };
 
   const handleAnalysisResults = (analysis: any) => {
     setAnalysisResults(analysis);
   };
 
-  const handleInterviewComplete = (interviewAnswers: string[], facialAnalysisData: any[]) => {
+  const handleInterviewComplete = (interviewAnswers: string[], facialAnalysisData: any[], completedInterviewId?: string) => {
     setAnswers(interviewAnswers);
     setFacialData(facialAnalysisData);
+    // Use the passed interviewId or fall back to the stored one
+    if (completedInterviewId) {
+      setInterviewId(completedInterviewId);
+    }
     setCurrentView('report');
     fetchUsageData(); // Refresh usage data after completing interview
   };
@@ -160,7 +206,7 @@ const CustomInterviewsPage: React.FC = () => {
         throw new Error('Failed to generate interview questions');
       }
 
-      // Save interview session
+      // Save interview session with proper title
       try {
         const newInterviewData = {
           user_id: user.id,
@@ -171,6 +217,10 @@ const CustomInterviewsPage: React.FC = () => {
         
         const savedInterviewId = await saveInterview(newInterviewData);
         setInterviewId(savedInterviewId);
+        
+        // Refresh usage data immediately
+        fetchUsageData();
+        
       } catch (saveError) {
         console.error("Error saving interview:", saveError);
         toast({
@@ -232,6 +282,7 @@ const CustomInterviewsPage: React.FC = () => {
           questions={questions}
           answers={answers}
           facialAnalysis={facialData}
+          interviewId={interviewId}
           onDone={startNewInterview}
         />
       </DashboardLayout>
@@ -295,7 +346,7 @@ const CustomInterviewsPage: React.FC = () => {
                 <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div 
                     className={`h-full rounded-full ${usageData.custom_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
-                    style={{ width: `${(usageData.custom_interviews / 10) * 100}%` }}
+                    style={{ width: `${Math.min((usageData.custom_interviews / 10) * 100, 100)}%` }}
                   ></div>
                 </div>
               </div>
@@ -309,7 +360,7 @@ const CustomInterviewsPage: React.FC = () => {
                 <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div 
                     className={`h-full rounded-full ${usageData.resume_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
-                    style={{ width: `${(usageData.resume_interviews / 10) * 100}%` }}
+                    style={{ width: `${Math.min((usageData.resume_interviews / 10) * 100, 100)}%` }}
                   ></div>
                 </div>
               </div>
