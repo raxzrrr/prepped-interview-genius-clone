@@ -268,171 +268,165 @@ const Dashboard: React.FC = () => {
               </CardContent>
             </Card>
 
-            {userStats.totalInterviews > 0 ? (
-              <>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center">
-                      Performance Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-500">Average Score</span>
-                        <span className="text-lg font-bold text-brand-purple">{userStats.averageScore}%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-500">Total Interviews</span>
-                        <span className="text-lg font-bold">{userStats.totalInterviews}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-500">Total Questions</span>
-                        <span className="text-lg font-bold">{userStats.totalQuestions}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle>Recent Feedback</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {userStats.completedInterviews.length > 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-sm text-gray-600">
-                          "Your technical answers are solid, but try to include more specific examples from your experience."
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          "Good engagement and facial expressions. You appear confident and engaged during the interview."
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-600">
-                        Complete an interview to receive feedback on your performance.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <>
-                <Card className="md:col-span-2">
-                  <CardHeader className="pb-3">
-                    <CardTitle>Getting Started</CardTitle>
-                  </CardHeader>
-                  <CardContent>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center">
+                  Performance Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-500">Average Score</span>
+                    <span className="text-lg font-bold text-brand-purple">{userStats.averageScore}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-500">Total Interviews</span>
+                    <span className="text-lg font-bold">{userStats.totalInterviews}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-500">Total Questions</span>
+                    <span className="text-lg font-bold">{userStats.totalQuestions}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>Recent Feedback</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {userStats.completedInterviews.length > 0 ? (
+                  <div className="space-y-2">
                     <p className="text-sm text-gray-600">
-                      Welcome to Interview Genius! Start by uploading your resume to get personalized interview questions.
+                      "Your technical answers are solid, but try to include more specific examples from your experience."
                     </p>
-                    <div className="mt-4 space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="bg-brand-purple/10 p-2 rounded-full">
-                          <Upload className="h-5 w-5 text-brand-purple" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium">Upload Your Resume</h4>
-                          <p className="text-xs text-gray-500">
-                            Get tailored questions based on your skills and experience
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-3">
-                        <div className="bg-brand-purple/10 p-2 rounded-full">
-                          <PlayCircle className="h-5 w-5 text-brand-purple" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium">Practice with AI</h4>
-                          <p className="text-xs text-gray-500">
-                            Experience realistic interview scenarios with our AI interviewer
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
+                    <p className="text-sm text-gray-600">
+                      "Good engagement and facial expressions. You appear confident and engaged during the interview."
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    Complete an interview to receive feedback on your performance.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Performance Cards for users with interview history */}
-          {userStats.totalInterviews > 0 && (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Improvement Tips</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    <li className="flex items-start space-x-2">
-                      <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-gray-600">
-                        Practice maintaining consistent eye contact
-                      </span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-gray-600">
-                        Use the STAR method for behavioral questions
-                      </span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-gray-600">
-                        Include more quantifiable results in your answers
-                      </span>
-                    </li>
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" className="w-full">
-                    <FileText className="w-4 h-4 mr-2" />
-                    View Full Report
-                  </Button>
-                </CardFooter>
-              </Card>
+          {/* Improvement Tips Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Improvement Tips</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                <li className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm text-gray-600">
+                    Practice maintaining consistent eye contact
+                  </span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm text-gray-600">
+                    Use the STAR method for behavioral questions
+                  </span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 text-brand-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm text-gray-600">
+                    Include more quantifiable results in your answers
+                  </span>
+                </li>
+              </ul>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" className="w-full">
+                <FileText className="w-4 h-4 mr-2" />
+                View Full Report
+              </Button>
+            </CardFooter>
+          </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <Button 
-                      className="w-full justify-start" 
-                      variant="outline"
-                      onClick={() => navigate('/custom-interviews')}
-                    >
-                      <Briefcase className="w-4 h-4 mr-2" />
-                      Start Role-Based Interview
-                    </Button>
-                    <Button 
-                      className="w-full justify-start" 
-                      variant="outline"
-                      onClick={() => navigate('/interviews')}
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      View All Interviews
-                    </Button>
-                    <Button 
-                      className="w-full justify-start" 
-                      variant="outline"
-                      onClick={() => navigate('/reports')}
-                    >
-                      <User className="w-4 h-4 mr-2" />
-                      View Reports
-                    </Button>
+          {/* Quick Actions Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={() => navigate('/custom-interviews')}
+                >
+                  <Briefcase className="w-4 h-4 mr-2" />
+                  Start Role-Based Interview
+                </Button>
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={() => navigate('/interviews')}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  View All Interviews
+                </Button>
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={() => navigate('/reports')}
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  View Reports
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Getting Started Card for new users */}
+          {userStats.totalInterviews === 0 && (
+            <Card className="md:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle>Getting Started</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">
+                  Welcome to Interview Genius! Start by choosing an interview type below.
+                </p>
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="bg-brand-purple/10 p-2 rounded-full">
+                      <Upload className="h-5 w-5 text-brand-purple" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium">Upload Your Resume</h4>
+                      <p className="text-xs text-gray-500">
+                        Get tailored questions based on your skills and experience
+                      </p>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="bg-brand-purple/10 p-2 rounded-full">
+                      <PlayCircle className="h-5 w-5 text-brand-purple" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium">Practice with AI</h4>
+                      <p className="text-xs text-gray-500">
+                        Experience realistic interview scenarios with our AI interviewer
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
           
           <Card>
@@ -445,7 +439,7 @@ const Dashboard: React.FC = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="resume-file">Upload Resume (PDF only)</Label>
+                  <Label htmlFor="resume-file">Resume Analysis & Interview</Label>
                   <p className="text-sm text-gray-500">
                     Our AI will analyze your resume and generate relevant interview questions based on your skills and experience.
                   </p>
@@ -455,47 +449,11 @@ const Dashboard: React.FC = () => {
             <CardFooter>
               <Button 
                 className="w-full"
-                onClick={() => {
-                  const uploadInput = document.getElementById('resume-upload');
-                  if (uploadInput) {
-                    uploadInput.click();
-                  }
-                }}
+                onClick={() => navigate('/custom-interviews')}
                 disabled={usageData.resume_interviews >= 10}
               >
                 <Upload className="mr-2 h-4 w-4" />
-                {usageData.resume_interviews >= 10 ? 'Monthly Limit Reached' : 'Upload Resume for Interview'}
-                <input
-                  type="file"
-                  id="resume-upload"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.type !== 'application/pdf') {
-                        toast({
-                          title: "Invalid File Type",
-                          description: "Please upload a PDF file only.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      
-                      const reader = new FileReader();
-                      reader.onload = async (event) => {
-                        if (event.target?.result) {
-                          const base64Data = event.target.result.toString();
-                          setResumeAnalysis({
-                            isLoading: true,
-                            file: base64Data
-                          });
-                        }
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
+                {usageData.resume_interviews >= 10 ? 'Monthly Limit Reached' : 'Start Resume-Based Interview'}
               </Button>
             </CardFooter>
           </Card>
@@ -527,15 +485,6 @@ const Dashboard: React.FC = () => {
               </Button>
             </CardFooter>
           </Card>
-          
-          {resumeAnalysis && (
-            <ResumeUpload 
-              file={resumeAnalysis.file}
-              isLoading={resumeAnalysis.isLoading}
-              onAnalysisComplete={handleResumeAnalysisComplete}
-              onAnalysisResults={handleResumeAnalysisResults}
-            />
-          )}
         </div>
       )}
 
