@@ -44,6 +44,37 @@ export const useLearningData = (totalModules: number) => {
       if (data) {
         console.log('Successfully fetched learning data:', data);
         setUserLearningData(data);
+        
+        // Sync local storage with server data
+        saveLocalProgress(data.course_progress);
+      } else {
+        // If no server data, use local fallback
+        const localProgress = getLocalProgress();
+        let completedCount = 0;
+        Object.values(localProgress).forEach(course => {
+          if (course) {
+            Object.values(course as Record<string, boolean>).forEach(completed => {
+              if (completed) completedCount++;
+            });
+          }
+        });
+
+        const localData: UserLearningData = {
+          id: 'local-' + user.id,
+          user_id: user.id,
+          course_progress: localProgress,
+          completed_modules: completedCount,
+          total_modules: totalModules,
+          course_score: null,
+          course_completed_at: completedCount === totalModules ? new Date().toISOString() : null,
+          assessment_attempted: false,
+          assessment_score: null,
+          assessment_completed_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        setUserLearningData(localData);
       }
     } catch (err: any) {
       console.error('Error fetching user learning data:', err);
@@ -79,7 +110,7 @@ export const useLearningData = (totalModules: number) => {
       
       toast({
         title: "Working Offline",
-        description: "Progress is being saved locally.",
+        description: "Progress is being saved locally and will sync when connection is restored.",
         variant: "default"
       });
     } finally {
@@ -150,7 +181,7 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
-      // Try to update via service
+      // Try to update via service (async, don't block UI)
       try {
         const updatedData = await learningService.updateModuleProgress(
           user.id,
@@ -168,19 +199,13 @@ export const useLearningData = (totalModules: number) => {
         });
       } catch (serviceError: any) {
         console.error('Service update error (continuing with local state):', serviceError);
-        toast({
-          title: "Progress Saved Locally",
-          description: "Changes will sync when connection is restored.",
-        });
+        // Don't show error toast for service failures - user progress is still saved locally
       }
 
       return true;
     } catch (err: any) {
       console.error('Error updating module completion:', err);
-      toast({
-        title: "Progress Saved Locally",
-        description: "Your progress has been saved locally.",
-      });
+      // Still return true since local state was updated
       return true;
     }
   }, [userLearningData, user?.id, toast, totalModules]);

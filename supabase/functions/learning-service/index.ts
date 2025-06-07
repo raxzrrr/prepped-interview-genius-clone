@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       case 'fetch':
         console.log('Fetching user learning data...');
         
-        // First, try to find existing record
+        // Try to find existing record
         const { data: existingData, error: fetchError } = await supabase
           .from('user_learning')
           .select('*')
@@ -104,9 +104,7 @@ Deno.serve(async (req) => {
 
           if (createError) {
             console.error('Create error:', createError);
-            // If creation fails, return null so frontend can handle it gracefully
-            console.log('Failed to create record, returning null for graceful fallback');
-            result = null;
+            result = null; // Return null for graceful fallback
           } else {
             result = createdData;
             console.log('Created new learning record:', result.id);
@@ -120,7 +118,7 @@ Deno.serve(async (req) => {
       case 'update':
         console.log('Updating learning record...');
         
-        // First ensure record exists, create if it doesn't
+        // First ensure record exists
         const { data: checkData } = await supabase
           .from('user_learning')
           .select('id')
