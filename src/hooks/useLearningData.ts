@@ -1,24 +1,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { generateConsistentUUID } from '@/utils/userUtils';
-
-interface UserLearningData {
-  id: string;
-  user_id: string;
-  course_progress: Record<string, any>;
-  completed_modules: number;
-  total_modules: number;
-  course_score: number | null;
-  course_completed_at: string | null;
-  assessment_attempted: boolean;
-  assessment_score: number | null;
-  assessment_completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import { learningService, UserLearningData } from '@/services/learningService';
 
 export const useLearningData = (totalModules: number) => {
   const { user } = useAuth();
@@ -45,14 +29,6 @@ export const useLearningData = (totalModules: number) => {
     }
   };
 
-  // Helper function to safely convert Json to Record<string, any>
-  const safeJsonToRecord = (json: any): Record<string, any> => {
-    if (!json || typeof json !== 'object' || Array.isArray(json)) {
-      return {};
-    }
-    return json as Record<string, any>;
-  };
-
   const fetchUserLearningData = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
@@ -61,33 +37,13 @@ export const useLearningData = (totalModules: number) => {
 
     try {
       setError(null);
+      console.log('Fetching learning data using service for user:', user.id);
       
-      console.log('Fetching learning data for user:', user.id);
+      const data = await learningService.fetchUserLearningData(user.id, totalModules);
       
-      // Convert Clerk user ID to UUID for database queries
-      const supabaseUserId = generateConsistentUUID(user.id);
-      console.log('Using Supabase user ID:', supabaseUserId);
-      
-      const { data: existingData, error } = await supabase
-        .from('user_learning')
-        .select('*')
-        .eq('user_id', supabaseUserId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Database error:', error);
-        throw error;
-      }
-      
-      if (existingData) {
-        console.log('Found existing learning data:', existingData);
-        setUserLearningData({
-          ...existingData,
-          course_progress: safeJsonToRecord(existingData.course_progress)
-        });
-      } else {
-        console.log('Creating new learning data for user');
-        await createUserLearningRecord(supabaseUserId, totalModules);
+      if (data) {
+        console.log('Successfully fetched learning data:', data);
+        setUserLearningData(data);
       }
     } catch (err: any) {
       console.error('Error fetching user learning data:', err);
@@ -131,45 +87,6 @@ export const useLearningData = (totalModules: number) => {
     }
   }, [user?.id, totalModules, toast]);
 
-  const createUserLearningRecord = async (userId: string, totalModules: number) => {
-    try {
-      const newLearningData = {
-        user_id: userId,
-        course_progress: {},
-        completed_modules: 0,
-        total_modules: totalModules,
-        assessment_attempted: false,
-        assessment_score: null,
-        course_score: null,
-        course_completed_at: null,
-        assessment_completed_at: null
-      };
-      
-      const { data: createdData, error: createError } = await supabase
-        .from('user_learning')
-        .insert(newLearningData)
-        .select('*')
-        .single();
-      
-      if (createError) {
-        console.error('Error creating learning data:', createError);
-        throw createError;
-      }
-      
-      if (createdData) {
-        console.log('Created new learning data:', createdData);
-        const formattedData: UserLearningData = {
-          ...createdData,
-          course_progress: safeJsonToRecord(createdData.course_progress)
-        };
-        setUserLearningData(formattedData);
-      }
-    } catch (err: any) {
-      console.error('Error creating learning record:', err);
-      throw err;
-    }
-  };
-
   const updateModuleCompletion = useCallback(async (moduleId: string, courseId: string) => {
     if (!user?.id) {
       console.error('No user ID available');
@@ -177,7 +94,7 @@ export const useLearningData = (totalModules: number) => {
     }
 
     try {
-      console.log('Updating module completion:', { moduleId, courseId });
+      console.log('Updating module completion using service:', { moduleId, courseId });
       
       const currentProgress = userLearningData?.course_progress || getLocalProgress();
       
@@ -198,17 +115,14 @@ export const useLearningData = (totalModules: number) => {
         }
       });
 
-      // Check if course is completed (for interview-mastery course specifically)
-      const interviewCourseProgress = courseProgress['interview-mastery'] || {};
-      const interviewModulesCompleted = Object.keys(interviewCourseProgress).filter(
-        key => interviewCourseProgress[key] === true
-      ).length;
-      const isInterviewCourseComplete = interviewModulesCompleted >= 5; // 5 modules in interview course
-
-      // Always save to localStorage first
+      // Always save to localStorage first for immediate feedback
       saveLocalProgress(courseProgress);
 
       // Update local state immediately
+      const isInterviewCourseComplete = Object.keys(courseProgress['interview-mastery'] || {}).filter(
+        key => courseProgress['interview-mastery'][key] === true
+      ).length >= 5;
+
       setUserLearningData(prevData => {
         if (!prevData) {
           return {
@@ -236,37 +150,27 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
-      // Try to update database using converted UUID
-      console.log('Updating learning progress in database');
-      const supabaseUserId = generateConsistentUUID(user.id);
-      
-      const updateData: any = {
-        course_progress: courseProgress,
-        completed_modules: completedModulesCount,
-        updated_at: new Date().toISOString()
-      };
-
-      if (isInterviewCourseComplete) {
-        updateData.course_score = 85;
-        updateData.course_completed_at = new Date().toISOString();
-      }
-      
-      const { error } = await supabase
-        .from('user_learning')
-        .update(updateData)
-        .eq('user_id', supabaseUserId);
-      
-      if (error) {
-        console.error('Database update error (continuing with local state):', error);
-        toast({
-          title: "Progress Saved Locally",
-          description: "Changes will sync when connection is restored.",
-        });
-      } else {
-        console.log('Successfully updated learning progress in database');
+      // Try to update via service
+      try {
+        const updatedData = await learningService.updateModuleProgress(
+          user.id,
+          courseProgress,
+          completedModulesCount,
+          totalModules
+        );
+        
+        console.log('Successfully updated learning progress via service');
+        setUserLearningData(updatedData);
+        
         toast({
           title: "Progress Saved",
           description: "Your learning progress has been updated.",
+        });
+      } catch (serviceError: any) {
+        console.error('Service update error (continuing with local state):', serviceError);
+        toast({
+          title: "Progress Saved Locally",
+          description: "Changes will sync when connection is restored.",
         });
       }
 
@@ -287,7 +191,7 @@ export const useLearningData = (totalModules: number) => {
     try {
       const now = new Date().toISOString();
       
-      // Update local state
+      // Update local state first
       setUserLearningData(prevData => {
         if (!prevData) return null;
         return {
@@ -299,24 +203,16 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
-      // Update database using converted UUID
-      const supabaseUserId = generateConsistentUUID(user.id);
-      const { error } = await supabase
-        .from('user_learning')
-        .update({
-          assessment_attempted: true,
-          assessment_score: score,
-          assessment_completed_at: now,
-          updated_at: now
-        })
-        .eq('user_id', supabaseUserId);
-      
-      if (error) {
-        console.error('Database update error for assessment:', error);
-        return false;
+      // Try to update via service
+      try {
+        const updatedData = await learningService.updateAssessmentScore(user.id, score);
+        setUserLearningData(updatedData);
+        console.log('Successfully updated assessment score via service');
+        return true;
+      } catch (serviceError) {
+        console.error('Service update error for assessment (continuing with local state):', serviceError);
+        return true; // Still return true since local state was updated
       }
-
-      return true;
     } catch (err: any) {
       console.error('Error updating assessment score:', err);
       return false;
