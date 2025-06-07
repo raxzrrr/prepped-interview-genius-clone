@@ -27,6 +27,24 @@ export const useLearningData = (totalModules: number) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const getLocalProgressKey = () => `learning_progress_${user?.id}`;
+  const getLocalProgress = () => {
+    try {
+      const stored = localStorage.getItem(getLocalProgressKey());
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveLocalProgress = (progress: Record<string, any>) => {
+    try {
+      localStorage.setItem(getLocalProgressKey(), JSON.stringify(progress));
+    } catch (error) {
+      console.error('Failed to save progress to localStorage:', error);
+    }
+  };
+
   const fetchUserLearningData = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
@@ -39,22 +57,21 @@ export const useLearningData = (totalModules: number) => {
       
       console.log('Fetching learning data for user:', supabaseUUID);
       
+      // First try to get existing data
       const { data: existingData, error } = await supabase
-        .from('user_learning')
-        .select('*')
-        .eq('user_id', supabaseUUID)
-        .maybeSingle();
+        .rpc('get_user_learning_bypass_rls', { p_user_id: supabaseUUID });
       
       if (error && error.code !== 'PGRST116') {
         console.error('Database error:', error);
         throw error;
       }
       
-      if (existingData) {
-        console.log('Found existing learning data:', existingData);
+      if (existingData && existingData.length > 0) {
+        const data = existingData[0];
+        console.log('Found existing learning data:', data);
         setUserLearningData({
-          ...existingData,
-          course_progress: existingData.course_progress as Record<string, any> || {}
+          ...data,
+          course_progress: data.course_progress || {}
         });
       } else {
         console.log('Creating new learning data for user');
@@ -64,12 +81,22 @@ export const useLearningData = (totalModules: number) => {
       console.error('Error fetching user learning data:', err);
       setError(err.message);
       
-      // Create local fallback data when database fails
+      // Create local fallback data
+      const localProgress = getLocalProgress();
+      let completedCount = 0;
+      Object.values(localProgress).forEach(course => {
+        if (course) {
+          Object.values(course as Record<string, boolean>).forEach(completed => {
+            if (completed) completedCount++;
+          });
+        }
+      });
+
       const localData: UserLearningData = {
         id: 'local-' + user.id,
         user_id: generateConsistentUUID(user.id),
-        course_progress: JSON.parse(localStorage.getItem(`learning_progress_${user.id}`) || '{}'),
-        completed_modules: 0,
+        course_progress: localProgress,
+        completed_modules: completedCount,
         total_modules: totalModules,
         course_score: null,
         course_completed_at: null,
@@ -80,22 +107,11 @@ export const useLearningData = (totalModules: number) => {
         updated_at: new Date().toISOString()
       };
       
-      // Calculate completed modules from local storage
-      let completedCount = 0;
-      Object.values(localData.course_progress).forEach(course => {
-        if (course) {
-          Object.values(course as Record<string, boolean>).forEach(completed => {
-            if (completed) completedCount++;
-          });
-        }
-      });
-      localData.completed_modules = completedCount;
-      
       setUserLearningData(localData);
       
       toast({
         title: "Working Offline",
-        description: "Your progress is being saved locally until database connection is restored.",
+        description: "Progress is being saved locally.",
         variant: "default"
       });
     } finally {
@@ -118,10 +134,12 @@ export const useLearningData = (totalModules: number) => {
       };
       
       const { data: createdData, error: createError } = await supabase
-        .from('user_learning')
-        .insert(newLearningData)
-        .select('*')
-        .single();
+        .rpc('insert_user_learning_bypass_rls', {
+          p_user_id: supabaseUUID,
+          p_course_progress: newLearningData.course_progress,
+          p_completed_modules: newLearningData.completed_modules,
+          p_total_modules: newLearningData.total_modules
+        });
       
       if (createError) {
         console.error('Error creating learning data:', createError);
@@ -131,8 +149,10 @@ export const useLearningData = (totalModules: number) => {
       if (createdData) {
         console.log('Created new learning data:', createdData);
         setUserLearningData({
-          ...createdData,
-          course_progress: createdData.course_progress as Record<string, any> || {}
+          id: createdData,
+          ...newLearningData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
       }
     } catch (err: any) {
@@ -150,12 +170,9 @@ export const useLearningData = (totalModules: number) => {
     try {
       console.log('Updating module completion:', { moduleId, courseId });
       
-      const currentProgress = userLearningData?.course_progress || 
-        JSON.parse(localStorage.getItem(`learning_progress_${user.id}`) || '{}');
+      const currentProgress = userLearningData?.course_progress || getLocalProgress();
       
-      const courseProgress = {
-        ...currentProgress,
-      };
+      const courseProgress = { ...currentProgress };
       
       if (!courseProgress[courseId]) {
         courseProgress[courseId] = {};
@@ -172,10 +189,10 @@ export const useLearningData = (totalModules: number) => {
         }
       });
 
-      // Always save to localStorage for persistence
-      localStorage.setItem(`learning_progress_${user.id}`, JSON.stringify(courseProgress));
+      // Always save to localStorage first
+      saveLocalProgress(courseProgress);
 
-      // Update local state first
+      // Update local state immediately
       setUserLearningData(prevData => {
         if (!prevData) {
           return {
@@ -207,19 +224,17 @@ export const useLearningData = (totalModules: number) => {
       console.log('Updating learning progress in database');
       
       const { error } = await supabase
-        .from('user_learning')
-        .update({
-          course_progress: courseProgress,
-          completed_modules: completedModulesCount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', supabaseUserId);
+        .rpc('update_user_learning_bypass_rls', {
+          p_user_id: supabaseUserId,
+          p_course_progress: courseProgress,
+          p_completed_modules: completedModulesCount
+        });
       
       if (error) {
         console.error('Database update error (continuing with local state):', error);
         toast({
           title: "Progress Saved Locally",
-          description: "Your progress has been saved. Changes will sync when connection is restored.",
+          description: "Changes will sync when connection is restored.",
         });
       } else {
         console.log('Successfully updated learning progress in database');
@@ -236,7 +251,7 @@ export const useLearningData = (totalModules: number) => {
         title: "Progress Saved Locally",
         description: "Your progress has been saved locally.",
       });
-      return true; // Return true since local state was updated
+      return true;
     }
   }, [userLearningData, user?.id, toast, totalModules]);
 

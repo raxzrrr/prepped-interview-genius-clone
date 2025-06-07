@@ -1,43 +1,102 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, Eye, File } from 'lucide-react';
+import { Clock, Eye, File, TrendingUp, Award } from 'lucide-react';
+import { useAuth } from '@/contexts/ClerkAuthContext';
+import { useInterviewApi } from '@/services/api';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 const ReportsPage: React.FC = () => {
-  // Dummy data for interview reports
-  const reports = [
-    {
-      id: '1',
-      title: 'Frontend Developer Mock Interview',
-      date: 'April 25, 2025',
-      questions: 15,
-      duration: '45 min',
-      score: 82
-    },
-    {
-      id: '2',
-      title: 'System Design Interview Practice',
-      date: 'April 18, 2025',
-      questions: 8,
-      duration: '55 min',
-      score: 76
-    },
-    {
-      id: '3',
-      title: 'Behavioral Interview Session',
-      date: 'April 10, 2025',
-      questions: 12,
-      duration: '38 min',
-      score: 90
-    }
-  ];
+  const { user } = useAuth();
+  const { getInterviews } = useInterviewApi();
+  const [reports, setReports] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalInterviews: 0,
+    averageScore: 0,
+    completedInterviews: 0,
+    totalQuestions: 0
+  });
 
-  const handleViewReport = (id: string) => {
-    console.log(`Viewing report with ID: ${id}`);
-    // This would navigate to a detailed report page
+  useEffect(() => {
+    if (user) {
+      fetchReports();
+    }
+  }, [user]);
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      const interviews = await getInterviews(user?.id || '');
+      
+      // Filter completed interviews and format for display
+      const completedReports = interviews
+        .filter(interview => interview.status === 'completed')
+        .map(interview => ({
+          id: interview.id,
+          title: interview.title,
+          date: new Date(interview.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }),
+          questions: Array.isArray(interview.questions) ? interview.questions.length : 0,
+          duration: interview.duration ? `${Math.round(interview.duration / 60)} min` : 'N/A',
+          score: interview.score || 0,
+          answers: interview.answers,
+          facial_analysis: interview.facial_analysis
+        }));
+
+      setReports(completedReports);
+
+      // Calculate statistics
+      const totalQuestions = interviews.reduce((acc, curr) => 
+        acc + (Array.isArray(curr.questions) ? curr.questions.length : 0), 0);
+      const avgScore = completedReports.length > 0 
+        ? Math.round(completedReports.reduce((acc, curr) => acc + curr.score, 0) / completedReports.length) 
+        : 0;
+
+      setStats({
+        totalInterviews: interviews.length,
+        averageScore: avgScore,
+        completedInterviews: completedReports.length,
+        totalQuestions: totalQuestions
+      });
+
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return 'bg-green-500';
+    if (score >= 70) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getScoreBadgeVariant = (score: number) => {
+    if (score >= 85) return 'default';
+    if (score >= 70) return 'secondary';
+    return 'destructive';
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-purple mx-auto"></div>
+            <p className="mt-2 text-gray-600">Loading your reports...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -49,17 +108,61 @@ const ReportsPage: React.FC = () => {
           </p>
         </div>
 
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Interviews</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalInterviews}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Completed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{stats.completedInterviews}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Average Score</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-brand-purple">{stats.averageScore}%</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Questions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalQuestions}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Reports List */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {reports.map((report) => (
             <Card key={report.id} className="overflow-hidden">
               <CardHeader className="pb-3">
-                <CardTitle>{report.title}</CardTitle>
-                <CardDescription className="flex items-center mt-1">
-                  <Clock className="mr-1 h-3 w-3" /> {report.date}
-                </CardDescription>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg">{report.title}</CardTitle>
+                    <CardDescription className="flex items-center mt-1">
+                      <Clock className="mr-1 h-3 w-3" /> {report.date}
+                    </CardDescription>
+                  </div>
+                  <Badge variant={getScoreBadgeVariant(report.score)}>
+                    {report.score}%
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                   <div>
                     <p className="text-gray-500">Questions</p>
                     <p className="font-medium">{report.questions}</p>
@@ -68,43 +171,53 @@ const ReportsPage: React.FC = () => {
                     <p className="text-gray-500">Duration</p>
                     <p className="font-medium">{report.duration}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-500">Score</p>
-                    <p className="font-medium">{report.score}%</p>
-                  </div>
                 </div>
-                <div className="mt-4">
-                  <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${
-                        report.score >= 85 ? 'bg-green-500' : 
-                        report.score >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                      }`} 
-                      style={{ width: `${report.score}%` }}
-                    />
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Performance</span>
+                    <span>{report.score}%</span>
                   </div>
+                  <Progress value={report.score} className="h-2" />
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-center border-t pt-4">
+              <CardFooter className="flex justify-between border-t pt-4">
                 <Button 
                   variant="outline" 
-                  className="flex items-center" 
-                  onClick={() => handleViewReport(report.id)}
+                  size="sm"
+                  className="flex items-center"
+                  onClick={() => {
+                    // Navigate to detailed report view
+                    window.location.href = `/reports/${report.id}`;
+                  }}
                 >
                   <Eye className="mr-2 h-4 w-4" />
-                  View Report
+                  View Details
                 </Button>
+                {report.score >= 80 && (
+                  <Button 
+                    size="sm"
+                    onClick={() => {
+                      // Navigate to certificate generation
+                      window.location.href = `/certificates?interview=${report.id}`;
+                    }}
+                  >
+                    <Award className="mr-2 h-4 w-4" />
+                    Certificate
+                  </Button>
+                )}
               </CardFooter>
             </Card>
           ))}
         </div>
 
-        {reports.length === 0 && (
+        {reports.length === 0 && !loading && (
           <div className="text-center py-12">
             <File className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium">No reports yet</h3>
             <p className="mt-2 text-gray-600">Complete your first interview to generate a report.</p>
-            <Button className="mt-4">Schedule Interview</Button>
+            <Button className="mt-4" onClick={() => window.location.href = '/dashboard'}>
+              Start Interview
+            </Button>
           </div>
         )}
       </div>

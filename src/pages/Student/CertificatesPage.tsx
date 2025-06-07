@@ -1,393 +1,251 @@
 
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { useAuth } from '@/contexts/ClerkAuthContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Award, CheckCircle, XCircle, BookOpen, LockIcon } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Award, Download, Calendar, User, Trophy } from 'lucide-react';
+import { useAuth } from '@/contexts/ClerkAuthContext';
+import { useInterviewApi } from '@/services/api';
 import { useToast } from '@/components/ui/use-toast';
-
-interface Certificate {
-  id: string;
-  name: string;
-  issued: string | null;
-  available: boolean;
-  prerequisites: string[];
-  completed: boolean[];
-}
-
-// Define an interface for user learning data
-interface UserLearningData {
-  id: string;
-  user_id: string;
-  course_progress: any;
-  completed_modules: number;
-  total_modules: number;
-  course_score: number | null;
-  course_completed_at: string | null;
-  assessment_attempted: boolean;
-  assessment_score: number | null;
-  assessment_completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 const CertificatesPage: React.FC = () => {
-  const { user, isStudent, profile } = useAuth();
-  const [downloadingCourse, setDownloadingCourse] = useState(false);
-  const [downloadingAssessment, setDownloadingAssessment] = useState(false);
-  const [certificates, setCertificates] = useState<{
-    course: Certificate;
-    assessment: Certificate;
-  }>({
-    course: {
-      id: 'course-cert',
-      name: 'Interview Mastery Course',
-      issued: null,
-      available: false,
-      prerequisites: ['Complete all course modules', 'Score 70% or higher on final quiz'],
-      completed: [false, false]
-    },
-    assessment: {
-      id: 'assessment-cert',
-      name: 'Technical Interview Assessment',
-      issued: null,
-      available: false,
-      prerequisites: ['Complete Assessment Test', 'Score 80% or higher'],
-      completed: [false, false]
-    }
-  });
+  const { user } = useAuth();
+  const { getInterviews } = useInterviewApi();
   const { toast } = useToast();
-  
-  // Redirect if not logged in or not a student
-  if (!user || !isStudent()) {
-    return <Navigate to="/login" />;
-  }
-  
-  // Fetch user certificates data
+  const [eligibleInterviews, setEligibleInterviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generatingCerts, setGeneratingCerts] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (user) {
-      fetchCertificates();
+      fetchEligibleInterviews();
     }
   }, [user]);
-  
-  const fetchCertificates = async () => {
+
+  const fetchEligibleInterviews = async () => {
     try {
-      // Get user's learning progress from the database
-      const { data: learningData, error } = await supabase
-        .from('user_learning')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
+      setLoading(true);
+      const interviews = await getInterviews(user?.id || '');
       
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      
-      // If we have learning data, update certificates
-      if (learningData) {
-        const typedData = learningData as UserLearningData;
-        
-        setCertificates({
-          course: {
-            id: 'course-cert',
-            name: 'Interview Mastery Course',
-            issued: typedData.course_completed_at,
-            available: !!typedData.course_completed_at,
-            prerequisites: ['Complete all course modules', 'Score 70% or higher on final quiz'],
-            completed: [
-              typedData.completed_modules >= (typedData.total_modules || 8),
-              (typedData.course_score || 0) >= 70
-            ]
-          },
-          assessment: {
-            id: 'assessment-cert',
-            name: 'Technical Interview Assessment',
-            issued: typedData.assessment_completed_at,
-            available: !!typedData.assessment_completed_at,
-            prerequisites: ['Complete Assessment Test', 'Score 80% or higher'],
-            completed: [
-              !!typedData.assessment_attempted,
-              (typedData.assessment_score || 0) >= 80
-            ]
-          }
-        });
-      }
+      // Filter interviews that are eligible for certificates (score >= 80 and completed)
+      const eligible = interviews
+        .filter(interview => 
+          interview.status === 'completed' && 
+          interview.score && 
+          interview.score >= 80
+        )
+        .map(interview => ({
+          id: interview.id,
+          title: interview.title,
+          date: new Date(interview.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }),
+          score: interview.score,
+          questions: Array.isArray(interview.questions) ? interview.questions.length : 0
+        }));
+
+      setEligibleInterviews(eligible);
     } catch (error) {
-      console.error('Error fetching certificates:', error);
+      console.error('Error fetching eligible interviews:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load certificate data. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const downloadCertificate = async (type: 'course' | 'assessment') => {
-    if (type === 'course') {
-      setDownloadingCourse(true);
-      try {
-        // Generate PDF certificate on the server
-        const { data, error } = await supabase.functions.invoke('generate-certificate', {
-          body: { 
-            type: 'course',
-            userId: user?.id,
-            userName: profile?.full_name || 'Student',
-            courseName: certificates.course.name,
-            certId: certificates.course.id,
-            issueDate: certificates.course.issued || new Date().toISOString()
-          }
-        });
-        
-        if (error) throw new Error(error.message);
-        
-        if (data?.pdfBase64) {
-          // Create a download link for the PDF
-          const link = document.createElement('a');
-          link.href = `data:application/pdf;base64,${data.pdfBase64}`;
-          link.download = `Course_Certificate_${certificates.course.id}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          toast({
-            title: "Certificate Downloaded",
-            description: "Your certificate has been downloaded successfully."
-          });
+  const generateCertificate = async (interview: any) => {
+    if (!user) return;
+
+    setGeneratingCerts(prev => new Set(prev).add(interview.id));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-certificate', {
+        body: {
+          type: 'interview-completion',
+          userId: user.id,
+          userName: user.firstName && user.lastName 
+            ? `${user.firstName} ${user.lastName}` 
+            : user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'User',
+          courseName: interview.title,
+          certId: `CERT-${interview.id.slice(0, 8).toUpperCase()}`,
+          issueDate: new Date().toISOString()
         }
-      } catch (error) {
-        console.error('Error downloading certificate:', error);
-        toast({
-          title: "Download Failed",
-          description: "Failed to download certificate. Please try again.",
-          variant: "destructive"
-        });
-      } finally {
-        setDownloadingCourse(false);
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-    } else {
-      setDownloadingAssessment(true);
-      try {
-        // Generate PDF certificate on the server
-        const { data, error } = await supabase.functions.invoke('generate-certificate', {
-          body: { 
-            type: 'assessment',
-            userId: user?.id,
-            userName: profile?.full_name || 'Student',
-            courseName: certificates.assessment.name,
-            certId: certificates.assessment.id,
-            issueDate: certificates.assessment.issued || new Date().toISOString()
-          }
-        });
-        
-        if (error) throw new Error(error.message);
-        
-        if (data?.pdfBase64) {
-          // Create a download link for the PDF
-          const link = document.createElement('a');
-          link.href = `data:application/pdf;base64,${data.pdfBase64}`;
-          link.download = `Assessment_Certificate_${certificates.assessment.id}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          toast({
-            title: "Certificate Downloaded",
-            description: "Your certificate has been downloaded successfully."
-          });
+
+      if (data?.pdfBase64) {
+        // Create download link
+        const byteCharacters = atob(data.pdfBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
-      } catch (error) {
-        console.error('Error downloading certificate:', error);
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${interview.title.replace(/\s+/g, '_')}_Certificate.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
         toast({
-          title: "Download Failed",
-          description: "Failed to download certificate. Please try again.",
-          variant: "destructive"
+          title: "Certificate Generated",
+          description: "Your certificate has been downloaded successfully!",
         });
-      } finally {
-        setDownloadingAssessment(false);
       }
+    } catch (error: any) {
+      console.error('Error generating certificate:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate certificate. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingCerts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(interview.id);
+        return newSet;
+      });
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-purple mx-auto"></div>
+            <p className="mt-2 text-gray-600">Loading certificates...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Certificates</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Certificates</h1>
           <p className="mt-2 text-gray-600">
-            View and download your earned certificates
+            Download certificates for your completed interviews with scores of 80% or higher
           </p>
         </div>
-        
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Course Completion Certificate */}
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl">Course Completion Certificate</CardTitle>
-                {certificates.course.available ? (
-                  <Badge className="bg-green-500">Available</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-amber-500 border-amber-500">
-                    In Progress
-                  </Badge>
-                )}
+
+        {/* Certificate Eligibility Info */}
+        <Card className="bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200">
+          <CardHeader>
+            <CardTitle className="flex items-center text-amber-800">
+              <Trophy className="mr-2 h-5 w-5" />
+              Certificate Requirements
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-center text-amber-700">
+                <Award className="mr-2 h-4 w-4" />
+                Score 80% or higher
               </div>
-              <CardDescription>
-                Certifies completion of the Interview Mastery Course
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-white border rounded-md p-6 mb-4 flex items-center justify-center">
-                <div className="text-center">
-                  <Award className="w-20 h-20 text-brand-purple mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold">
-                    {profile?.full_name || 'Student'}
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    Has successfully completed
-                  </p>
-                  <p className="font-medium mt-2">{certificates.course.name}</p>
-                  {certificates.course.issued && (
-                    <p className="text-gray-500 text-sm mt-4">
-                      Issued on {new Date(certificates.course.issued).toLocaleDateString()}
-                    </p>
-                  )}
+              <div className="flex items-center text-amber-700">
+                <User className="mr-2 h-4 w-4" />
+                Complete all questions
+              </div>
+              <div className="flex items-center text-amber-700">
+                <Calendar className="mr-2 h-4 w-4" />
+                Valid interview session
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Eligible Certificates */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {eligibleInterviews.map((interview) => (
+            <Card key={interview.id} className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg">{interview.title}</CardTitle>
+                    <CardDescription className="flex items-center mt-1">
+                      <Calendar className="mr-1 h-3 w-3" /> {interview.date}
+                    </CardDescription>
+                  </div>
+                  <Badge variant="default" className="bg-green-100 text-green-800">
+                    {interview.score}%
+                  </Badge>
                 </div>
-              </div>
-              
-              <div className="mt-6">
-                <h4 className="text-sm font-medium mb-2">Requirements</h4>
-                <ul className="space-y-2">
-                  {certificates.course.prerequisites.map((req, index) => (
-                    <li key={index} className="flex items-start">
-                      {certificates.course.completed[index] ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
-                      )}
-                      <span className="text-sm">{req}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                className="w-full"
-                disabled={!certificates.course.available || downloadingCourse}
-                onClick={() => downloadCertificate('course')}
-              >
-                {downloadingCourse ? (
-                  <>
-                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Certificate
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-          
-          {/* Assessment Certificate */}
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl">Assessment Certificate</CardTitle>
-                {certificates.assessment.available ? (
-                  <Badge className="bg-green-500">Available</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-amber-500 border-amber-500">
-                    Locked
-                  </Badge>
-                )}
-              </div>
-              <CardDescription>
-                Certifies successful completion of internship-level technical assessment
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-white border rounded-md p-6 mb-4 flex items-center justify-center border-dashed">
-                <div className="text-center">
-                  {certificates.assessment.available ? (
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Questions</p>
+                    <p className="font-medium">{interview.questions}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Grade</p>
+                    <p className="font-medium text-green-600">Excellent</p>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <p className="text-xs text-gray-500 mb-2">Certificate ID:</p>
+                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                    CERT-{interview.id.slice(0, 8).toUpperCase()}
+                  </code>
+                </div>
+              </CardContent>
+              <CardContent className="pt-0">
+                <Button 
+                  onClick={() => generateCertificate(interview)}
+                  disabled={generatingCerts.has(interview.id)}
+                  className="w-full"
+                >
+                  {generatingCerts.has(interview.id) ? (
                     <>
-                      <Award className="w-20 h-20 text-brand-purple mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold">
-                        {profile?.full_name || 'Student'}
-                      </h3>
-                      <p className="text-gray-600 text-sm">
-                        Has successfully completed
-                      </p>
-                      <p className="font-medium mt-2">{certificates.assessment.name}</p>
-                      {certificates.assessment.issued && (
-                        <p className="text-gray-500 text-sm mt-4">
-                          Issued on {new Date(certificates.assessment.issued).toLocaleDateString()}
-                        </p>
-                      )}
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Generating...
                     </>
                   ) : (
                     <>
-                      <div className="p-4 rounded-full border-2 border-gray-300 inline-block mb-4">
-                        <LockIcon className="w-12 h-12 text-gray-300" />
-                      </div>
-                      <p className="text-gray-500">
-                        Complete all requirements to unlock
-                      </p>
+                      <Download className="mr-2 h-4 w-4" />
+                      Download Certificate
                     </>
                   )}
-                </div>
-              </div>
-              
-              <div className="mt-6">
-                <h4 className="text-sm font-medium mb-2">Requirements</h4>
-                <ul className="space-y-2">
-                  {certificates.assessment.prerequisites.map((req, index) => (
-                    <li key={index} className="flex items-start">
-                      {certificates.assessment.completed[index] ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
-                      )}
-                      <span className="text-sm">{req}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-2">
-              <Button 
-                className="w-full"
-                disabled={!certificates.assessment.available || downloadingAssessment}
-                onClick={() => downloadCertificate('assessment')}
-              >
-                {downloadingAssessment ? (
-                  <>
-                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Certificate
-                  </>
-                )}
-              </Button>
-              
-              {!certificates.assessment.available && (
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => window.location.href = '/learning'}
-                >
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  Take Assessment Test
                 </Button>
-              )}
-            </CardFooter>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
+
+        {/* No Certificates Available */}
+        {eligibleInterviews.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <Award className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium">No certificates available</h3>
+            <p className="mt-2 text-gray-600">
+              Complete interviews with a score of 80% or higher to earn certificates.
+            </p>
+            <Button className="mt-4" onClick={() => window.location.href = '/dashboard'}>
+              Start Interview
+            </Button>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
