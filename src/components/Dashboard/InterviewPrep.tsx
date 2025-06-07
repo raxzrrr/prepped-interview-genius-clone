@@ -38,7 +38,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { getAnswerFeedback, analyzeFacialExpression } = useInterviewApi();
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,6 +46,12 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    console.log('InterviewPrep mounted. Auth state:', {
+      hasUser: !!user,
+      isAuthenticated,
+      questionsLength: questions.length
+    });
+
     if (questions.length > 0) {
       initializeCamera();
       if (audioEnabled) {

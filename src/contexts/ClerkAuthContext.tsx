@@ -19,6 +19,7 @@ interface AuthContextType {
   session: any;
   profile: UserProfile;
   loading: boolean;
+  isAuthenticated: boolean;
   isAdmin: () => boolean;
   isStudent: () => boolean;
   logout: () => Promise<void>;
@@ -42,6 +43,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
   const [supabaseSession, setSupabaseSession] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
 
   // Function to get consistent Supabase user ID
@@ -53,14 +55,17 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Set up Supabase session with Clerk token
   const setupSupabaseSession = async () => {
     if (!userId || !clerkUser) {
-      // Clear Supabase session if no Clerk user
+      console.log('No user found, clearing Supabase session');
       await supabase.auth.signOut();
       setSupabaseSession(null);
+      setIsAuthenticated(false);
       return;
     }
 
     try {
+      console.log('Setting up Supabase session for user:', userId);
       const token = await getToken({ template: 'supabase' });
+      
       if (token) {
         const { data, error } = await supabase.auth.setSession({
           access_token: token,
@@ -69,21 +74,32 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         
         if (error) {
           console.error('Supabase session error:', error);
+          setIsAuthenticated(false);
         } else {
           setSupabaseSession(data.session);
+          setIsAuthenticated(true);
           console.log('Supabase session established successfully');
         }
+      } else {
+        console.error('No Supabase token received from Clerk');
+        setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Error setting up Supabase session:', error);
+      setIsAuthenticated(false);
     }
   };
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      console.log('Clerk not loaded yet');
+      return;
+    }
+
+    console.log('Clerk loaded, userId:', userId, 'clerkUser:', !!clerkUser);
 
     if (userId && clerkUser) {
-      console.log('Setting up user profile for:', userId);
+      console.log('User authenticated, setting up profile and session');
       
       // User is authenticated
       const userEmail = clerkUser.primaryEmailAddress?.emailAddress || '';
@@ -91,7 +107,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ? `${clerkUser.firstName} ${clerkUser.lastName}`
         : clerkUser.username || userEmail.split('@')[0];
       
-      // Set role based on email for now (this would be replaced by proper role management)
+      // Set role based on email for now
       const role: UserRole = userEmail === 'admin@interview.ai' ? 'admin' : 'student';
       
       setProfile({
@@ -107,14 +123,15 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Sync with supabase for data consistency if needed
       syncUserWithSupabase(userId, userName, role);
     } else {
-      console.log('No user found, clearing profile and session');
+      console.log('No user found, clearing all state');
       setProfile(null);
       setSupabaseSession(null);
+      setIsAuthenticated(false);
       supabase.auth.signOut();
     }
     
     setLoading(false);
-  }, [isLoaded, userId, clerkUser]);
+  }, [isLoaded, userId, clerkUser, sessionId]);
 
   const syncUserWithSupabase = async (userId: string, fullName: string, role: UserRole) => {
     try {
@@ -137,7 +154,6 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       if (!existingProfile) {
         console.log('Creating new profile for user');
-        // Create a new profile if doesn't exist
         const { error: insertError } = await supabase
           .from('profiles')
           .insert({
@@ -169,6 +185,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       await clerk.signOut();
       setProfile(null);
       setSupabaseSession(null);
+      setIsAuthenticated(false);
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out",
@@ -185,15 +202,24 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Create a session object that includes the Supabase session details
-  const sessionObject = supabaseSession ? {
+  // Create a session object that includes both Clerk and Supabase session details
+  const sessionObject = isAuthenticated && supabaseSession ? {
     id: sessionId,
     user: {
       id: getSupabaseUserId(),
       email: clerkUser?.primaryEmailAddress?.emailAddress
     },
-    supabaseSession
+    supabaseSession,
+    isActive: true
   } : null;
+
+  console.log('Auth context state:', {
+    isLoaded,
+    userId,
+    isAuthenticated,
+    hasProfile: !!profile,
+    hasSession: !!sessionObject
+  });
 
   return (
     <AuthContext.Provider value={{ 
@@ -201,6 +227,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       session: sessionObject,
       profile,
       loading, 
+      isAuthenticated,
       isAdmin,
       isStudent,
       logout,
