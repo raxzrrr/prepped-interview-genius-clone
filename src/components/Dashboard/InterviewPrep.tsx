@@ -103,6 +103,30 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     return Math.round(totalScore / questions.length); // Average across all questions
   };
 
+  // Calculate final score only when evaluations are complete
+  const calculateFinalScore = (evaluationsList: any[], answersList: string[]) => {
+    // Only calculate if we have all evaluations or evaluation is complete
+    if (isEvaluating) return null;
+    
+    let totalScore = 0;
+    
+    for (let i = 0; i < questions.length; i++) {
+      const evaluation = evaluationsList[i];
+      const answer = answersList[i];
+      
+      if (evaluation && evaluation.score_breakdown && evaluation.score_breakdown.overall) {
+        // Use AI evaluation score
+        totalScore += evaluation.score_breakdown.overall;
+      } else if (answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped') {
+        // If no evaluation but has answer, give a moderate score
+        totalScore += 60;
+      }
+      // If no answer, contribute 0 to the score
+    }
+    
+    return Math.round(totalScore / questions.length); // Average across all questions
+  };
+
   useEffect(() => {
     console.log('InterviewPrep mounted. Auth state:', {
       hasUser: !!user,
@@ -271,7 +295,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
       yPosition += 8;
       
-      const score = calculateScore(finalEvaluations, finalAnswers);
+      const score = calculateFinalScore(finalEvaluations, finalAnswers) || 0;
       doc.text(`Overall Score: ${score}%`, 20, yPosition);
       yPosition += 15;
       
@@ -445,8 +469,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   }
 
   if (isComplete || isEvaluating) {
-    // Calculate score using current evaluations state (will update as evaluations complete)
-    const score = calculateScore(evaluations, finalAnswers);
+    // Calculate score using final calculation method
+    const score = calculateFinalScore(evaluations, finalAnswers);
     const validAnswers = finalAnswers.filter(answer => 
       answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
     );
@@ -463,7 +487,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               <div className="text-center">
                 <Loader2 className="mx-auto h-8 w-8 animate-spin mb-4" />
                 <p className="text-gray-600">Generating AI evaluations for your answers...</p>
-                <p className="text-sm text-gray-500 mt-2">Score will update after evaluation completes</p>
+                <p className="text-sm text-gray-500 mt-2">Score will be calculated after evaluation completes</p>
               </div>
             </CardContent>
           </Card>
@@ -474,19 +498,29 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>Interview Completed!</span>
-              <Badge variant={score >= 85 ? "default" : score >= 70 ? "secondary" : "destructive"} className="text-lg px-3 py-1">
-                {score}%
-              </Badge>
+              {isEvaluating ? (
+                <Badge variant="outline" className="text-lg px-3 py-1">
+                  Evaluating...
+                </Badge>
+              ) : (
+                <Badge variant={score && score >= 85 ? "default" : score && score >= 70 ? "secondary" : "destructive"} className="text-lg px-3 py-1">
+                  {score || 0}%
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span>{isEvaluating ? 'Preliminary Score (Evaluating...)' : 'Performance Score (Based on AI Evaluation)'}</span>
-                  <span className={score >= 85 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600'}>{score}%</span>
+                  <span>{isEvaluating ? 'Evaluating Performance...' : 'Performance Score (Based on AI Evaluation)'}</span>
+                  {isEvaluating ? (
+                    <span className="text-gray-500">Calculating...</span>
+                  ) : (
+                    <span className={score && score >= 85 ? 'text-green-600' : score && score >= 70 ? 'text-yellow-600' : 'text-red-600'}>{score || 0}%</span>
+                  )}
                 </div>
-                <Progress value={score} className="h-3" />
+                <Progress value={isEvaluating ? 0 : (score || 0)} className="h-3" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
