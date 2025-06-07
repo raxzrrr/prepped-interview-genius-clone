@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, Volume2, VolumeX, Play, Pause, SkipForward, CheckCircle } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Play, Pause, SkipForward, CheckCircle, Download } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import voiceToTextService from '@/services/voiceToTextService';
 import ttsService from '@/services/ttsService';
-import InterviewReport from './InterviewReport';
 import ResumeAnalysisResults from './ResumeAnalysisResults';
+import jsPDF from 'jspdf';
 
 interface InterviewPrepProps {
   questions: string[];
@@ -34,14 +34,12 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [facialAnalysis, setFacialAnalysis] = useState<any[]>([]);
   const [isComplete, setIsComplete] = useState(false);
-  const [actualInterviewId, setActualInterviewId] = useState<string | undefined>(interviewId);
   const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [interviewCompleteData, setInterviewCompleteData] = useState<any>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
-  const { getAnswerFeedback, analyzeFacialExpression, saveInterview, updateInterview } = useInterviewApi();
+  const { getAnswerFeedback, analyzeFacialExpression } = useInterviewApi();
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -142,7 +140,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       await ttsService.speak(question);
     } catch (error) {
       console.error('TTS Error:', error);
-      // Don't show error toast, just log it
       console.warn('Audio playback failed, continuing without audio');
     } finally {
       setIsPlaying(false);
@@ -224,20 +221,96 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     nextQuestion();
   };
 
-  const finishInterview = async () => {
-    setIsSaving(true);
+  const generatePDF = () => {
+    setIsGeneratingPDF(true);
     
     try {
-      console.log('Starting interview finish process...');
+      const doc = new jsPDF();
+      const pageHeight = doc.internal.pageSize.height;
+      let yPosition = 20;
       
-      if (!user) {
-        toast({
-          title: "Authentication Required",
-          description: "You must be logged in to save the interview.",
-          variant: "destructive",
-        });
-        return;
+      // Title
+      doc.setFontSize(20);
+      doc.text('Interview Report', 20, yPosition);
+      yPosition += 15;
+      
+      // Date and Score
+      doc.setFontSize(12);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
+      yPosition += 8;
+      
+      const validAnswers = finalAnswers.filter(answer => 
+        answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
+      );
+      const score = Math.round((validAnswers.length / questions.length) * 100);
+      doc.text(`Overall Score: ${score}%`, 20, yPosition);
+      yPosition += 15;
+      
+      // Resume Analysis (if available)
+      if (resumeAnalysis) {
+        doc.setFontSize(14);
+        doc.text('Resume Analysis', 20, yPosition);
+        yPosition += 10;
+        
+        if (resumeAnalysis.suggested_role) {
+          doc.setFontSize(11);
+          doc.text(`Suggested Role: ${resumeAnalysis.suggested_role}`, 20, yPosition);
+          yPosition += 8;
+        }
+        
+        yPosition += 5;
       }
+      
+      // Questions and Answers
+      doc.setFontSize(14);
+      doc.text('Interview Questions & Answers', 20, yPosition);
+      yPosition += 10;
+      
+      questions.forEach((question, index) => {
+        // Check if we need a new page
+        if (yPosition > pageHeight - 50) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        
+        // Question
+        const questionLines = doc.splitTextToSize(`Q${index + 1}: ${question}`, 170);
+        doc.text(questionLines, 20, yPosition);
+        yPosition += questionLines.length * 5 + 3;
+        
+        // Answer
+        doc.setFont(undefined, 'normal');
+        const answer = finalAnswers[index] || 'No answer provided';
+        const answerLines = doc.splitTextToSize(`A: ${answer}`, 170);
+        doc.text(answerLines, 20, yPosition);
+        yPosition += answerLines.length * 5 + 8;
+      });
+      
+      // Save the PDF
+      doc.save(`interview-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast({
+        title: "PDF Downloaded",
+        description: "Your interview report has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const finishInterview = () => {
+    try {
+      console.log('Finishing interview without database save...');
       
       // Ensure final answer is saved
       const finalAnswers = [...answers];
@@ -251,106 +324,29 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       setAnswers(finalAnswers);
       console.log('Final answers array:', finalAnswers);
       
-      // Calculate score based on answered questions
-      const validAnswers = finalAnswers.filter(answer => 
-        answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
-      );
-      const score = Math.round((validAnswers.length / questions.length) * 100);
-      
-      console.log('Calculated score:', score);
-      console.log('Valid answers count:', validAnswers.length, 'out of', questions.length);
-      
-      // Prepare complete interview data
-      const completeInterviewData = {
-        status: 'completed',
-        answers: finalAnswers,
-        score: score,
-        facial_analysis: facialAnalysis,
-        completed_at: new Date().toISOString(),
-        questions: questions,
-        resumeAnalysis: resumeAnalysis
-      };
-      
-      // Save or update the interview
-      let savedInterviewId = actualInterviewId;
-      
-      if (actualInterviewId) {
-        console.log('Updating existing interview:', actualInterviewId);
-        await updateInterview(actualInterviewId, completeInterviewData);
-      } else {
-        console.log('Creating new interview record');
-        const newInterviewData = {
-          ...completeInterviewData,
-          user_id: user.id,
-          title: `Interview - ${new Date().toLocaleDateString()}`,
-        };
-        
-        savedInterviewId = await saveInterview(newInterviewData);
-        setActualInterviewId(savedInterviewId);
-        console.log('New interview created with ID:', savedInterviewId);
-      }
+      cleanup();
+      setIsComplete(true);
       
       toast({
         title: "Interview Completed",
-        description: "Your interview has been saved successfully!",
+        description: "Your interview has been completed! You can now download the report.",
       });
-      
-      cleanup();
-      
-      // Store complete data for the report
-      setInterviewCompleteData({
-        questions,
-        answers: finalAnswers,
-        facialAnalysis,
-        resumeAnalysis,
-        interviewId: savedInterviewId,
-        score
-      });
-      
-      setIsComplete(true);
       
       // Call onComplete with the final data
       onComplete({
         questions,
         answers: finalAnswers,
         facialAnalysis,
-        interviewId: savedInterviewId
+        interviewId
       });
       
     } catch (error: any) {
       console.error('Error finishing interview:', error);
       toast({
-        title: "Save Error",
-        description: error.message || "Failed to save the interview. Your answers are preserved in the report.",
+        title: "Completion Error",
+        description: "There was an issue completing the interview, but your answers are preserved.",
         variant: "destructive",
       });
-      
-      // Even if save fails, show the results with preserved answers
-      const finalAnswers = [...answers];
-      if (currentAnswer.trim()) {
-        finalAnswers[currentQuestionIndex] = currentAnswer.trim();
-      }
-      
-      cleanup();
-      
-      setInterviewCompleteData({
-        questions,
-        answers: finalAnswers,
-        facialAnalysis,
-        resumeAnalysis,
-        interviewId: actualInterviewId
-      });
-      
-      setIsComplete(true);
-      
-      onComplete({
-        questions,
-        answers: finalAnswers,
-        facialAnalysis,
-        interviewId: actualInterviewId
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -368,24 +364,146 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     }
   };
 
-  if (isComplete && interviewCompleteData) {
+  // Calculate final answers for the completion view
+  const finalAnswers = [...answers];
+  if (currentAnswer.trim()) {
+    finalAnswers[currentQuestionIndex] = currentAnswer.trim();
+  }
+
+  if (isComplete) {
+    // Calculate score
+    const validAnswers = finalAnswers.filter(answer => 
+      answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped'
+    );
+    const score = Math.round((validAnswers.length / questions.length) * 100);
+
     return (
-      <InterviewReport
-        questions={interviewCompleteData.questions}
-        answers={interviewCompleteData.answers}
-        facialAnalysis={interviewCompleteData.facialAnalysis}
-        resumeAnalysis={interviewCompleteData.resumeAnalysis}
-        interviewId={interviewCompleteData.interviewId}
-        score={interviewCompleteData.score}
-        onDone={() => {
-          setIsComplete(false);
-          setCurrentQuestionIndex(0);
-          setAnswers(new Array(questions.length).fill(''));
-          setCurrentAnswer('');
-          setFacialAnalysis([]);
-          setInterviewCompleteData(null);
-        }}
-      />
+      <div className="space-y-6">
+        {resumeAnalysis && (
+          <ResumeAnalysisResults analysis={resumeAnalysis} />
+        )}
+        
+        {/* Overall Score Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Interview Completed!</span>
+              <Badge variant={score >= 85 ? "default" : score >= 70 ? "secondary" : "destructive"} className="text-lg px-3 py-1">
+                {score}%
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Performance Score</span>
+                  <span className={score >= 85 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600'}>{score}%</span>
+                </div>
+                <Progress value={score} className="h-3" />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-brand-purple">
+                    {questions.length}
+                  </div>
+                  <div className="text-sm text-gray-500">Total Questions</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {validAnswers.length}
+                  </div>
+                  <div className="text-sm text-gray-500">Answered</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {questions.length - validAnswers.length}
+                  </div>
+                  <div className="text-sm text-gray-500">Skipped</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Questions and Answers */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Interview Questions & Answers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {questions.map((question, index) => {
+                const answer = finalAnswers[index];
+                const isAnswered = answer && answer.trim() !== '' && answer !== 'No answer provided' && answer !== 'Question skipped';
+                
+                return (
+                  <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        {isAnswered ? (
+                          <CheckCircle className="h-5 w-5 text-green-500 mt-1" />
+                        ) : (
+                          <div className="h-5 w-5 rounded-full border-2 border-red-500 mt-1" />
+                        )}
+                      </div>
+                      <div className="flex-grow">
+                        <div className="mb-2">
+                          <span className="font-medium text-gray-900">
+                            Question {index + 1}:
+                          </span>
+                          <p className="mt-1 text-gray-700">{question}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-900">Answer:</span>
+                          <p className={`mt-1 ${isAnswered ? 'text-gray-700' : 'text-gray-500 italic'}`}>
+                            {answer || 'No answer provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
+        <div className="flex justify-between pt-6">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsComplete(false);
+              setCurrentQuestionIndex(0);
+              setAnswers(new Array(questions.length).fill(''));
+              setCurrentAnswer('');
+              setFacialAnalysis([]);
+            }}
+          >
+            Start New Interview
+          </Button>
+          
+          <Button
+            onClick={generatePDF}
+            disabled={isGeneratingPDF}
+            className="flex items-center"
+          >
+            {isGeneratingPDF ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF Report
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
     );
   }
 
@@ -500,7 +618,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 onClick={isRecording ? stopRecording : startRecording}
                 variant={isRecording ? "destructive" : "default"}
                 className="flex items-center"
-                disabled={isSaving}
               >
                 {isRecording ? (
                   <>
@@ -544,7 +661,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               variant="outline"
               onClick={skipQuestion}
               className="flex items-center"
-              disabled={isSaving}
             >
               <SkipForward className="mr-2 h-4 w-4" />
               Skip Question
@@ -555,7 +671,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 <Button
                   onClick={nextQuestion}
                   className="flex items-center"
-                  disabled={isSaving}
                 >
                   Next Question
                   <SkipForward className="ml-2 h-4 w-4" />
@@ -564,19 +679,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 <Button
                   onClick={finishInterview}
                   className="flex items-center bg-green-600 hover:bg-green-700"
-                  disabled={isSaving}
                 >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Finish Interview
-                    </>
-                  )}
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Finish Interview
                 </Button>
               )}
             </div>

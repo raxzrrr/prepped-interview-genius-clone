@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
@@ -33,7 +32,7 @@ interface ResumeAnalysis {
 
 export const useInterviewApi = () => {
   const { toast } = useToast();
-  const { getSupabaseUserId, session } = useAuth();
+  const { getSupabaseUserId, session, user } = useAuth();
 
   const checkApiKey = (): boolean => {
     envService.debugApiKey();
@@ -58,11 +57,16 @@ export const useInterviewApi = () => {
 
   const getCurrentUser = () => {
     try {
-      const supabaseUserId = getSupabaseUserId();
-      
-      if (!supabaseUserId || !session) {
-        console.error('No active session found');
+      // Check for user from Clerk Auth context
+      if (!user || !session) {
+        console.error('No active user session found');
         throw new Error('No active session. Please log in.');
+      }
+      
+      const supabaseUserId = getSupabaseUserId();
+      if (!supabaseUserId) {
+        console.error('No Supabase user ID available');
+        throw new Error('User ID not available. Please log in again.');
       }
       
       console.log('Valid session found for user:', supabaseUserId);
@@ -226,6 +230,7 @@ export const useInterviewApi = () => {
     }
   };
 
+  // Keep the save and update functions for optional use, but they won't be called by default
   const saveInterview = async (interviewData: any): Promise<string> => {
     try {
       console.log('Saving interview with data:', interviewData);
@@ -233,7 +238,6 @@ export const useInterviewApi = () => {
       const user = getCurrentUser();
       console.log('Authenticated user ID:', user.id);
       
-      // Ensure we have proper data structure with all required fields
       const dataToSave = {
         user_id: user.id,
         title: interviewData.title || `Interview - ${new Date().toLocaleDateString()}`,
@@ -279,7 +283,7 @@ export const useInterviewApi = () => {
       console.error('Error saving interview:', error);
       toast({
         title: "Save Failed",
-        description: error.message || "Failed to save the interview. Please try again.",
+        description: error.message || "Failed to save the interview.",
         variant: "destructive"
       });
       throw error;
@@ -293,7 +297,6 @@ export const useInterviewApi = () => {
       const user = getCurrentUser();
       console.log('Authenticated user ID:', user.id);
 
-      // Ensure proper data structure for update
       const updateData = {
         ...interviewData,
         answers: Array.isArray(interviewData.answers) ? interviewData.answers : [],
@@ -323,7 +326,7 @@ export const useInterviewApi = () => {
       console.error('Error updating interview:', error);
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update the interview. Please try again.",
+        description: error.message || "Failed to update the interview.",
         variant: "destructive"
       });
       throw error;
