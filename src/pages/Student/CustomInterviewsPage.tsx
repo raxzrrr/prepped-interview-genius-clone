@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, User, ArrowRight } from 'lucide-react';
+import { Upload, FileText, User } from 'lucide-react';
 import ResumeUpload from '@/components/Dashboard/ResumeUpload';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
@@ -71,9 +70,8 @@ const CustomInterviewsPage: React.FC = () => {
       <InterviewReport
         questions={questions}
         answers={answers}
-        facialData={facialData}
-        analysisResults={analysisResults}
-        onStartNewInterview={startNewInterview}
+        facialAnalysis={facialData}
+        onDone={startNewInterview}
       />
     );
   }
