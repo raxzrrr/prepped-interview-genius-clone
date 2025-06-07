@@ -1,323 +1,216 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import DashboardLayout from '@/components/Layout/DashboardLayout';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, FileText, User, Briefcase, ArrowRight } from 'lucide-react';
-import ResumeUpload from '@/components/Dashboard/ResumeUpload';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { X, Upload, Briefcase, Users, Target, FileText } from 'lucide-react';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
-import InterviewReport from '@/components/Dashboard/InterviewReport';
-import { useToast } from '@/components/ui/use-toast';
+import ResumeUpload from '@/components/Dashboard/ResumeUpload';
 import { useInterviewApi } from '@/services/api';
-import { useAuth } from '@/contexts/ClerkAuthContext';
-import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { supabase } from '@/integrations/supabase/client';
-
-type InterviewType = 'resume' | 'prep' | 'report' | 'selection';
+import { useToast } from '@/components/ui/use-toast';
 
 const CustomInterviewsPage: React.FC = () => {
-  const { toast } = useToast();
-  const [currentView, setCurrentView] = useState<InterviewType>('selection');
-  const [resumeFile, setResumeFile] = useState<string>('');
-  const [questions, setQuestions] = useState<string[]>([]);
-  const [interviewId, setInterviewId] = useState<string | undefined>();
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [facialData, setFacialData] = useState<any[]>([]);
-  const [analysisResults, setAnalysisResults] = useState<any>(null);
-  const [usageData, setUsageData] = useState<{ custom_interviews: number, resume_interviews: number }>({ 
-    custom_interviews: 0, 
-    resume_interviews: 0 
-  });
-  
-  // Role-based interview state
-  const [customRole, setCustomRole] = useState('');
-  const [roleDescription, setRoleDescription] = useState('');
-  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
-  
+  const { user, isStudent } = useAuth();
   const { generateInterviewQuestions, saveInterview } = useInterviewApi();
-  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  // Redirect if not logged in or not a student
+  if (!user || !isStudent()) {
+    return <Navigate to="/login" />;
+  }
 
-  useEffect(() => {
-    if (user) {
-      fetchUsageData();
-    }
-  }, [user]);
+  const [step, setStep] = useState<'setup' | 'upload' | 'interview' | 'report'>('setup');
+  const [interviewType, setInterviewType] = useState<string>('');
+  const [jobTitle, setJobTitle] = useState<string>('');
+  const [companyName, setCompanyName] = useState<string>('');
+  const [interviewDuration, setInterviewDuration] = useState<string>('15');
+  const [focusAreas, setFocusAreas] = useState<string[]>([]);
+  const [customQuestions, setCustomQuestions] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [resumeAnalysis, setResumeAnalysis] = useState<any>(null);
+  const [interviewId, setInterviewId] = useState<string>();
 
-  const fetchUsageData = async () => {
-    if (!user) return;
-    
-    try {
-      // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.user) {
-        console.log('No user session found');
-        return;
-      }
-      
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      console.log('Fetching usage data for user:', session.user.id);
-      
-      const { data: interviews, error } = await supabase
-        .from('interviews')
-        .select('id, title, created_at')
-        .eq('user_id', session.user.id)
-        .gte('created_at', firstDayOfMonth.toISOString());
-      
-      if (error) {
-        console.error('Error fetching usage data:', error);
-        return;
-      }
-      
-      console.log('Raw interviews data:', interviews);
-      
-      // Count custom and resume-based interviews more accurately
-      const custom = interviews?.filter(i => {
-        const title = i.title?.toLowerCase() || '';
-        return title.includes('custom') && !title.includes('resume');
-      }).length || 0;
-      
-      const resume = interviews?.filter(i => {
-        const title = i.title?.toLowerCase() || '';
-        return title.includes('resume') || title.includes('resume-based');
-      }).length || 0;
-      
-      console.log('Usage counts - Custom:', custom, 'Resume:', resume);
-      
-      setUsageData({ 
-        custom_interviews: custom,
-        resume_interviews: resume
-      });
-      
-    } catch (error) {
-      console.error('Error fetching usage data:', error);
+  const interviewTypes = [
+    { value: 'technical', label: 'Technical Interview', icon: '💻' },
+    { value: 'behavioral', label: 'Behavioral Interview', icon: '🤝' },
+    { value: 'case-study', label: 'Case Study Interview', icon: '📊' },
+    { value: 'leadership', label: 'Leadership Interview', icon: '👥' },
+    { value: 'general', label: 'General Interview', icon: '💼' },
+  ];
+
+  const focusAreaOptions = [
+    'Problem Solving', 'Communication Skills', 'Technical Skills', 'Leadership',
+    'Teamwork', 'Project Management', 'Customer Service', 'Sales', 'Marketing',
+    'Data Analysis', 'Strategic Thinking', 'Adaptability', 'Innovation'
+  ];
+
+  const addFocusArea = (area: string) => {
+    if (!focusAreas.includes(area)) {
+      setFocusAreas([...focusAreas, area]);
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.type !== 'application/pdf') {
-        toast({
-          title: "Invalid File Type",
-          description: "Please upload a PDF file only.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Check resume interview limit before processing
-      if (usageData.resume_interviews >= 10) {
-        toast({
-          title: "Monthly Limit Reached",
-          description: "You have reached your monthly limit of 10 resume-based interviews.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setResumeFile(result);
-        setCurrentView('resume');
-      };
-      reader.readAsDataURL(file);
-    }
+  const removeFocusArea = (area: string) => {
+    setFocusAreas(focusAreas.filter(a => a !== area));
   };
 
-  const handleResumeAnalysisComplete = async (generatedQuestions: string[]) => {
-    if (!user) return;
-
-    try {
-      // Save resume-based interview session
-      const newInterviewData = {
-        title: 'Resume-based Interview',
-        questions: generatedQuestions,
-        status: 'in-progress'
-      };
-      
-      const savedInterviewId = await saveInterview(newInterviewData);
-      setInterviewId(savedInterviewId);
-      setQuestions(generatedQuestions);
-      setCurrentView('prep');
-      
-      // Refresh usage data
-      fetchUsageData();
-      
-    } catch (error) {
-      console.error('Error saving resume interview:', error);
-      setQuestions(generatedQuestions);
-      setCurrentView('prep');
-    }
-  };
-
-  const handleAnalysisResults = (analysis: any) => {
-    setAnalysisResults(analysis);
-  };
-
-  const handleInterviewComplete = (interviewAnswers: string[], facialAnalysisData: any[], completedInterviewId?: string) => {
-    setAnswers(interviewAnswers);
-    setFacialData(facialAnalysisData);
-    // Use the passed interviewId or fall back to the stored one
-    if (completedInterviewId) {
-      setInterviewId(completedInterviewId);
-    }
-    setCurrentView('report');
-    fetchUsageData(); // Refresh usage data after completing interview
-  };
-
-  const handleRoleBasedInterview = async () => {
-    if (!customRole.trim()) {
+  const generateCustomQuestions = async () => {
+    if (!interviewType || !jobTitle) {
       toast({
-        title: "Role Required",
-        description: "Please enter the role you want to interview for.",
+        title: "Missing Information",
+        description: "Please select an interview type and enter a job title.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to start an interview.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (usageData.custom_interviews >= 10) {
-      toast({
-        title: "Monthly Limit Reached",
-        description: "You have reached your monthly limit of 10 custom interviews.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setLoading(true);
     try {
-      setIsGeneratingQuestions(true);
+      // Create a comprehensive prompt based on user inputs
+      let prompt = `Generate interview questions for a ${interviewType} interview for the position of ${jobTitle}`;
       
-      const prompt = roleDescription.trim() 
-        ? `${customRole} - ${roleDescription}`
-        : customRole;
+      if (companyName) {
+        prompt += ` at ${companyName}`;
+      }
+      
+      if (focusAreas.length > 0) {
+        prompt += `. Focus on: ${focusAreas.join(', ')}`;
+      }
+      
+      if (customQuestions) {
+        prompt += `. Additional requirements: ${customQuestions}`;
+      }
+      
+      prompt += `. Generate ${Math.ceil(parseInt(interviewDuration) / 3)} questions appropriate for a ${interviewDuration}-minute interview.`;
+
+      console.log('Generating questions with prompt:', prompt);
       
       const generatedQuestions = await generateInterviewQuestions(prompt);
       
-      if (!generatedQuestions || generatedQuestions.length === 0) {
-        throw new Error('Failed to generate interview questions');
-      }
+      if (generatedQuestions && generatedQuestions.length > 0) {
+        const questionStrings = generatedQuestions.map(q => 
+          typeof q === 'string' ? q : q.question || 'Question unavailable'
+        );
+        setQuestions(questionStrings);
 
-      // Save interview session with proper title
-      try {
-        const newInterviewData = {
-          title: `Custom ${customRole} Interview`,
-          questions: generatedQuestions.map(q => q.question),
-          status: 'in-progress'
+        // Save the interview setup
+        const interviewData = {
+          title: `${interviewType.charAt(0).toUpperCase() + interviewType.slice(1)} Interview - ${jobTitle}`,
+          job_title: jobTitle,
+          company_name: companyName,
+          interview_type: interviewType,
+          duration: parseInt(interviewDuration),
+          focus_areas: focusAreas,
+          questions: questionStrings,
+          status: 'in-progress',
+          user_id: user.id
         };
-        
-        const savedInterviewId = await saveInterview(newInterviewData);
-        setInterviewId(savedInterviewId);
-        
-        // Refresh usage data immediately
-        fetchUsageData();
-        
-      } catch (saveError) {
-        console.error("Error saving interview:", saveError);
-        toast({
-          title: "Warning",
-          description: "Interview questions generated but failed to save session. You can still proceed.",
-          variant: "destructive",
-        });
-      }
 
-      setQuestions(generatedQuestions.map(q => q.question));
-      setCurrentView('prep');
-      
-      toast({
-        title: "Questions Generated",
-        description: `Generated ${generatedQuestions.length} questions for ${customRole} role.`,
-      });
-      
+        try {
+          const savedInterviewId = await saveInterview(interviewData);
+          setInterviewId(savedInterviewId);
+          console.log('Interview setup saved with ID:', savedInterviewId);
+        } catch (saveError) {
+          console.error('Failed to save interview setup:', saveError);
+          // Continue anyway - user can still do the interview
+        }
+
+        setStep('upload');
+        
+        toast({
+          title: "Questions Generated!",
+          description: `Generated ${questionStrings.length} questions for your ${interviewType} interview.`,
+        });
+      } else {
+        throw new Error('No questions were generated');
+      }
     } catch (error: any) {
       console.error('Error generating questions:', error);
       toast({
-        title: "Failed to Generate Questions",
-        description: error.message || "An error occurred while generating interview questions.",
+        title: "Generation Failed",
+        description: error.message || "Failed to generate questions. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsGeneratingQuestions(false);
+      setLoading(false);
     }
   };
 
-  const startNewInterview = () => {
-    setCurrentView('selection');
-    setResumeFile('');
-    setQuestions([]);
-    setAnswers([]);
-    setFacialData([]);
-    setAnalysisResults(null);
-    setInterviewId(undefined);
-    setCustomRole('');
-    setRoleDescription('');
-    fetchUsageData(); // Refresh usage data when starting new interview
+  const handleResumeUpload = (analysis: any) => {
+    setResumeAnalysis(analysis);
+    setStep('interview');
   };
 
-  if (currentView === 'prep' && questions.length > 0) {
+  const skipResumeUpload = () => {
+    setStep('interview');
+  };
+
+  const handleInterviewComplete = (data: {
+    questions: string[];
+    answers: string[];
+    facialAnalysis: any[];
+    interviewId?: string;
+  }) => {
+    console.log('Interview completed with data:', data);
+    setStep('report');
+  };
+
+  if (step === 'interview') {
     return (
       <DashboardLayout>
         <InterviewPrep
           questions={questions}
+          onComplete={handleInterviewComplete}
+          resumeAnalysis={resumeAnalysis}
           interviewId={interviewId}
-          resumeAnalysis={analysisResults}
-          onComplete={(data) => {
-            handleInterviewComplete(data.answers, data.facialAnalysis, data.interviewId);
-          }}
         />
       </DashboardLayout>
     );
   }
 
-  if (currentView === 'report') {
-    return (
-      <DashboardLayout>
-        <InterviewReport
-          questions={questions}
-          answers={answers}
-          facialAnalysis={facialData}
-          interviewId={interviewId}
-          onDone={startNewInterview}
-        />
-      </DashboardLayout>
-    );
-  }
-
-  if (currentView === 'resume' && resumeFile) {
+  if (step === 'report') {
     return (
       <DashboardLayout>
         <div className="space-y-6">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Resume Analysis</h1>
-            <p className="text-muted-foreground">
-              Analyzing your resume to generate personalized interview questions
-            </p>
-          </div>
-          
-          <ResumeUpload
-            file={resumeFile}
-            onAnalysisComplete={handleResumeAnalysisComplete}
-            onAnalysisResults={handleAnalysisResults}
-          />
-          
-          <div className="text-center">
-            <Button variant="outline" onClick={startNewInterview}>
-              Back to Interview Options
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Interview Completed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Your interview has been completed and saved. You can view detailed reports in the Reports section.
+              </p>
+              <div className="flex space-x-4">
+                <Button onClick={() => {
+                  setStep('setup');
+                  setQuestions([]);
+                  setResumeAnalysis(null);
+                  setInterviewId(undefined);
+                  setJobTitle('');
+                  setCompanyName('');
+                  setInterviewType('');
+                  setFocusAreas([]);
+                  setCustomQuestions('');
+                }}>
+                  Start New Interview
+                </Button>
+                <Button variant="outline" onClick={() => window.location.href = '/reports'}>
+                  View Reports
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </DashboardLayout>
     );
@@ -325,235 +218,222 @@ const CustomInterviewsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold tracking-tight">Custom Interviews</h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Choose your interview type and get personalized questions tailored to your needs
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Custom Interview Setup</h1>
+          <p className="mt-2 text-gray-600">
+            Create a personalized interview experience tailored to your target role
           </p>
         </div>
 
-        {/* Monthly Limits Card */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              Monthly Limits
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">Custom Interviews</span>
-                  <span className={`text-sm font-medium ${usageData.custom_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
-                    {usageData.custom_interviews}/10
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full ${usageData.custom_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
-                    style={{ width: `${Math.min((usageData.custom_interviews / 10) * 100, 100)}%` }}
-                  ></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">Resume-based Interviews</span>
-                  <span className={`text-sm font-medium ${usageData.resume_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
-                    {usageData.resume_interviews}/10
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full ${usageData.resume_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
-                    style={{ width: `${Math.min((usageData.resume_interviews / 10) * 100, 100)}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 text-xs text-gray-500 pt-2 border-t border-gray-100">
-              <p>Limits reset every 30 days</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Interview Options */}
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Resume-Based Interview */}
-          <Card className={`border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg ${usageData.resume_interviews >= 10 ? 'opacity-60' : ''}`}>
-            <CardHeader className="text-center pb-4">
-              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <FileText className="h-8 w-8 text-primary" />
-              </div>
-              <CardTitle className="text-2xl">Resume-Based Interview</CardTitle>
-              <p className="text-muted-foreground">
-                Upload your resume and get questions tailored to your experience
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                  <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <div className="space-y-2">
-                    <p className="font-medium">Upload Your Resume</p>
-                    <p className="text-sm text-muted-foreground">PDF files only, max 10MB</p>
+        {step === 'setup' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Setup Form */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Interview Type Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Briefcase className="mr-2 h-5 w-5" />
+                    Interview Type
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {interviewTypes.map((type) => (
+                      <Button
+                        key={type.value}
+                        variant={interviewType === type.value ? "default" : "outline"}
+                        onClick={() => setInterviewType(type.value)}
+                        className="h-16 flex flex-col items-center justify-center"
+                      >
+                        <span className="text-2xl mb-1">{type.icon}</span>
+                        <span className="text-sm">{type.label}</span>
+                      </Button>
+                    ))}
                   </div>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="resume-upload"
-                    disabled={usageData.resume_interviews >= 10}
-                  />
-                  <Label htmlFor="resume-upload">
-                    <Button asChild className="mt-4 cursor-pointer" disabled={usageData.resume_interviews >= 10}>
-                      <span>
-                        <FileText className="mr-2 h-4 w-4" />
-                        {usageData.resume_interviews >= 10 ? 'Monthly Limit Reached' : 'Choose PDF File'}
-                      </span>
-                    </Button>
-                  </Label>
-                </div>
-              </div>
-              
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">1</div>
-                  <span>AI analyzes your skills and experience</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">2</div>
-                  <span>Generates personalized interview questions</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">3</div>
-                  <span>Practice and receive detailed feedback</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          {/* Role-Based Interview */}
-          <Card className={`border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg ${usageData.custom_interviews >= 10 ? 'opacity-60' : ''}`}>
-            <CardHeader className="text-center pb-4">
-              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <Briefcase className="h-8 w-8 text-primary" />
-              </div>
-              <CardTitle className="text-2xl">Role-Based Interview</CardTitle>
-              <p className="text-muted-foreground">
-                Enter a specific role and get targeted interview questions
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="role">Job Role *</Label>
-                  <Input
-                    id="role"
-                    placeholder="e.g., Software Engineer, Data Scientist, Product Manager"
-                    value={customRole}
-                    onChange={(e) => setCustomRole(e.target.value)}
-                    className="w-full"
-                    disabled={usageData.custom_interviews >= 10}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">Additional Details (Optional)</Label>
+              {/* Job Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Job Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="jobTitle">Job Title *</Label>
+                    <Input
+                      id="jobTitle"
+                      value={jobTitle}
+                      onChange={(e) => setJobTitle(e.target.value)}
+                      placeholder="e.g., Software Engineer, Product Manager"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="companyName">Company Name (Optional)</Label>
+                    <Input
+                      id="companyName"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="e.g., Google, Microsoft"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="duration">Interview Duration</Label>
+                    <Select value={interviewDuration} onValueChange={setInterviewDuration}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10 minutes</SelectItem>
+                        <SelectItem value="15">15 minutes</SelectItem>
+                        <SelectItem value="30">30 minutes</SelectItem>
+                        <SelectItem value="45">45 minutes</SelectItem>
+                        <SelectItem value="60">60 minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Focus Areas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Target className="mr-2 h-5 w-5" />
+                    Focus Areas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {focusAreaOptions.map((area) => (
+                        <Button
+                          key={area}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addFocusArea(area)}
+                          disabled={focusAreas.includes(area)}
+                          className="text-xs"
+                        >
+                          {area}
+                        </Button>
+                      ))}
+                    </div>
+                    {focusAreas.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Selected Focus Areas:</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {focusAreas.map((area) => (
+                            <Badge key={area} variant="secondary" className="flex items-center">
+                              {area}
+                              <X
+                                className="ml-1 h-3 w-3 cursor-pointer"
+                                onClick={() => removeFocusArea(area)}
+                              />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Additional Requirements */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Additional Requirements (Optional)</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <Textarea
-                    id="description"
-                    placeholder="Add specific skills, technologies, or requirements for the role..."
-                    value={roleDescription}
-                    onChange={(e) => setRoleDescription(e.target.value)}
-                    className="w-full min-h-[80px] resize-none"
-                    disabled={usageData.custom_interviews >= 10}
+                    value={customQuestions}
+                    onChange={(e) => setCustomQuestions(e.target.value)}
+                    placeholder="Any specific topics, technologies, or scenarios you'd like to focus on..."
+                    className="min-h-[100px]"
                   />
-                </div>
-                
-                <Button 
-                  onClick={handleRoleBasedInterview}
-                  disabled={!customRole.trim() || isGeneratingQuestions || usageData.custom_interviews >= 10}
-                  className="w-full"
-                  size="lg"
-                >
-                  {usageData.custom_interviews >= 10 ? (
-                    'Monthly Limit Reached'
-                  ) : isGeneratingQuestions ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Generating Questions...
-                    </>
-                  ) : (
-                    <>
-                      Start Interview
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Summary Panel */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Interview Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-sm text-gray-500">Type</Label>
+                    <p className="font-medium">
+                      {interviewType ? interviewTypes.find(t => t.value === interviewType)?.label : 'Not selected'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Position</Label>
+                    <p className="font-medium">{jobTitle || 'Not specified'}</p>
+                  </div>
+                  {companyName && (
+                    <div>
+                      <Label className="text-sm text-gray-500">Company</Label>
+                      <p className="font-medium">{companyName}</p>
+                    </div>
                   )}
-                </Button>
-              </div>
-              
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">1</div>
-                  <span>Enter your target role and details</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">2</div>
-                  <span>AI creates role-specific questions</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">3</div>
-                  <span>Practice with video recording</span>
+                  <div>
+                    <Label className="text-sm text-gray-500">Duration</Label>
+                    <p className="font-medium">{interviewDuration} minutes</p>
+                  </div>
+                  {focusAreas.length > 0 && (
+                    <div>
+                      <Label className="text-sm text-gray-500">Focus Areas</Label>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {focusAreas.map((area) => (
+                          <Badge key={area} variant="outline" className="text-xs">
+                            {area}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Button 
+                onClick={generateCustomQuestions}
+                disabled={loading || !interviewType || !jobTitle}
+                className="w-full"
+                size="lg"
+              >
+                {loading ? 'Generating...' : 'Generate Questions'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'upload' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Upload className="mr-2 h-5 w-5" />
+                Resume Upload (Optional)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-gray-600">
+                  Upload your resume to get personalized feedback and questions tailored to your background.
+                </p>
+                <ResumeUpload onAnalysisComplete={handleResumeUpload} />
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={skipResumeUpload}>
+                    Skip Resume Upload
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Features Section */}
-        <Card className="bg-muted/50">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <User className="mr-2 h-5 w-5 text-primary" />
-              Why Choose Custom Interviews?
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center space-y-2">
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-medium">Personalized Content</h3>
-                <p className="text-sm text-muted-foreground">
-                  Questions tailored specifically to your background or target role
-                </p>
-              </div>
-              
-              <div className="text-center space-y-2">
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Briefcase className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-medium">Industry Relevant</h3>
-                <p className="text-sm text-muted-foreground">
-                  Real interview questions commonly asked in your field
-                </p>
-              </div>
-              
-              <div className="text-center space-y-2">
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                  <User className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-medium">Detailed Feedback</h3>
-                <p className="text-sm text-muted-foreground">
-                  Comprehensive analysis of your responses and performance
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        )}
       </div>
     </DashboardLayout>
   );

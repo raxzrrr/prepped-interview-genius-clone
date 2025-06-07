@@ -297,16 +297,24 @@ export const useInterviewApi = () => {
     }
   };
 
-  const getInterviews = async (userId: string) => {
+  const getInterviews = async (): Promise<any[]> => {
     try {
-      console.log('Fetching interviews for user:', userId);
+      console.log('Fetching interviews...');
       
       // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error(`Authentication error: ${sessionError.message}`);
+      }
       
       if (!session?.user) {
-        throw new Error('User must be logged in to fetch interviews');
+        console.error('No authenticated user found');
+        throw new Error('You must be logged in to fetch interviews. Please log in and try again.');
       }
+      
+      console.log('Fetching interviews for user:', session.user.id);
       
       const { data, error } = await supabase
         .from('interviews')
@@ -316,16 +324,16 @@ export const useInterviewApi = () => {
 
       if (error) {
         console.error('Database error:', error);
-        throw error;
+        throw new Error(`Database error: ${error.message}`);
       }
       
       console.log('Successfully fetched interviews:', data?.length || 0);
       return data || [];
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching interviews:', error);
       toast({
         title: "Database Error",
-        description: "Failed to fetch interviews. Please try again.",
+        description: error.message || "Failed to fetch interviews. Please try again.",
         variant: "destructive"
       });
       return [];
@@ -334,11 +342,19 @@ export const useInterviewApi = () => {
 
   const getInterviewById = async (id: string) => {
     try {
+      console.log('Fetching interview by ID:', id);
+      
       // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error(`Authentication error: ${sessionError.message}`);
+      }
       
       if (!session?.user) {
-        throw new Error('User must be logged in to fetch interview');
+        console.error('No authenticated user found');
+        throw new Error('You must be logged in to fetch interview details.');
       }
       
       const { data, error } = await supabase
@@ -348,13 +364,18 @@ export const useInterviewApi = () => {
         .eq('user_id', session.user.id) // Ensure user can only access their own interviews
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+      
+      console.log('Successfully fetched interview:', data?.id);
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching interview:', error);
       toast({
         title: "Database Error",
-        description: "Failed to fetch interview details. Please try again.",
+        description: error.message || "Failed to fetch interview details. Please try again.",
         variant: "destructive"
       });
       return null;
