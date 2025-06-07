@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { generateConsistentUUID } from '@/utils/userUtils';
 
 const topics = [
   { id: 'hr', name: 'HR', description: 'Common HR and behavioral questions' },
@@ -25,6 +28,8 @@ const topics = [
 const CustomInterviewsPage: React.FC = () => {
   const { user, profile } = useAuth();
   const [selectedTopic, setSelectedTopic] = useState<string>('hr');
+  const [customTopic, setCustomTopic] = useState<string>('');
+  const [customDescription, setCustomDescription] = useState<string>('');
   const [usageData, setUsageData] = useState<{ custom_interviews: number, resume_interviews: number }>({ 
     custom_interviews: 0, 
     resume_interviews: 0 
@@ -43,14 +48,14 @@ const CustomInterviewsPage: React.FC = () => {
     if (!user) return;
     
     try {
-      // Get the current month's first day
+      const supabaseUserId = generateConsistentUUID(user.id);
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       
       const { data: interviews, error } = await supabase
         .from('interviews')
         .select('id, title')
-        .eq('user_id', user.id)
+        .eq('user_id', supabaseUserId)
         .gte('created_at', firstDayOfMonth.toISOString());
       
       if (error) throw error;
@@ -82,14 +87,15 @@ const CustomInterviewsPage: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const selectedTopicName = topics.find(t => t.id === selectedTopic)?.name || selectedTopic;
+      const topicToUse = customTopic.trim() || topics.find(t => t.id === selectedTopic)?.name || selectedTopic;
+      const supabaseUserId = generateConsistentUUID(user?.id || '');
       
       // Create a new interview record
       const { data, error } = await supabase
         .from('interviews')
         .insert({
-          user_id: user?.id,
-          title: `Custom ${selectedTopicName} Interview`,
+          user_id: supabaseUserId,
+          title: `Custom ${topicToUse} Interview`,
           questions: [],
           status: 'pending'
         })
@@ -100,7 +106,8 @@ const CustomInterviewsPage: React.FC = () => {
       
       if (data?.id) {
         // Redirect to the interview page with the new ID
-        navigate(`/interviews/${data.id}?type=custom&topic=${selectedTopic}`);
+        const topicParam = customTopic.trim() ? encodeURIComponent(customTopic.trim()) : selectedTopic;
+        navigate(`/interviews/${data.id}?type=custom&topic=${topicParam}`);
       }
       
     } catch (error: any) {
@@ -220,43 +227,84 @@ const CustomInterviewsPage: React.FC = () => {
           <CardHeader>
             <CardTitle>Choose Interview Topic</CardTitle>
             <CardDescription>
-              Select a topic for your custom interview
+              Select a predefined topic or create your own custom topic
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue={selectedTopic} onValueChange={setSelectedTopic} className="w-full">
-              <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-8">
-                {topics.slice(0, 8).map((topic) => (
-                  <TabsTrigger key={topic.id} value={topic.id}>
-                    {topic.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              
-              {topics.map((topic) => (
-                <TabsContent key={topic.id} value={topic.id} className="p-4 border rounded-md">
-                  <h3 className="text-lg font-medium mb-2">{topic.name} Interview</h3>
-                  <p className="text-gray-600 mb-4">{topic.description}</p>
+            <div className="space-y-6">
+              {/* Custom Topic Section */}
+              <div className="space-y-4">
+                <Label className="text-base font-medium">Custom Topic (Optional)</Label>
+                <div className="space-y-3">
                   <div>
-                    <Label className="text-sm font-medium">This interview will cover:</Label>
-                    <ul className="mt-2 space-y-2">
-                      <li className="flex items-center text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                        Technical knowledge assessment
-                      </li>
-                      <li className="flex items-center text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                        Problem-solving skills
-                      </li>
-                      <li className="flex items-center text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                        Experience-based scenarios
-                      </li>
-                    </ul>
+                    <Label htmlFor="custom-topic" className="text-sm">Topic Name</Label>
+                    <Input
+                      id="custom-topic"
+                      placeholder="e.g., Machine Learning Engineer, DevOps, Cybersecurity..."
+                      value={customTopic}
+                      onChange={(e) => setCustomTopic(e.target.value)}
+                      className="mt-1"
+                    />
                   </div>
-                </TabsContent>
-              ))}
-            </Tabs>
+                  <div>
+                    <Label htmlFor="custom-description" className="text-sm">Description (Optional)</Label>
+                    <Textarea
+                      id="custom-description"
+                      placeholder="Describe what you want to focus on in this interview..."
+                      value={customDescription}
+                      onChange={(e) => setCustomDescription(e.target.value)}
+                      className="mt-1"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center">
+                <div className="flex-1 border-t border-gray-200"></div>
+                <span className="px-3 text-sm text-gray-500">OR</span>
+                <div className="flex-1 border-t border-gray-200"></div>
+              </div>
+
+              {/* Predefined Topics */}
+              <div className="space-y-4">
+                <Label className="text-base font-medium">Predefined Topics</Label>
+                <Tabs defaultValue={selectedTopic} onValueChange={setSelectedTopic} className="w-full">
+                  <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-8">
+                    {topics.slice(0, 8).map((topic) => (
+                      <TabsTrigger key={topic.id} value={topic.id}>
+                        {topic.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  
+                  {topics.map((topic) => (
+                    <TabsContent key={topic.id} value={topic.id} className="p-4 border rounded-md">
+                      <h3 className="text-lg font-medium mb-2">{topic.name} Interview</h3>
+                      <p className="text-gray-600 mb-4">{topic.description}</p>
+                      <div>
+                        <Label className="text-sm font-medium">This interview will cover:</Label>
+                        <ul className="mt-2 space-y-2">
+                          <li className="flex items-center text-sm">
+                            <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                            Technical knowledge assessment
+                          </li>
+                          <li className="flex items-center text-sm">
+                            <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                            Problem-solving skills
+                          </li>
+                          <li className="flex items-center text-sm">
+                            <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                            Experience-based scenarios
+                          </li>
+                        </ul>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </div>
+            </div>
           </CardContent>
           <CardFooter>
             <Button 

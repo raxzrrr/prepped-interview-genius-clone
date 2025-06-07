@@ -39,7 +39,6 @@ export const useLearningData = (totalModules: number) => {
       
       console.log('Fetching learning data for user:', supabaseUUID);
       
-      // Use the service role to bypass RLS for this operation
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
@@ -48,12 +47,6 @@ export const useLearningData = (totalModules: number) => {
       
       if (error && error.code !== 'PGRST116') {
         console.error('Database error:', error);
-        // If it's an RLS error, try to create the record
-        if (error.message.includes('row-level security') || error.message.includes('RLS')) {
-          console.log('RLS error detected, attempting to create record via service role');
-          await createUserLearningRecord(supabaseUUID, totalModules);
-          return;
-        }
         throw error;
       }
       
@@ -70,10 +63,40 @@ export const useLearningData = (totalModules: number) => {
     } catch (err: any) {
       console.error('Error fetching user learning data:', err);
       setError(err.message);
+      
+      // Create local fallback data when database fails
+      const localData: UserLearningData = {
+        id: 'local-' + user.id,
+        user_id: generateConsistentUUID(user.id),
+        course_progress: JSON.parse(localStorage.getItem(`learning_progress_${user.id}`) || '{}'),
+        completed_modules: 0,
+        total_modules: totalModules,
+        course_score: null,
+        course_completed_at: null,
+        assessment_attempted: false,
+        assessment_score: null,
+        assessment_completed_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Calculate completed modules from local storage
+      let completedCount = 0;
+      Object.values(localData.course_progress).forEach(course => {
+        if (course) {
+          Object.values(course as Record<string, boolean>).forEach(completed => {
+            if (completed) completedCount++;
+          });
+        }
+      });
+      localData.completed_modules = completedCount;
+      
+      setUserLearningData(localData);
+      
       toast({
-        title: "Learning Data Error",
-        description: "Failed to load your learning progress. Please try refreshing the page.",
-        variant: "destructive"
+        title: "Working Offline",
+        description: "Your progress is being saved locally until database connection is restored.",
+        variant: "default"
       });
     } finally {
       setLoading(false);
@@ -102,17 +125,6 @@ export const useLearningData = (totalModules: number) => {
       
       if (createError) {
         console.error('Error creating learning data:', createError);
-        // If RLS is blocking, we'll work with local state only
-        if (createError.message.includes('row-level security') || createError.message.includes('RLS')) {
-          console.log('Working with local state due to RLS');
-          setUserLearningData({
-            id: 'local-' + supabaseUUID,
-            ...newLearningData,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-          return;
-        }
         throw createError;
       }
       
@@ -130,16 +142,19 @@ export const useLearningData = (totalModules: number) => {
   };
 
   const updateModuleCompletion = useCallback(async (moduleId: string, courseId: string) => {
-    if (!userLearningData || !user?.id) {
-      console.error('No user learning data or user ID available');
+    if (!user?.id) {
+      console.error('No user ID available');
       return false;
     }
 
     try {
       console.log('Updating module completion:', { moduleId, courseId });
       
+      const currentProgress = userLearningData?.course_progress || 
+        JSON.parse(localStorage.getItem(`learning_progress_${user.id}`) || '{}');
+      
       const courseProgress = {
-        ...(userLearningData.course_progress || {}),
+        ...currentProgress,
       };
       
       if (!courseProgress[courseId]) {
@@ -157,13 +172,32 @@ export const useLearningData = (totalModules: number) => {
         }
       });
 
+      // Always save to localStorage for persistence
+      localStorage.setItem(`learning_progress_${user.id}`, JSON.stringify(courseProgress));
+
       // Update local state first
       setUserLearningData(prevData => {
-        if (!prevData) return null;
+        if (!prevData) {
+          return {
+            id: 'local-' + user.id,
+            user_id: generateConsistentUUID(user.id),
+            course_progress: courseProgress,
+            completed_modules: completedModulesCount,
+            total_modules: totalModules,
+            course_score: null,
+            course_completed_at: null,
+            assessment_attempted: false,
+            assessment_score: null,
+            assessment_completed_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        }
         return {
           ...prevData,
           course_progress: courseProgress,
-          completed_modules: completedModulesCount
+          completed_modules: completedModulesCount,
+          updated_at: new Date().toISOString()
         };
       });
 
@@ -183,26 +217,28 @@ export const useLearningData = (totalModules: number) => {
       
       if (error) {
         console.error('Database update error (continuing with local state):', error);
-        // Don't throw error, just log it and continue with local state
+        toast({
+          title: "Progress Saved Locally",
+          description: "Your progress has been saved. Changes will sync when connection is restored.",
+        });
       } else {
         console.log('Successfully updated learning progress in database');
+        toast({
+          title: "Progress Saved",
+          description: "Your learning progress has been updated.",
+        });
       }
-
-      toast({
-        title: "Progress Saved",
-        description: "Your learning progress has been updated.",
-      });
 
       return true;
     } catch (err: any) {
       console.error('Error updating module completion:', err);
       toast({
-        title: "Progress Updated Locally",
-        description: "Your progress has been saved locally. Database sync may be delayed.",
+        title: "Progress Saved Locally",
+        description: "Your progress has been saved locally.",
       });
       return true; // Return true since local state was updated
     }
-  }, [userLearningData, user?.id, toast]);
+  }, [userLearningData, user?.id, toast, totalModules]);
 
   useEffect(() => {
     fetchUserLearningData();

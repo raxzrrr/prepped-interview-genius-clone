@@ -207,7 +207,7 @@ export const useInterviewApi = () => {
 
   const saveInterview = async (interviewData: any): Promise<string> => {
     try {
-      console.log('Saving interview with data:', interviewData);
+      console.log('Saving interview with Clerk user data:', interviewData);
       
       // Use the user_id that's passed in the interviewData (from Clerk)
       if (!interviewData.user_id) {
@@ -222,7 +222,7 @@ export const useInterviewApi = () => {
         user_id: supabaseUserId
       };
       
-      console.log('Inserting interview data with Supabase user ID:', dataWithSupabaseUserId);
+      console.log('Inserting interview data with Supabase user ID:', supabaseUserId);
       
       const { data, error } = await supabase
         .from('interviews')
