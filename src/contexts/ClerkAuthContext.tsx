@@ -22,6 +22,7 @@ interface AuthContextType {
   isAdmin: () => boolean;
   isStudent: () => boolean;
   logout: () => Promise<void>;
+  getSupabaseUserId: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,12 +36,48 @@ export const useAuth = () => {
 };
 
 export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isLoaded, userId, sessionId } = useClerkAuth();
+  const { isLoaded, userId, sessionId, getToken } = useClerkAuth();
   const { user: clerkUser } = useUser();
   const clerk = useClerk();
   const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
+  const [supabaseSession, setSupabaseSession] = useState<any>(null);
   const { toast } = useToast();
+
+  // Function to get consistent Supabase user ID
+  const getSupabaseUserId = () => {
+    if (!userId) return null;
+    return generateConsistentUUID(userId);
+  };
+
+  // Set up Supabase session with Clerk token
+  const setupSupabaseSession = async () => {
+    if (!userId || !clerkUser) {
+      // Clear Supabase session if no Clerk user
+      await supabase.auth.signOut();
+      setSupabaseSession(null);
+      return;
+    }
+
+    try {
+      const token = await getToken({ template: 'supabase' });
+      if (token) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: token,
+          refresh_token: 'placeholder'
+        });
+        
+        if (error) {
+          console.error('Supabase session error:', error);
+        } else {
+          setSupabaseSession(data.session);
+          console.log('Supabase session established successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Error setting up Supabase session:', error);
+    }
+  };
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -64,11 +101,16 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         role: role
       });
 
+      // Set up Supabase session
+      setupSupabaseSession();
+
       // Sync with supabase for data consistency if needed
       syncUserWithSupabase(userId, userName, role);
     } else {
-      console.log('No user found, clearing profile');
+      console.log('No user found, clearing profile and session');
       setProfile(null);
+      setSupabaseSession(null);
+      supabase.auth.signOut();
     }
     
     setLoading(false);
@@ -123,8 +165,10 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const logout = async () => {
     console.log("Logout function called");
     try {
+      await supabase.auth.signOut();
       await clerk.signOut();
       setProfile(null);
+      setSupabaseSession(null);
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out",
@@ -141,15 +185,26 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  // Create a session object that includes the Supabase session details
+  const sessionObject = supabaseSession ? {
+    id: sessionId,
+    user: {
+      id: getSupabaseUserId(),
+      email: clerkUser?.primaryEmailAddress?.emailAddress
+    },
+    supabaseSession
+  } : null;
+
   return (
     <AuthContext.Provider value={{ 
       user: clerkUser,
-      session: { id: sessionId },
+      session: sessionObject,
       profile,
       loading, 
       isAdmin,
       isStudent,
-      logout
+      logout,
+      getSupabaseUserId
     }}>
       {children}
     </AuthContext.Provider>

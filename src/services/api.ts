@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/ClerkAuthContext";
 
 interface InterviewQuestion {
   id?: string;
@@ -32,6 +33,7 @@ interface ResumeAnalysis {
 
 export const useInterviewApi = () => {
   const { toast } = useToast();
+  const { getSupabaseUserId, session } = useAuth();
 
   const checkApiKey = (): boolean => {
     envService.debugApiKey();
@@ -54,23 +56,17 @@ export const useInterviewApi = () => {
     return true;
   };
 
-  const getCurrentUser = async () => {
+  const getCurrentUser = () => {
     try {
-      // First check current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const supabaseUserId = getSupabaseUserId();
       
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw new Error('Session expired. Please log in again.');
-      }
-      
-      if (!session?.user) {
+      if (!supabaseUserId || !session) {
         console.error('No active session found');
         throw new Error('No active session. Please log in.');
       }
       
-      console.log('Valid session found for user:', session.user.id);
-      return session.user;
+      console.log('Valid session found for user:', supabaseUserId);
+      return { id: supabaseUserId };
     } catch (error) {
       console.error('Authentication error:', error);
       toast({
@@ -234,7 +230,7 @@ export const useInterviewApi = () => {
     try {
       console.log('Saving interview with data:', interviewData);
       
-      const user = await getCurrentUser();
+      const user = getCurrentUser();
       console.log('Authenticated user ID:', user.id);
       
       // Ensure we have proper data structure with all required fields
@@ -294,7 +290,7 @@ export const useInterviewApi = () => {
     try {
       console.log('Updating interview:', id, 'with data:', interviewData);
       
-      const user = await getCurrentUser();
+      const user = getCurrentUser();
       console.log('Authenticated user ID:', user.id);
 
       // Ensure proper data structure for update
@@ -338,7 +334,7 @@ export const useInterviewApi = () => {
     try {
       console.log('Fetching interviews...');
       
-      const user = await getCurrentUser();
+      const user = getCurrentUser();
       console.log('Fetching interviews for user:', user.id);
       
       const { data, error } = await supabase
@@ -370,7 +366,7 @@ export const useInterviewApi = () => {
     try {
       console.log('Fetching interview by ID:', id);
       
-      const user = await getCurrentUser();
+      const user = getCurrentUser();
       
       const { data, error } = await supabase
         .from('interviews')
