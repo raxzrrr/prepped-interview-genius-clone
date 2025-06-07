@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { generateConsistentUUID } from '@/utils/userUtils';
 
 interface UserLearningData {
   id: string;
@@ -63,11 +64,14 @@ export const useLearningData = (totalModules: number) => {
       
       console.log('Fetching learning data for user:', user.id);
       
-      // Try to get existing data from user_learning table using Clerk user ID directly
+      // Convert Clerk user ID to consistent UUID for database operations
+      const supabaseUserId = generateConsistentUUID(user.id);
+      
+      // Try to get existing data from user_learning table using converted UUID
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', supabaseUserId)
         .maybeSingle();
       
       if (error) {
@@ -83,7 +87,7 @@ export const useLearningData = (totalModules: number) => {
         });
       } else {
         console.log('Creating new learning data for user');
-        await createUserLearningRecord(user.id, totalModules);
+        await createUserLearningRecord(supabaseUserId, totalModules);
       }
     } catch (err: any) {
       console.error('Error fetching user learning data:', err);
@@ -127,10 +131,10 @@ export const useLearningData = (totalModules: number) => {
     }
   }, [user?.id, totalModules, toast]);
 
-  const createUserLearningRecord = async (userId: string, totalModules: number) => {
+  const createUserLearningRecord = async (supabaseUserId: string, totalModules: number) => {
     try {
       const newLearningData = {
-        user_id: userId,
+        user_id: supabaseUserId,
         course_progress: {},
         completed_modules: 0,
         total_modules: totalModules,
@@ -223,8 +227,10 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
-      // Try to update database
+      // Try to update database using converted UUID
       console.log('Updating learning progress in database');
+      
+      const supabaseUserId = generateConsistentUUID(user.id);
       
       const { error } = await supabase
         .from('user_learning')
@@ -233,7 +239,7 @@ export const useLearningData = (totalModules: number) => {
           completed_modules: completedModulesCount,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', user.id);
+        .eq('user_id', supabaseUserId);
       
       if (error) {
         console.error('Database update error (continuing with local state):', error);
