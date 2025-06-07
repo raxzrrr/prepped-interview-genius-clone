@@ -12,7 +12,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { generateConsistentUUID } from '@/utils/userUtils';
 import { supabase } from '@/integrations/supabase/client';
 
 type InterviewType = 'resume' | 'prep' | 'report' | 'selection';
@@ -49,16 +48,23 @@ const CustomInterviewsPage: React.FC = () => {
     if (!user) return;
     
     try {
-      const supabaseUserId = generateConsistentUUID(user.id);
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        console.log('No user session found');
+        return;
+      }
+      
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       
-      console.log('Fetching usage data for user:', supabaseUserId);
+      console.log('Fetching usage data for user:', session.user.id);
       
       const { data: interviews, error } = await supabase
         .from('interviews')
         .select('id, title, created_at')
-        .eq('user_id', supabaseUserId)
+        .eq('user_id', session.user.id)
         .gte('created_at', firstDayOfMonth.toISOString());
       
       if (error) {
@@ -129,7 +135,6 @@ const CustomInterviewsPage: React.FC = () => {
     try {
       // Save resume-based interview session
       const newInterviewData = {
-        user_id: user.id,
         title: 'Resume-based Interview',
         questions: generatedQuestions,
         status: 'in-progress'
@@ -209,7 +214,6 @@ const CustomInterviewsPage: React.FC = () => {
       // Save interview session with proper title
       try {
         const newInterviewData = {
-          user_id: user.id,
           title: `Custom ${customRole} Interview`,
           questions: generatedQuestions.map(q => q.question),
           status: 'in-progress'

@@ -1,70 +1,99 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-interface TTSOptions {
-  voice?: string;
-}
-
 class TTSService {
-  private audio: HTMLAudioElement | null = null;
-  
-  constructor() {
-    this.audio = null;
-  }
-  
-  async speak(text: string, options: TTSOptions = {}): Promise<void> {
-    if (!text) return;
-    
-    // Stop any current speech
-    this.stop();
-    
+  private currentAudio: HTMLAudioElement | null = null;
+  private isSupported: boolean = true;
+
+  async speak(text: string): Promise<void> {
     try {
-      // Call the Supabase edge function for Text-to-Speech
-      const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { 
-          text,
-          voice: options.voice || 'en-US-Neural2-F' // Default voice
+      // Stop any current speech
+      this.stop();
+
+      console.log('Attempting TTS for text:', text.substring(0, 50) + '...');
+
+      // Try edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('text-to-speech', {
+          body: { text, voice: 'alloy', speed: 1.0 }
+        });
+
+        if (error) {
+          console.warn('Edge function TTS failed:', error);
+          throw new Error('Edge function unavailable');
         }
-      });
-      
-      if (error) throw new Error(error.message);
-      if (!data || !data.audioContent) throw new Error('No audio content received');
-      
-      // Create a new Audio element with the base64 audio content
-      const audioSrc = `data:audio/mp3;base64,${data.audioContent}`;
-      this.audio = new Audio(audioSrc);
-      
-      // Return a promise that resolves when audio finishes playing
-      return new Promise((resolve, reject) => {
-        if (!this.audio) return reject(new Error('Audio element not created'));
-        
-        this.audio.onended = () => {
-          resolve();
-        };
-        
-        this.audio.onerror = (e) => {
-          reject(new Error('Error playing audio: ' + e));
-        };
-        
-        this.audio.play().catch(reject);
-      });
-      
+
+        if (data && data.audioData) {
+          const audioBlob = new Blob([Buffer.from(data.audioData, 'base64')], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          
+          this.currentAudio = new Audio(audioUrl);
+          
+          return new Promise((resolve, reject) => {
+            if (this.currentAudio) {
+              this.currentAudio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                resolve();
+              };
+              this.currentAudio.onerror = () => {
+                URL.revokeObjectURL(audioUrl);
+                reject(new Error('Audio playback failed'));
+              };
+              this.currentAudio.play().catch(reject);
+            }
+          });
+        }
+      } catch (edgeError) {
+        console.warn('Edge function TTS failed, trying browser TTS:', edgeError);
+      }
+
+      // Fallback to browser TTS
+      if ('speechSynthesis' in window) {
+        return new Promise((resolve, reject) => {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 0.9;
+          utterance.pitch = 1.0;
+          utterance.volume = 0.8;
+          
+          utterance.onend = () => resolve();
+          utterance.onerror = (event) => {
+            console.error('Browser TTS error:', event);
+            reject(new Error('Browser TTS failed'));
+          };
+          
+          window.speechSynthesis.speak(utterance);
+        });
+      } else {
+        throw new Error('TTS not supported in this browser');
+      }
+
     } catch (error) {
-      console.error('TTS error:', error);
+      console.error('TTS Error:', error);
+      this.isSupported = false;
       throw error;
     }
   }
-  
+
   stop(): void {
-    if (this.audio) {
-      this.audio.pause();
-      this.audio.currentTime = 0;
-      this.audio = null;
+    try {
+      // Stop edge function audio
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio.currentTime = 0;
+        this.currentAudio = null;
+      }
+
+      // Stop browser TTS
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (error) {
+      console.error('Error stopping TTS:', error);
     }
   }
-  
-  isPlaying(): boolean {
-    return !!this.audio && !this.audio.paused;
+
+  isAvailable(): boolean {
+    return this.isSupported && ('speechSynthesis' in window);
   }
 }
 

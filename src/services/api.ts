@@ -1,7 +1,7 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
-import { generateConsistentUUID } from "@/utils/userUtils";
 
 interface InterviewQuestion {
   id?: string;
@@ -204,22 +204,23 @@ export const useInterviewApi = () => {
 
   const saveInterview = async (interviewData: any): Promise<string> => {
     try {
-      console.log('Saving interview with user data:', interviewData);
+      console.log('Saving interview with data:', interviewData);
       
-      if (!interviewData.user_id) {
-        throw new Error('User ID is required to save interview');
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        throw new Error('User must be logged in to save interview');
       }
       
-      // Convert Clerk user ID to UUID format for database
-      const supabaseUserId = generateConsistentUUID(interviewData.user_id);
-      console.log('Inserting interview data with converted user ID:', supabaseUserId);
+      console.log('User session found, inserting interview...');
       
-      // Insert directly into interviews table with converted user ID
+      // Insert directly into interviews table with current user ID
       const { data, error } = await supabase
         .from('interviews')
         .insert({
           ...interviewData,
-          user_id: supabaseUserId
+          user_id: session.user.id
         })
         .select('id')
         .single();
@@ -246,10 +247,18 @@ export const useInterviewApi = () => {
     try {
       console.log('Updating interview:', id, 'with data:', interviewData);
       
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        throw new Error('User must be logged in to update interview');
+      }
+      
       const { error } = await supabase
         .from('interviews')
         .update(interviewData)
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', session.user.id); // Ensure user can only update their own interviews
 
       if (error) {
         console.error('Supabase update error:', error);
@@ -272,14 +281,17 @@ export const useInterviewApi = () => {
     try {
       console.log('Fetching interviews for user:', userId);
       
-      // Convert Clerk user ID to UUID format for database query
-      const supabaseUserId = generateConsistentUUID(userId);
-      console.log('Using converted user ID for query:', supabaseUserId);
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        throw new Error('User must be logged in to fetch interviews');
+      }
       
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
-        .eq('user_id', supabaseUserId)
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -302,10 +314,18 @@ export const useInterviewApi = () => {
 
   const getInterviewById = async (id: string) => {
     try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        throw new Error('User must be logged in to fetch interview');
+      }
+      
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
         .eq('id', id)
+        .eq('user_id', session.user.id) // Ensure user can only access their own interviews
         .single();
 
       if (error) throw error;

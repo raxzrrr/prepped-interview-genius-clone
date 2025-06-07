@@ -49,18 +49,18 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   }, []);
 
   const speakQuestion = async () => {
-    if (!ttsEnabled) return;
+    if (!ttsEnabled || !ttsService.isAvailable()) return;
     
     try {
       const currentQuestion = questions[currentQuestionIndex];
       setIsSpeaking(true);
+      setApiError(null);
       await ttsService.speak(currentQuestion);
       setIsSpeaking(false);
     } catch (error) {
       console.error('Error speaking question:', error);
       setIsSpeaking(false);
       setApiError('Text-to-Speech is temporarily unavailable. You can still read the question and provide your answer.');
-      // Don't show toast for TTS errors, just disable TTS
       setTtsEnabled(false);
     }
   }
@@ -280,15 +280,21 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   };
   
   const finishInterview = async () => {
-    // Handle final answer for last question if needed
+    // Ensure we have the correct number of answers
     let finalAnswers = [...answers];
     
-    // If we're on the last question and there's a current answer, add it
-    if (currentQuestionIndex === questions.length - 1 && currentAnswer.trim()) {
-      finalAnswers = [...answers, currentAnswer.trim()];
-    } else if (currentQuestionIndex === questions.length - 1 && !currentAnswer.trim()) {
-      // If on last question but no answer, mark as no answer provided
-      finalAnswers = [...answers, "No answer provided"];
+    // If we're missing the last answer, add it
+    if (finalAnswers.length < questions.length) {
+      const missingAnswers = questions.length - finalAnswers.length;
+      for (let i = 0; i < missingAnswers; i++) {
+        if (i === missingAnswers - 1 && currentAnswer.trim()) {
+          // This is the last question and we have a current answer
+          finalAnswers.push(currentAnswer.trim());
+        } else {
+          // Fill missing answers with "No answer provided"
+          finalAnswers.push("No answer provided");
+        }
+      }
     }
     
     if (isRecordingVoice) {
@@ -315,7 +321,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   const repeatQuestion = () => {
     ttsService.stop();
     setIsSpeaking(false);
-    if (ttsEnabled) {
+    if (ttsEnabled && ttsService.isAvailable()) {
       speakQuestion();
     }
   };
@@ -454,7 +460,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                     <Button 
                       variant="outline" 
                       onClick={repeatQuestion}
-                      disabled={isSpeaking || !ttsEnabled}
+                      disabled={isSpeaking || !ttsEnabled || !ttsService.isAvailable()}
                     >
                       Repeat Question
                     </Button>
