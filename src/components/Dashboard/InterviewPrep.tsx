@@ -48,6 +48,36 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const { user, isAuthenticated } = useAuth();
   const { getAnswerFeedback, evaluateAnswer } = useInterviewApi();
 
+  // Helper function to render formatted text
+  const renderFormattedText = (text: string) => {
+    if (!text) return text;
+    
+    // Convert markdown-style formatting to JSX
+    return text
+      .split('\n')
+      .map((line, index) => {
+        // Handle bullet points
+        if (line.trim().startsWith('*')) {
+          const content = line.replace(/^\s*\*\s*/, '');
+          // Handle bold text within bullet points
+          const formattedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          return (
+            <div key={index} className="ml-4 mb-2">
+              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2"></span>
+              <span dangerouslySetInnerHTML={{ __html: formattedContent }} />
+            </div>
+          );
+        }
+        // Handle bold text in regular lines
+        const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return formattedLine ? (
+          <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: formattedLine }} />
+        ) : (
+          <br key={index} />
+        );
+      });
+  };
+
   useEffect(() => {
     console.log('InterviewPrep mounted. Auth state:', {
       hasUser: !!user,
