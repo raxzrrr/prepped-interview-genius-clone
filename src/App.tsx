@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,6 +28,8 @@ import ReportDetailPage from './pages/Student/ReportDetailPage';
 // Admin Pages
 import AdminDashboard from "@/pages/Admin/AdminDashboard";
 import UsersPage from "@/pages/Admin/UsersPage";
+import UserManagementPage from "@/pages/Admin/UserManagementPage";
+import CourseManagementPage from "@/pages/Admin/CourseManagementPage";
 import AdminContentPage from "@/pages/Admin/AdminContentPage";
 import AdminCouponsPage from "@/pages/Admin/AdminCouponsPage";
 import AdminPaymentsPage from "@/pages/Admin/AdminPaymentsPage";
@@ -61,13 +64,15 @@ const App = () => (
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               
               {/* Admin Routes */}
-              <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-              <Route path="/admin/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
-              <Route path="/admin/content" element={<ProtectedRoute><AdminContentPage /></ProtectedRoute>} />
-              <Route path="/admin/coupons" element={<ProtectedRoute><AdminCouponsPage /></ProtectedRoute>} />
-              <Route path="/admin/payments" element={<ProtectedRoute><AdminPaymentsPage /></ProtectedRoute>} />
-              <Route path="/admin/certificates" element={<ProtectedRoute><AdminCertificatesPage /></ProtectedRoute>} />
-              <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
+              <Route path="/admin/user-management" element={<ProtectedRoute requiredRole="admin"><UserManagementPage /></ProtectedRoute>} />
+              <Route path="/admin/courses" element={<ProtectedRoute requiredRole="admin"><CourseManagementPage /></ProtectedRoute>} />
+              <Route path="/admin/content" element={<ProtectedRoute requiredRole="admin"><AdminContentPage /></ProtectedRoute>} />
+              <Route path="/admin/coupons" element={<ProtectedRoute requiredRole="admin"><AdminCouponsPage /></ProtectedRoute>} />
+              <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPaymentsPage /></ProtectedRoute>} />
+              <Route path="/admin/certificates" element={<ProtectedRoute requiredRole="admin"><AdminCertificatesPage /></ProtectedRoute>} />
+              <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettingsPage /></ProtectedRoute>} />
               
               {/* Catch-all / 404 route */}
               <Route path="*" element={<NotFound />} />

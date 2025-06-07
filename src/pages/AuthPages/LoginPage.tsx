@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/Layout/MainLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { SignIn } from "@clerk/clerk-react";
@@ -15,6 +15,7 @@ import { Info } from 'lucide-react';
 const LoginPage: React.FC = () => {
   const { user, isAdmin, isStudent } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isAdminLogin = location.pathname.includes('admin') || location.state?.isAdmin || searchParams.get('admin') === 'true';
   const [username, setUsername] = useState('');
@@ -23,37 +24,49 @@ const LoginPage: React.FC = () => {
   const { toast } = useToast();
   
   // Redirect if already logged in
-  if (user) {
-    if (isAdmin()) {
-      return <Navigate to="/admin" />;
-    } else if (isStudent()) {
-      return <Navigate to="/dashboard" />;
+  useEffect(() => {
+    if (user) {
+      if (isAdmin()) {
+        navigate('/admin');
+      } else if (isStudent()) {
+        navigate('/dashboard');
+      }
     }
-  }
+  }, [user, isAdmin, isStudent, navigate]);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simple admin login validation
-    if (username === 'admin' && password === 'admin') {
-      // In a real app, this would be a proper authentication flow
-      // For now, we'll just simulate a successful login
-      setTimeout(() => {
+    try {
+      // Simple admin login validation
+      if (username === 'admin' && password === 'admin') {
+        // Store admin credentials in localStorage temporarily
+        localStorage.setItem('tempAdmin', 'true');
+        
         toast({
           title: "Admin Login Successful",
           description: "Redirecting to admin dashboard...",
         });
         
-        // In a real app, this would set proper admin credentials
-        window.location.href = '/admin';
-      }, 1000);
-    } else {
+        // Redirect to admin dashboard
+        setTimeout(() => {
+          navigate('/admin');
+        }, 1000);
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Login Failed",
-        description: "Invalid username or password",
+        title: "Login Failed", 
+        description: "An error occurred during login",
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
     }
   };

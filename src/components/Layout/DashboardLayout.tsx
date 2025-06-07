@@ -14,7 +14,9 @@ import {
   FileVideo,
   Tag,
   CreditCard,
-  Sparkles
+  Sparkles,
+  GraduationCap,
+  UserCog
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,9 +32,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const location = useLocation();
   const { toast } = useToast();
 
+  // Check for temporary admin access
+  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
+
   const handleLogout = async () => {
     try {
-      await logout();
+      // Clear temporary admin access
+      localStorage.removeItem('tempAdmin');
+      
+      if (user) {
+        await logout();
+      }
+      
       toast({
         title: "Logged out successfully",
         description: "You have been logged out of your account",
@@ -48,7 +59,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     }
   };
 
-  if (!user) {
+  if (!user && !isTempAdmin) {
     navigate('/login');
     return null;
   }
@@ -66,6 +77,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const adminNavItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin' },
     { icon: Users, label: 'Manage Users', href: '/admin/users' },
+    { icon: UserCog, label: 'User Management', href: '/admin/user-management' },
+    { icon: GraduationCap, label: 'Course Management', href: '/admin/courses' },
     { icon: FileVideo, label: 'Manage Content', href: '/admin/content' },
     { icon: Tag, label: 'Coupon Codes', href: '/admin/coupons' },
     { icon: CreditCard, label: 'Payments', href: '/admin/payments' },
@@ -73,7 +86,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { icon: Settings, label: 'Settings', href: '/admin/settings' },
   ];
 
-  const navItems = isAdmin() ? adminNavItems : studentNavItems;
+  const navItems = (isAdmin() || isTempAdmin) ? adminNavItems : studentNavItems;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -114,15 +127,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-10 h-10 rounded-full bg-brand-purple flex items-center justify-center text-white font-medium">
-                    {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
+                    {isTempAdmin ? 'A' : (profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U')}
                   </div>
                 </div>
                 <div className="ml-3 min-w-0 flex-1">
                   <p className="text-sm font-medium text-white truncate">
-                    {profile?.full_name || 'User'}
+                    {isTempAdmin ? 'Admin User' : (profile?.full_name || 'User')}
                   </p>
                   <p className="text-xs text-gray-400 truncate">
-                    {user.primaryEmailAddress?.emailAddress}
+                    {isTempAdmin ? 'admin@interview.ai' : (user?.primaryEmailAddress?.emailAddress || 'admin@interview.ai')}
                   </p>
                 </div>
               </div>
