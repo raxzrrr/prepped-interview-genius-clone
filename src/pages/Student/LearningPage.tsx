@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -5,13 +6,14 @@ import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VideoPlayer from '@/components/Learning/VideoPlayer';
 import CourseList from '@/components/Learning/CourseList';
-import AssessmentSection from '@/components/Learning/AssessmentSection';
+import AssessmentQuiz from '@/components/Learning/AssessmentQuiz';
 import { useLearningData } from '@/hooks/useLearningData';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { generateConsistentUUID } from '@/utils/userUtils';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Award } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Module {
   id: string;
@@ -84,32 +86,6 @@ const coursesData: Course[] = [
       }
     ],
     progress: 0
-  },
-  {
-    id: 'assessment',
-    title: 'Technical Assessment',
-    description: 'Test your skills with this comprehensive technical assessment.',
-    modules: [
-      {
-        id: 'assessment-intro',
-        title: 'Assessment Instructions',
-        description: 'Overview of the assessment format and guidelines.',
-        videoUrl: 'https://www.youtube.com/embed/Ct7D62sHrZE',
-        duration: '5:30',
-        locked: false,
-        completed: false
-      },
-      {
-        id: 'assessment-test',
-        title: 'Technical Assessment Test',
-        description: 'Take the 30-minute technical assessment to earn your certificate.',
-        videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-        duration: '30:00',
-        locked: false,
-        completed: false
-      }
-    ],
-    progress: 0
   }
 ];
 
@@ -119,9 +95,16 @@ const LearningPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('courses');
   const [courses, setCourses] = useState<Course[]>(coursesData);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [showAssessment, setShowAssessment] = useState(false);
   
   const totalModules = coursesData.reduce((count, course) => count + course.modules.length, 0);
-  const { userLearningData, loading: learningLoading, error: learningError, updateModuleCompletion } = useLearningData(totalModules);
+  const { 
+    userLearningData, 
+    loading: learningLoading, 
+    error: learningError, 
+    updateModuleCompletion,
+    updateAssessmentScore 
+  } = useLearningData(totalModules);
   
   if (authLoading) {
     return (
@@ -222,17 +205,28 @@ const LearningPage: React.FC = () => {
                 course_score: 85,
                 course_completed_at: new Date().toISOString()
               })
-              .eq('user_id', generateConsistentUUID(user.id));
+              .eq('user_id', user.id);
               
             toast({
               title: "Course Completed!",
-              description: "Congratulations! You've completed the Interview Mastery Course!",
+              description: "Congratulations! You've completed the Interview Mastery Course! You can now take the assessment.",
             });
           } catch (error) {
             console.error('Error updating course completion:', error);
           }
         }
       }
+    }
+  };
+
+  const handleAssessmentComplete = async (score: number) => {
+    const success = await updateAssessmentScore(score);
+    if (success) {
+      setShowAssessment(false);
+      toast({
+        title: "Assessment Completed!",
+        description: `You scored ${score}%! ${score >= 80 ? 'You can now view your certificate!' : 'Complete the course to earn your certificate.'}`,
+      });
     }
   };
 
@@ -273,6 +267,11 @@ const LearningPage: React.FC = () => {
     console.log('Mark as completed clicked for module:', moduleId);
     await handleModuleCompleted(moduleId);
   };
+
+  const canTakeAssessment = () => {
+    const courseCompleted = userLearningData?.course_completed_at !== null;
+    return courseCompleted;
+  };
   
   if (learningLoading) {
     return (
@@ -280,6 +279,26 @@ const LearningPage: React.FC = () => {
         <div className="flex justify-center items-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
           <span className="ml-2">Loading your learning progress...</span>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (showAssessment) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Technical Assessment</h1>
+            <p className="mt-2 text-gray-600">
+              Test your knowledge and earn your certificate
+            </p>
+          </div>
+          
+          <AssessmentQuiz
+            onComplete={handleAssessmentComplete}
+            onClose={() => setShowAssessment(false)}
+          />
         </div>
       </DashboardLayout>
     );
@@ -341,19 +360,55 @@ const LearningPage: React.FC = () => {
             
             <TabsContent value="courses">
               <CourseList
-                courses={courses.filter(course => course.id !== 'assessment')}
+                courses={courses}
                 onModuleSelect={handleModuleSelect}
                 onMarkAsCompleted={handleMarkAsCompletedFromList}
               />
             </TabsContent>
             
             <TabsContent value="assessment">
-              <AssessmentSection
-                courses={courses}
-                userLearningData={userLearningData}
-                onModuleSelect={handleModuleSelect}
-                onMarkAsCompleted={handleMarkAsCompletedFromList}
-              />
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Award className="h-6 w-6 text-yellow-600" />
+                    <CardTitle>Technical Interview Assessment</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-gray-600">
+                    Test your knowledge with our comprehensive technical interview assessment. 
+                    Complete the course first to unlock the assessment.
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Assessment Status:</p>
+                    {userLearningData?.assessment_attempted ? (
+                      <p className="text-green-600">
+                        Completed with score: {userLearningData.assessment_score}%
+                      </p>
+                    ) : (
+                      <p className="text-gray-500">Not attempted</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Course Status:</p>
+                    {userLearningData?.course_completed_at ? (
+                      <p className="text-green-600">Course completed</p>
+                    ) : (
+                      <p className="text-orange-600">Complete all modules to unlock assessment</p>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    onClick={() => setShowAssessment(true)}
+                    disabled={!canTakeAssessment()}
+                    className="w-full sm:w-auto"
+                  >
+                    {userLearningData?.assessment_attempted ? 'Retake Assessment' : 'Start Assessment'}
+                  </Button>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         )}

@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { generateConsistentUUID } from '@/utils/userUtils';
 
 interface UserLearningData {
   id: string;
@@ -64,14 +63,11 @@ export const useLearningData = (totalModules: number) => {
       
       console.log('Fetching learning data for user:', user.id);
       
-      // Convert Clerk user ID to consistent UUID for database operations
-      const supabaseUserId = generateConsistentUUID(user.id);
-      
-      // Try to get existing data from user_learning table using converted UUID
+      // Use Clerk user ID directly since RLS policies are now properly set up
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
-        .eq('user_id', supabaseUserId)
+        .eq('user_id', user.id)
         .maybeSingle();
       
       if (error) {
@@ -87,7 +83,7 @@ export const useLearningData = (totalModules: number) => {
         });
       } else {
         console.log('Creating new learning data for user');
-        await createUserLearningRecord(supabaseUserId, totalModules);
+        await createUserLearningRecord(user.id, totalModules);
       }
     } catch (err: any) {
       console.error('Error fetching user learning data:', err);
@@ -131,10 +127,10 @@ export const useLearningData = (totalModules: number) => {
     }
   }, [user?.id, totalModules, toast]);
 
-  const createUserLearningRecord = async (supabaseUserId: string, totalModules: number) => {
+  const createUserLearningRecord = async (userId: string, totalModules: number) => {
     try {
       const newLearningData = {
-        user_id: supabaseUserId,
+        user_id: userId,
         course_progress: {},
         completed_modules: 0,
         total_modules: totalModules,
@@ -227,10 +223,8 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
-      // Try to update database using converted UUID
+      // Try to update database using Clerk user ID directly
       console.log('Updating learning progress in database');
-      
-      const supabaseUserId = generateConsistentUUID(user.id);
       
       const { error } = await supabase
         .from('user_learning')
@@ -239,7 +233,7 @@ export const useLearningData = (totalModules: number) => {
           completed_modules: completedModulesCount,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', supabaseUserId);
+        .eq('user_id', user.id);
       
       if (error) {
         console.error('Database update error (continuing with local state):', error);
@@ -266,6 +260,47 @@ export const useLearningData = (totalModules: number) => {
     }
   }, [userLearningData, user?.id, toast, totalModules]);
 
+  const updateAssessmentScore = useCallback(async (score: number) => {
+    if (!user?.id) return false;
+
+    try {
+      const now = new Date().toISOString();
+      
+      // Update local state
+      setUserLearningData(prevData => {
+        if (!prevData) return null;
+        return {
+          ...prevData,
+          assessment_attempted: true,
+          assessment_score: score,
+          assessment_completed_at: now,
+          updated_at: now
+        };
+      });
+
+      // Update database
+      const { error } = await supabase
+        .from('user_learning')
+        .update({
+          assessment_attempted: true,
+          assessment_score: score,
+          assessment_completed_at: now,
+          updated_at: now
+        })
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Database update error for assessment:', error);
+        return false;
+      }
+
+      return true;
+    } catch (err: any) {
+      console.error('Error updating assessment score:', err);
+      return false;
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     fetchUserLearningData();
   }, [fetchUserLearningData]);
@@ -275,6 +310,7 @@ export const useLearningData = (totalModules: number) => {
     loading,
     error,
     updateModuleCompletion,
+    updateAssessmentScore,
     refreshData: fetchUserLearningData
   };
 };

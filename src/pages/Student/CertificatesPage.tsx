@@ -1,17 +1,26 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Award, Download, Calendar, CheckCircle, Lock } from 'lucide-react';
+import CertificateCard from '@/components/Certificates/CertificateCard';
+import CertificateViewer from '@/components/Certificates/CertificateViewer';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useLearningData } from '@/hooks/useLearningData';
-import { Badge } from '@/components/ui/badge';
+import { Loader2, Award } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+interface Certificate {
+  id: string;
+  title: string;
+  completedDate: string;
+  score: number;
+  certificateUrl?: string;
+}
 
 const CertificatesPage: React.FC = () => {
   const { user } = useAuth();
-  const { userLearningData, loading } = useLearningData(7); // Total modules in the course
-  const [certificates, setCertificates] = useState<any[]>([]);
+  const { userLearningData, loading } = useLearningData(5); // 5 total modules
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
 
   useEffect(() => {
     if (userLearningData) {
@@ -20,89 +29,129 @@ const CertificatesPage: React.FC = () => {
   }, [userLearningData]);
 
   const generateCertificates = () => {
-    const availableCertificates = [];
-
-    // Course completion certificate
-    if (userLearningData?.course_completed_at && userLearningData?.course_score) {
-      availableCertificates.push({
-        id: 'course-completion',
-        title: 'Interview Mastery Course Completion',
-        description: 'Certificate for completing the Interview Mastery Course',
-        type: 'course',
-        earned: true,
-        earnedDate: userLearningData.course_completed_at,
-        score: userLearningData.course_score,
-        requirements: 'Complete all course modules',
-        icon: Award
+    const certs: Certificate[] = [];
+    
+    // Check if course is completed and assessment is passed
+    if (userLearningData?.course_completed_at && 
+        userLearningData?.assessment_attempted && 
+        userLearningData?.assessment_score && 
+        userLearningData.assessment_score >= 80) {
+      
+      certs.push({
+        id: `cert-${userLearningData.id}`,
+        title: 'Interview Mastery Certificate',
+        completedDate: new Date(userLearningData.assessment_completed_at || userLearningData.course_completed_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        score: userLearningData.assessment_score
       });
     }
-
-    // Assessment certificate
-    if (userLearningData?.assessment_completed_at && userLearningData?.assessment_score && userLearningData.assessment_score >= 80) {
-      availableCertificates.push({
-        id: 'assessment-excellence',
-        title: 'Technical Assessment Excellence',
-        description: 'Certificate for scoring 80% or higher on the technical assessment',
-        type: 'assessment',
-        earned: true,
-        earnedDate: userLearningData.assessment_completed_at,
-        score: userLearningData.assessment_score,
-        requirements: 'Score 80% or higher on the technical assessment',
-        icon: Award
-      });
-    }
-
-    // Add locked certificates for items not yet earned
-    if (!userLearningData?.course_completed_at) {
-      availableCertificates.push({
-        id: 'course-completion-locked',
-        title: 'Interview Mastery Course Completion',
-        description: 'Complete all course modules to earn this certificate',
-        type: 'course',
-        earned: false,
-        requirements: 'Complete all course modules',
-        progress: userLearningData ? Math.round((userLearningData.completed_modules / userLearningData.total_modules) * 100) : 0,
-        icon: Lock
-      });
-    }
-
-    if (!userLearningData?.assessment_completed_at || !userLearningData?.assessment_score || userLearningData.assessment_score < 80) {
-      availableCertificates.push({
-        id: 'assessment-excellence-locked',
-        title: 'Technical Assessment Excellence',
-        description: 'Score 80% or higher on the technical assessment to earn this certificate',
-        type: 'assessment',
-        earned: false,
-        requirements: 'Score 80% or higher on the technical assessment',
-        progress: userLearningData?.assessment_score || 0,
-        icon: Lock
-      });
-    }
-
-    setCertificates(availableCertificates);
+    
+    setCertificates(certs);
   };
 
-  const handleDownloadCertificate = async (certificateId: string) => {
-    try {
-      // This would typically call a backend service to generate the PDF
-      console.log('Downloading certificate:', certificateId);
-      
-      // For now, we'll show a success message
-      // In a real implementation, this would generate and download a PDF certificate
-      alert('Certificate download would start here. This feature needs to be implemented with a PDF generation service.');
-    } catch (error) {
-      console.error('Error downloading certificate:', error);
-    }
+  const handleDownload = async (certificate: Certificate) => {
+    // Create a simple certificate as a downloadable HTML file
+    const certificateHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Certificate - ${certificate.title}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 40px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .certificate { 
+            background: white; 
+            padding: 60px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center; 
+            max-width: 800px;
+            width: 100%;
+          }
+          .title { font-size: 36px; color: #333; margin-bottom: 20px; font-weight: bold; }
+          .subtitle { font-size: 18px; color: #666; margin-bottom: 40px; }
+          .name { font-size: 48px; color: #667eea; margin: 30px 0; font-weight: bold; }
+          .course { font-size: 24px; color: #333; margin: 30px 0; }
+          .details { display: flex; justify-content: space-around; margin: 40px 0; }
+          .detail { text-align: center; }
+          .detail-label { font-size: 14px; color: #888; }
+          .detail-value { font-size: 18px; color: #333; font-weight: bold; }
+          .seal { 
+            width: 120px; 
+            height: 120px; 
+            background: #667eea; 
+            border-radius: 50%; 
+            margin: 40px auto; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: white; 
+            font-size: 24px; 
+            font-weight: bold;
+          }
+          .id { font-size: 12px; color: #888; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="certificate">
+          <h1 class="title">Certificate of Completion</h1>
+          <p class="subtitle">This certifies that</p>
+          <h2 class="name">${user?.firstName || ''} ${user?.lastName || ''}</h2>
+          <p class="subtitle">has successfully completed</p>
+          <h3 class="course">${certificate.title}</h3>
+          <div class="details">
+            <div class="detail">
+              <div class="detail-label">Completion Date</div>
+              <div class="detail-value">${certificate.completedDate}</div>
+            </div>
+            <div class="detail">
+              <div class="detail-label">Final Score</div>
+              <div class="detail-value">${certificate.score}%</div>
+            </div>
+          </div>
+          <div class="seal">✓<br>CERTIFIED</div>
+          <p class="id">Certificate ID: ${certificate.id}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([certificateHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${certificate.title.replace(/\s+/g, '_')}_Certificate.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleView = (certificate: Certificate) => {
+    setSelectedCertificate(certificate);
+  };
+
+  const handleCloseViewer = () => {
+    setSelectedCertificate(null);
   };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-purple mx-auto"></div>
-            <p className="mt-2 text-gray-600">Loading your certificates...</p>
-          </div>
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading certificates...</span>
         </div>
       </DashboardLayout>
     );
@@ -114,144 +163,50 @@ const CertificatesPage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Certificates</h1>
           <p className="mt-2 text-gray-600">
-            View and download certificates for your learning achievements
+            View and download your earned certificates
           </p>
         </div>
 
-        {/* Statistics */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Earned Certificates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {certificates.filter(cert => cert.earned).length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Available Certificates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {certificates.length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Course Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-brand-purple">
-                {userLearningData ? Math.round((userLearningData.completed_modules / userLearningData.total_modules) * 100) : 0}%
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Certificates Grid */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {certificates.map((certificate) => {
-            const IconComponent = certificate.icon;
-            return (
-              <Card key={certificate.id} className={`overflow-hidden ${certificate.earned ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center">
-                      <IconComponent className={`mr-3 h-8 w-8 ${certificate.earned ? 'text-green-600' : 'text-gray-400'}`} />
-                      <div>
-                        <CardTitle className="text-lg">{certificate.title}</CardTitle>
-                        {certificate.earned && (
-                          <Badge className="mt-1 bg-green-100 text-green-800">
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Earned
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {certificate.description}
-                  </CardDescription>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Requirements:</p>
-                      <p className="text-sm text-gray-600">{certificate.requirements}</p>
-                    </div>
-                    
-                    {certificate.earned ? (
-                      <div className="space-y-2">
-                        {certificate.earnedDate && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            Earned on {new Date(certificate.earnedDate).toLocaleDateString()}
-                          </div>
-                        )}
-                        {certificate.score && (
-                          <div className="text-sm">
-                            <span className="font-medium">Score: </span>
-                            <span className="text-green-600 font-bold">{certificate.score}%</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>{certificate.progress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-brand-purple h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${certificate.progress}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-                <CardContent className="pt-0">
-                  {certificate.earned ? (
-                    <Button 
-                      onClick={() => handleDownloadCertificate(certificate.id)}
-                      className="w-full"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download Certificate
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="outline" 
-                      disabled 
-                      className="w-full"
-                    >
-                      <Lock className="mr-2 h-4 w-4" />
-                      Complete Requirements
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {certificates.length === 0 && (
-          <div className="text-center py-12">
-            <Award className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium">No certificates yet</h3>
-            <p className="mt-2 text-gray-600">
-              Complete the Interview Mastery Course to earn your first certificate.
-            </p>
-            <Button className="mt-4" onClick={() => window.location.href = '/learning'}>
-              Start Learning
-            </Button>
+        {certificates.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {certificates.map((certificate) => (
+              <CertificateCard
+                key={certificate.id}
+                certificate={certificate}
+                onDownload={handleDownload}
+                onView={handleView}
+              />
+            ))}
           </div>
+        ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Award className="h-6 w-6 text-gray-400" />
+                <CardTitle className="text-gray-600">No Certificates Yet</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500 mb-4">
+                Complete the Interview Mastery Course and pass the assessment with a score of 80% or higher to earn your first certificate.
+              </p>
+              <div className="space-y-2 text-sm text-gray-600">
+                <p>• Complete all course modules</p>
+                <p>• Take the technical assessment</p>
+                <p>• Score 80% or higher</p>
+                <p>• Download your certificate</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedCertificate && (
+          <CertificateViewer
+            certificate={selectedCertificate}
+            userName={`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Student'}
+            onClose={handleCloseViewer}
+            onDownload={() => handleDownload(selectedCertificate)}
+          />
         )}
       </div>
     </DashboardLayout>
