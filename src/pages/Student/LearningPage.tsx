@@ -8,9 +8,11 @@ import VideoPlayer from '@/components/Learning/VideoPlayer';
 import CourseList from '@/components/Learning/CourseList';
 import AssessmentSection from '@/components/Learning/AssessmentSection';
 import { useLearningData } from '@/hooks/useLearningData';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { generateConsistentUUID } from '@/utils/userUtils';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Module {
   id: string;
@@ -113,14 +115,25 @@ const coursesData: Course[] = [
 ];
 
 const LearningPage: React.FC = () => {
-  const { user, isStudent } = useAuth();
+  const { user, isStudent, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('courses');
   const [courses, setCourses] = useState<Course[]>(coursesData);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   
   const totalModules = coursesData.reduce((count, course) => count + course.modules.length, 0);
-  const { userLearningData, loading, updateModuleCompletion } = useLearningData(totalModules);
+  const { userLearningData, loading: learningLoading, error: learningError, updateModuleCompletion } = useLearningData(totalModules);
+  
+  if (authLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading...</span>
+        </div>
+      </DashboardLayout>
+    );
+  }
   
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
@@ -129,14 +142,19 @@ const LearningPage: React.FC = () => {
   useEffect(() => {
     if (userLearningData) {
       updateCoursesWithUserProgress();
+    } else if (!learningLoading && !learningError) {
+      // If no learning data and not loading, use default courses
+      setCourses(coursesData);
     }
-  }, [userLearningData]);
+  }, [userLearningData, learningLoading, learningError]);
   
   const updateCoursesWithUserProgress = () => {
     if (!userLearningData) {
       setCourses(coursesData);
       return;
     }
+    
+    console.log('Updating courses with user progress:', userLearningData.course_progress);
     
     const updatedCourses = coursesData.map(course => {
       const courseProgress = userLearningData.course_progress[course.id] || {};
@@ -173,6 +191,8 @@ const LearningPage: React.FC = () => {
   };
   
   const handleModuleCompleted = async (moduleId: string) => {
+    console.log('Module completed:', moduleId);
+    
     let courseId = '';
     let currentCourseIndex = -1;
     let currentModuleIndex = -1;
@@ -188,7 +208,10 @@ const LearningPage: React.FC = () => {
       }
     }
     
-    if (!courseId) return;
+    if (!courseId) {
+      console.error('Course not found for module:', moduleId);
+      return;
+    }
     
     const success = await updateModuleCompletion(moduleId, courseId);
     if (!success) return;
@@ -196,24 +219,28 @@ const LearningPage: React.FC = () => {
     // Check for course completion
     if (courseId === 'interview-mastery') {
       const course = courses.find(c => c.id === courseId);
-      if (course) {
+      if (course && user) {
         const allModulesCompleted = course.modules.every(
           m => userLearningData?.course_progress[courseId]?.[m.id] === true || m.id === moduleId
         );
         
-        if (allModulesCompleted && user) {
-          await supabase
-            .from('user_learning')
-            .update({
-              course_score: 85,
-              course_completed_at: new Date().toISOString()
-            })
-            .eq('user_id', generateConsistentUUID(user.id));
-            
-          toast({
-            title: "Course Completed!",
-            description: "Congratulations! You've completed the Interview Mastery Course!",
-          });
+        if (allModulesCompleted) {
+          try {
+            await supabase
+              .from('user_learning')
+              .update({
+                course_score: 85,
+                course_completed_at: new Date().toISOString()
+              })
+              .eq('user_id', generateConsistentUUID(user.id));
+              
+            toast({
+              title: "Course Completed!",
+              description: "Congratulations! You've completed the Interview Mastery Course!",
+            });
+          } catch (error) {
+            console.error('Error updating course completion:', error);
+          }
         }
       }
     }
@@ -256,11 +283,12 @@ const LearningPage: React.FC = () => {
     await handleModuleCompleted(moduleId);
   };
   
-  if (loading) {
+  if (learningLoading) {
     return (
       <DashboardLayout>
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple"></div>
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading your learning progress...</span>
         </div>
       </DashboardLayout>
     );
@@ -275,6 +303,15 @@ const LearningPage: React.FC = () => {
             Access courses and certifications to enhance your interview skills
           </p>
         </div>
+        
+        {learningError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {learningError}. Some features may not work properly.
+            </AlertDescription>
+          </Alert>
+        )}
         
         {selectedModule ? (
           <div className="space-y-6">

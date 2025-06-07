@@ -23,21 +23,28 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
   const [analyzing, setAnalyzing] = useState(isLoading);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [progress, setProgress] = useState<string>('');
   const { toast } = useToast();
   const { generateInterviewQuestions, analyzeResume, saveInterview } = useInterviewApi();
   const { user } = useAuth();
 
   useEffect(() => {
-    if (file) {
+    if (file && !analyzing && !success && !error) {
       analyzeResumeFile();
     }
   }, [file]);
 
   const analyzeResumeFile = async () => {
+    if (!user) {
+      setError('User not authenticated');
+      return;
+    }
+
     try {
       setAnalyzing(true);
       setError(null);
       setSuccess(false);
+      setProgress('Validating file...');
       
       console.log("Starting resume analysis...");
       
@@ -46,17 +53,19 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       }
       
       // Step 1: Analyze resume
+      setProgress('Analyzing your resume...');
       console.log("Calling analyzeResume API...");
       const analysis = await analyzeResume(file);
       
       if (!analysis) {
-        throw new Error('Failed to analyze resume - no response from API');
+        throw new Error('Failed to analyze resume - no response from API. Please check your API configuration.');
       }
       
       console.log("Resume analysis successful:", analysis);
       onAnalysisResults(analysis);
       
       // Step 2: Generate interview questions based on resume analysis
+      setProgress('Generating personalized interview questions...');
       const suggestedRole = analysis.suggested_role || 'Software Engineer';
       const skills = analysis.skills?.join(', ') || '';
       const generationPrompt = `${suggestedRole} with skills in ${skills}`;
@@ -71,26 +80,36 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       console.log("Generated questions:", questions);
       
       // Step 3: Create interview record in the database
-      if (user) {
-        try {
-          const newInterviewData = {
-            user_id: user.id,
-            title: `Resume-based ${suggestedRole} Interview`,
-            questions: questions.map(q => q.question),
-            status: 'in-progress'
-          };
-          
-          console.log("Saving interview with data:", newInterviewData);
-          const interviewId = await saveInterview(newInterviewData);
-          console.log('Created interview with ID:', interviewId);
-        } catch (err) {
-          console.error("Error saving interview:", err);
-          // Continue with the flow even if saving fails
-        }
+      setProgress('Saving interview session...');
+      try {
+        const newInterviewData = {
+          user_id: user.id,
+          title: `Resume-based ${suggestedRole} Interview`,
+          questions: questions.map(q => q.question),
+          status: 'in-progress'
+        };
+        
+        console.log("Saving interview with data:", newInterviewData);
+        const interviewId = await saveInterview(newInterviewData);
+        console.log('Created interview with ID:', interviewId);
+      } catch (saveError: any) {
+        console.error("Error saving interview:", saveError);
+        // Continue with the flow even if saving fails
+        toast({
+          title: "Warning",
+          description: "Interview questions generated but failed to save session. You can still proceed with the interview.",
+          variant: "destructive",
+        });
       }
 
+      setProgress('Complete!');
       setSuccess(true);
       onAnalysisComplete(questions.map(q => q.question));
+      
+      toast({
+        title: "Resume Analysis Complete",
+        description: "Your personalized interview questions are ready!",
+      });
       
     } catch (error: any) {
       console.error('Error analyzing resume:', error);
@@ -106,6 +125,9 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
   };
 
   const retryAnalysis = () => {
+    setError(null);
+    setSuccess(false);
+    setProgress('');
     analyzeResumeFile();
   };
 
@@ -123,10 +145,12 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-12 w-12 text-brand-purple animate-spin mb-4" />
               <h3 className="font-medium text-lg mb-2">Analyzing your resume</h3>
-              <p className="text-gray-600 text-center max-w-md">
-                Our AI is extracting key skills and experiences from your resume to generate tailored interview questions.
-                This process requires a valid API connection.
+              <p className="text-gray-600 text-center max-w-md mb-2">
+                {progress || 'Our AI is extracting key skills and experiences from your resume to generate tailored interview questions.'}
               </p>
+              <div className="text-sm text-gray-500">
+                This may take a few moments...
+              </div>
             </div>
           )}
           
@@ -139,6 +163,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
                 <p>• Ensure your Gemini API key is properly configured</p>
                 <p>• Check that the uploaded file is a valid PDF</p>
                 <p>• Verify your internet connection</p>
+                <p>• Make sure you're logged in properly</p>
               </div>
               <Button onClick={retryAnalysis} variant="outline">
                 Try Again
@@ -152,6 +177,9 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
               <h3 className="font-medium text-lg mb-2">Resume Analysis Complete</h3>
               <p className="text-gray-600 text-center mb-4">
                 Your resume has been successfully analyzed and personalized interview questions have been generated.
+              </p>
+              <p className="text-sm text-green-600 font-medium">
+                Ready to start your interview!
               </p>
             </div>
           )}

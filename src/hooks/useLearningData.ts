@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { generateConsistentUUID } from '@/utils/userUtils';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 interface UserLearningData {
   id: string;
@@ -37,6 +37,8 @@ export const useLearningData = (totalModules: number) => {
       setError(null);
       const supabaseUUID = generateConsistentUUID(user.id);
       
+      console.log('Fetching learning data for user:', supabaseUUID);
+      
       const { data: existingData, error } = await supabase
         .from('user_learning')
         .select('*')
@@ -48,11 +50,13 @@ export const useLearningData = (totalModules: number) => {
       }
       
       if (existingData) {
+        console.log('Found existing learning data:', existingData);
         setUserLearningData({
           ...existingData,
           course_progress: existingData.course_progress as Record<string, any> || {}
         });
       } else {
+        console.log('Creating new learning data for user');
         const newLearningData = {
           user_id: supabaseUUID,
           course_progress: {},
@@ -66,9 +70,13 @@ export const useLearningData = (totalModules: number) => {
           .select('*')
           .single();
         
-        if (createError) throw createError;
+        if (createError) {
+          console.error('Error creating learning data:', createError);
+          throw createError;
+        }
         
         if (createdData) {
+          console.log('Created new learning data:', createdData);
           setUserLearningData({
             ...createdData,
             course_progress: createdData.course_progress as Record<string, any> || {}
@@ -79,8 +87,8 @@ export const useLearningData = (totalModules: number) => {
       console.error('Error fetching user learning data:', err);
       setError(err.message);
       toast({
-        title: "Error",
-        description: "Failed to load your learning progress.",
+        title: "Learning Data Error",
+        description: "Failed to load your learning progress. This might be due to authentication issues.",
         variant: "destructive"
       });
     } finally {
@@ -89,9 +97,14 @@ export const useLearningData = (totalModules: number) => {
   }, [user?.id, totalModules, toast]);
 
   const updateModuleCompletion = useCallback(async (moduleId: string, courseId: string) => {
-    if (!userLearningData || !user?.id) return false;
+    if (!userLearningData || !user?.id) {
+      console.error('No user learning data or user ID available');
+      return false;
+    }
 
     try {
+      console.log('Updating module completion:', { moduleId, courseId });
+      
       const courseProgress = {
         ...(userLearningData.course_progress || {}),
       };
@@ -113,6 +126,8 @@ export const useLearningData = (totalModules: number) => {
 
       const supabaseUserId = generateConsistentUUID(user.id);
       
+      console.log('Updating learning progress in database');
+      
       const { error } = await supabase
         .from('user_learning')
         .update({
@@ -122,7 +137,12 @@ export const useLearningData = (totalModules: number) => {
         })
         .eq('user_id', supabaseUserId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Database update error:', error);
+        throw error;
+      }
+      
+      console.log('Successfully updated learning progress');
       
       setUserLearningData(prevData => {
         if (!prevData) return null;
@@ -133,11 +153,16 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
+      toast({
+        title: "Progress Saved",
+        description: "Your learning progress has been updated.",
+      });
+
       return true;
     } catch (err: any) {
       console.error('Error updating module completion:', err);
       toast({
-        title: "Error",
+        title: "Progress Error",
         description: "Failed to update your progress. Please try again.",
         variant: "destructive"
       });

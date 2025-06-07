@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth as useClerkAuth, useUser, useClerk } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
+import { generateConsistentUUID } from '@/utils/userUtils';
 
 type UserRole = 'student' | 'admin' | null;
 
@@ -44,12 +45,14 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (userId) {
+    if (userId && clerkUser) {
+      console.log('Setting up user profile for:', userId);
+      
       // User is authenticated
-      const userEmail = clerkUser?.primaryEmailAddress?.emailAddress || '';
-      const userName = clerkUser?.firstName && clerkUser?.lastName
+      const userEmail = clerkUser.primaryEmailAddress?.emailAddress || '';
+      const userName = clerkUser.firstName && clerkUser.lastName
         ? `${clerkUser.firstName} ${clerkUser.lastName}`
-        : userEmail.split('@')[0];
+        : clerkUser.username || userEmail.split('@')[0];
       
       // Set role based on email for now (this would be replaced by proper role management)
       const role: UserRole = userEmail === 'admin@interview.ai' ? 'admin' : 'student';
@@ -57,13 +60,14 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setProfile({
         id: userId,
         full_name: userName,
-        avatar_url: clerkUser?.imageUrl,
+        avatar_url: clerkUser.imageUrl,
         role: role
       });
 
       // Sync with supabase for data consistency if needed
       syncUserWithSupabase(userId, userName, role);
     } else {
+      console.log('No user found, clearing profile');
       setProfile(null);
     }
     
@@ -72,22 +76,41 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const syncUserWithSupabase = async (userId: string, fullName: string, role: UserRole) => {
     try {
+      console.log('Syncing user with Supabase:', userId);
+      
+      // Convert Clerk user ID to consistent UUID for Supabase
+      const supabaseUserId = generateConsistentUUID(userId);
+      
       // Check if the user exists in the profiles table
-      const { data: existingProfile } = await supabase
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('id', supabaseUserId)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error fetching profile:', fetchError);
+        return;
+      }
 
       if (!existingProfile) {
+        console.log('Creating new profile for user');
         // Create a new profile if doesn't exist
-        await supabase
+        const { error: insertError } = await supabase
           .from('profiles')
           .insert({
-            id: userId,
+            id: supabaseUserId,
             full_name: fullName,
             role: role
           });
+          
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+        } else {
+          console.log('Profile created successfully');
+        }
+      } else {
+        console.log('Profile already exists');
       }
     } catch (error) {
       console.error('Error syncing user with Supabase:', error);
@@ -101,6 +124,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     console.log("Logout function called");
     try {
       await clerk.signOut();
+      setProfile(null);
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out",
