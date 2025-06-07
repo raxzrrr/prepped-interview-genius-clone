@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -206,14 +205,14 @@ const Dashboard: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-500">Resume Interviews</span>
-                      <span className={`text-sm font-medium ${usageData.resume_interviews >= 2 ? 'text-red-500' : 'text-green-500'}`}>
-                        {usageData.resume_interviews}/2
+                      <span className={`text-sm font-medium ${usageData.resume_interviews >= 10 ? 'text-red-500' : 'text-green-500'}`}>
+                        {usageData.resume_interviews}/10
                       </span>
                     </div>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div 
-                        className={`h-full rounded-full ${usageData.resume_interviews >= 2 ? 'bg-red-500' : 'bg-green-500'}`} 
-                        style={{ width: `${(usageData.resume_interviews / 2) * 100}%` }}
+                        className={`h-full rounded-full ${usageData.resume_interviews >= 10 ? 'bg-red-500' : 'bg-green-500'}`} 
+                        style={{ width: `${(usageData.resume_interviews / 10) * 100}%` }}
                       ></div>
                     </div>
                   </div>
@@ -339,10 +338,10 @@ const Dashboard: React.FC = () => {
                     uploadInput.click();
                   }
                 }}
-                disabled={usageData.resume_interviews >= 2}
+                disabled={usageData.resume_interviews >= 10}
               >
                 <Upload className="mr-2 h-4 w-4" />
-                {usageData.resume_interviews >= 2 ? 'Monthly Limit Reached' : 'Upload Resume for Interview'}
+                {usageData.resume_interviews >= 10 ? 'Monthly Limit Reached' : 'Upload Resume for Interview'}
                 <input
                   type="file"
                   id="resume-upload"
