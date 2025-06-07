@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -24,11 +23,12 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/components/ui/use-toast';
-import { BriefcaseIcon, Clock, PlayCircle } from 'lucide-react';
+import { BriefcaseIcon, Clock, PlayCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
 import envService from '@/services/env';
+import { generateConsistentUUID } from '@/utils/userUtils';
 import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard: React.FC = () => {
@@ -47,7 +47,6 @@ const Dashboard: React.FC = () => {
     custom_interviews: 0, 
     resume_interviews: 0 
   });
-  // Add stats state variables
   const [userStats, setUserStats] = useState({
     totalInterviews: 0,
     averageScore: 0,
@@ -55,7 +54,7 @@ const Dashboard: React.FC = () => {
     completedInterviews: []
   });
   
-  const { generateInterviewQuestions, saveInterview } = useInterviewApi();
+  const { generateInterviewQuestions, saveInterview, getInterviews } = useInterviewApi();
 
   // Check if API key is configured when component mounts
   useEffect(() => {
@@ -75,21 +74,23 @@ const Dashboard: React.FC = () => {
     if (!user) return;
     
     try {
-      // Get the current month's first day
+      const supabaseUserId = generateConsistentUUID(user.id);
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       
       const { data: interviews, error } = await supabase
         .from('interviews')
         .select('id, title')
-        .eq('user_id', user.id)
+        .eq('user_id', supabaseUserId)
         .gte('created_at', firstDayOfMonth.toISOString());
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching usage data:', error);
+        return;
+      }
       
-      // Count custom and resume interviews
-      const custom = interviews?.filter(i => i.title.includes('Custom')).length || 0;
-      const resume = interviews?.filter(i => !i.title.includes('Custom')).length || 0;
+      const custom = interviews?.filter(i => i.title.includes('Custom') || !i.title.includes('Resume-based')).length || 0;
+      const resume = interviews?.filter(i => i.title.includes('Resume-based')).length || 0;
       
       setUsageData({ 
         custom_interviews: custom,
@@ -106,12 +107,7 @@ const Dashboard: React.FC = () => {
     if (!user) return;
     
     try {
-      const { data: interviews, error } = await supabase
-        .from('interviews')
-        .select('*')
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
+      const interviews = await getInterviews(user.id);
       
       if (interviews) {
         const completed = interviews.filter(interview => interview.status === 'completed');
@@ -152,11 +148,10 @@ const Dashboard: React.FC = () => {
   ];
 
   const startInterview = async () => {
-    // Check if user has reached the limit
-    if (usageData.resume_interviews >= 2) {
+    if (usageData.custom_interviews >= 2) {
       toast({
         title: "Monthly Limit Reached",
-        description: "You've reached your limit of 2 resume-based interviews this month.",
+        description: "You've reached your limit of 2 custom interviews this month.",
         variant: "destructive",
       });
       return;
@@ -165,7 +160,6 @@ const Dashboard: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      // Generate interview questions
       const questions = await generateInterviewQuestions(selectedJobRole);
       const questionTexts = questions.map(q => q.question);
       
@@ -175,7 +169,6 @@ const Dashboard: React.FC = () => {
       
       setInterviewQuestions(questionTexts);
       
-      // Create a new interview record in the database
       const newInterviewData = {
         user_id: user.id,
         title: `${selectedJobRole} Interview Practice`,
@@ -189,11 +182,7 @@ const Dashboard: React.FC = () => {
       setStage('interview');
     } catch (error) {
       console.error('Error starting interview:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start the interview. Please try again.",
-        variant: "destructive",
-      });
+      // Don't show generic error message, the specific error is already shown by the API service
     } finally {
       setIsGenerating(false);
     }
@@ -203,7 +192,6 @@ const Dashboard: React.FC = () => {
     setInterviewAnswers(answers);
     setFacialAnalysis(facialData);
     setStage('report');
-    // Refresh stats after completion
     fetchUserStats();
     fetchUserInterviewUsage();
   };
@@ -240,10 +228,16 @@ const Dashboard: React.FC = () => {
     return (
       <DashboardLayout>
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold tracking-tight mb-6">Setup Required</h1>
-          <p className="text-gray-600 mb-8">
-            To use the AI-powered interview features, you need to configure your Google Gemini API key.
-          </p>
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center mb-2">
+              <AlertCircle className="h-5 w-5 text-amber-600 mr-2" />
+              <h2 className="text-lg font-semibold text-amber-800">API Configuration Required</h2>
+            </div>
+            <p className="text-amber-700">
+              The AI interview features require a Google Gemini API key to function properly. 
+              Without this configuration, the system cannot generate real interview questions or provide analysis.
+            </p>
+          </div>
           <ApiKeySettings onComplete={handleApiSetupComplete} />
         </div>
       </DashboardLayout>
@@ -255,7 +249,7 @@ const Dashboard: React.FC = () => {
       {stage === 'select' && (
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Interview Preparation</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-6">Interview Preparation</h1>
             <p className="mt-2 text-gray-600">
               Practice your interview skills with our AI-powered mock interview system
             </p>
@@ -427,7 +421,7 @@ const Dashboard: React.FC = () => {
             <CardFooter className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:space-x-2 sm:space-y-0">
               <Button 
                 onClick={startInterview}
-                disabled={isGenerating || usageData.resume_interviews >= 2}
+                disabled={isGenerating || usageData.custom_interviews >= 2}
                 className="w-full sm:w-1/2"
               >
                 {isGenerating ? 'Generating Questions...' : 'Start Role-based Interview'}
@@ -452,7 +446,6 @@ const Dashboard: React.FC = () => {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      // Handle resume upload
                       if (file.type !== 'application/pdf') {
                         toast({
                           title: "Invalid File Type",
@@ -462,26 +455,14 @@ const Dashboard: React.FC = () => {
                         return;
                       }
                       
-                      // Create a new ResumeUpload component
                       const reader = new FileReader();
                       reader.onload = async (event) => {
                         if (event.target?.result) {
                           const base64Data = event.target.result.toString();
-                          
-                          try {
-                            // Further processing will be handled by ResumeUpload component
-                            setResumeAnalysis({
-                              isLoading: true,
-                              file: base64Data
-                            });
-                          } catch (error) {
-                            console.error('Error processing resume:', error);
-                            toast({
-                              title: "Error",
-                              description: "Failed to process resume. Please try again.",
-                              variant: "destructive",
-                            });
-                          }
+                          setResumeAnalysis({
+                            isLoading: true,
+                            file: base64Data
+                          });
                         }
                       };
                       reader.readAsDataURL(file);

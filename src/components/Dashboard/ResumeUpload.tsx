@@ -2,9 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileUploader } from '@/components/ui/file-uploader';
 import { useToast } from '@/components/ui/use-toast';
-import { AlertCircle, Upload, FileText, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 
@@ -23,6 +22,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
 }) => {
   const [analyzing, setAnalyzing] = useState(isLoading);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const { toast } = useToast();
   const { generateInterviewQuestions, analyzeResume, saveInterview } = useInterviewApi();
   const { user } = useAuth();
@@ -37,10 +37,10 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
     try {
       setAnalyzing(true);
       setError(null);
+      setSuccess(false);
       
-      console.log("Starting resume analysis with file:", file.substring(0, 100) + "...");
+      console.log("Starting resume analysis...");
       
-      // Validate file is a PDF
       if (!file.includes('application/pdf')) {
         throw new Error('Only PDF files are supported');
       }
@@ -49,28 +49,28 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       console.log("Calling analyzeResume API...");
       const analysis = await analyzeResume(file);
       
-      console.log("Resume analysis response:", analysis);
-      
       if (!analysis) {
-        throw new Error('Failed to analyze resume');
+        throw new Error('Failed to analyze resume - no response from API');
       }
       
-      // Notify parent component about analysis results
-      console.log("Notifying parent about analysis results");
+      console.log("Resume analysis successful:", analysis);
       onAnalysisResults(analysis);
       
-      // Step 2: Generate interview questions based on resume skills
+      // Step 2: Generate interview questions based on resume analysis
       const suggestedRole = analysis.suggested_role || 'Software Engineer';
       const skills = analysis.skills?.join(', ') || '';
-      
       const generationPrompt = `${suggestedRole} with skills in ${skills}`;
-      console.log("Generating interview questions with prompt:", generationPrompt);
       
-      // Generate questions
+      console.log("Generating interview questions with prompt:", generationPrompt);
       const questions = await generateInterviewQuestions(generationPrompt);
+      
+      if (!questions || questions.length === 0) {
+        throw new Error('Failed to generate interview questions');
+      }
+      
       console.log("Generated questions:", questions);
       
-      // Create interview record in the database
+      // Step 3: Create interview record in the database
       if (user) {
         try {
           const newInterviewData = {
@@ -89,7 +89,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
         }
       }
 
-      // Pass questions to parent component
+      setSuccess(true);
       onAnalysisComplete(questions.map(q => q.question));
       
     } catch (error: any) {
@@ -97,12 +97,16 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       setError(error.message || 'Failed to analyze resume');
       toast({
         title: "Resume Analysis Failed",
-        description: error.message || "An error occurred while analyzing your resume. Please try again.",
+        description: error.message || "An error occurred while analyzing your resume. Please check your API configuration and try again.",
         variant: "destructive",
       });
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  const retryAnalysis = () => {
+    analyzeResumeFile();
   };
 
   return (
@@ -115,30 +119,39 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {analyzing ? (
+          {analyzing && (
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-12 w-12 text-brand-purple animate-spin mb-4" />
               <h3 className="font-medium text-lg mb-2">Analyzing your resume</h3>
               <p className="text-gray-600 text-center max-w-md">
                 Our AI is extracting key skills and experiences from your resume to generate tailored interview questions.
-                This usually takes about 15-20 seconds.
+                This process requires a valid API connection.
               </p>
             </div>
-          ) : error ? (
+          )}
+          
+          {error && (
             <div className="flex flex-col items-center justify-center py-8">
-              <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+              <XCircle className="h-12 w-12 text-red-500 mb-4" />
               <h3 className="font-medium text-lg mb-2">Analysis Failed</h3>
-              <p className="text-red-500 text-center mb-4">{error}</p>
-              <Button onClick={analyzeResumeFile}>
+              <p className="text-red-500 text-center mb-4 max-w-md">{error}</p>
+              <div className="flex flex-col gap-2 text-sm text-gray-600 mb-4">
+                <p>• Ensure your Gemini API key is properly configured</p>
+                <p>• Check that the uploaded file is a valid PDF</p>
+                <p>• Verify your internet connection</p>
+              </div>
+              <Button onClick={retryAnalysis} variant="outline">
                 Try Again
               </Button>
             </div>
-          ) : (
+          )}
+          
+          {success && !analyzing && !error && (
             <div className="flex flex-col items-center justify-center py-8">
               <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
               <h3 className="font-medium text-lg mb-2">Resume Analysis Complete</h3>
               <p className="text-gray-600 text-center mb-4">
-                Your resume has been successfully analyzed. Preparing your personalized interview...
+                Your resume has been successfully analyzed and personalized interview questions have been generated.
               </p>
             </div>
           )}

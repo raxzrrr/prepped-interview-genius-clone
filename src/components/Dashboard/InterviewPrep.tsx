@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
 import ttsService from '@/services/ttsService';
-import { Mic, MicOff, Video, VideoOff, ArrowRight } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, ArrowRight, AlertTriangle } from 'lucide-react';
 
 interface InterviewPrepProps {
   questions: string[];
@@ -22,24 +22,27 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const { toast } = useToast();
   const { getAnswerFeedback, analyzeFacialExpression, updateInterview } = useInterviewApi();
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Ask the current question when it changes
   useEffect(() => {
     if (questions.length > 0 && currentQuestionIndex < questions.length) {
       speakQuestion();
     }
   }, [currentQuestionIndex, questions]);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       stopMediaStream();
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current);
+      }
     };
   }, []);
 
@@ -52,6 +55,11 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     } catch (error) {
       console.error('Error speaking question:', error);
       setIsSpeaking(false);
+      toast({
+        title: "Text-to-Speech Error",
+        description: "Could not read the question aloud. Please check your TTS configuration.",
+        variant: "destructive"
+      });
     }
   }
 
@@ -81,15 +89,13 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   };
 
   const startRecording = async () => {
-    // Reset audio blob
     setAudioBlob(null);
+    setApiError(null);
     
-    // Request permissions if needed
     const stream = mediaStream || await requestMediaPermissions();
     if (!stream) return;
     
     try {
-      // Start recording audio
       const audioChunks: BlobPart[] = [];
       const mediaRecorder = new MediaRecorder(stream);
       
@@ -102,21 +108,12 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         setAudioBlob(audioBlob);
-        
-        // Convert to base64 for API if needed
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-          // Here you could send the base64 audio to an API
-          // const base64Audio = reader.result as string;
-        };
       };
       
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
       setIsRecordingAudio(true);
       
-      // Also start video recording
       startVideoAnalysis(stream);
       
     } catch (error) {
@@ -132,43 +129,31 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   const startVideoAnalysis = (stream: MediaStream) => {
     setIsRecordingVideo(true);
     
-    // Set up canvas for facial analysis snapshots
     if (canvasRef.current && videoRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       
-      // Take snapshots periodically for facial analysis
-      const analysisInterval = setInterval(() => {
-        if (canvas && video) {
+      analysisIntervalRef.current = setInterval(() => {
+        if (canvas && video && video.videoWidth > 0) {
           const context = canvas.getContext('2d');
           if (context) {
-            // Set canvas dimensions to match video
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            
-            // Draw video frame to canvas
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Convert to base64 for API
             const imageBase64 = canvas.toDataURL('image/jpeg');
-            
-            // Send to facial analysis API (throttled to avoid too many requests)
             analyzeFace(imageBase64);
           }
         }
-      }, 5000); // every 5 seconds
-      
-      // Clean up on stop
-      return () => clearInterval(analysisInterval);
+      }, 5000);
     }
   };
   
-  // Throttled facial analysis to avoid too many API calls
   const lastAnalysisTime = useRef(0);
   const analyzeFace = async (imageBase64: string) => {
     const now = Date.now();
     if (now - lastAnalysisTime.current < 5000) {
-      return; // Skip if less than 5 seconds since last analysis
+      return;
     }
     
     lastAnalysisTime.current = now;
@@ -180,6 +165,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
       }
     } catch (error) {
       console.error('Facial analysis error:', error);
+      setApiError('Facial analysis temporarily unavailable');
     }
   };
 
@@ -187,6 +173,11 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     if (mediaRecorderRef.current && isRecordingAudio) {
       mediaRecorderRef.current.stop();
       setIsRecordingAudio(false);
+    }
+    
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+      analysisIntervalRef.current = null;
     }
     
     setIsRecordingVideo(false);
@@ -200,53 +191,44 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   };
   
   const handleSkipQuestion = () => {
-    // Stop TTS if it's currently speaking
     ttsService.stop();
     setIsSpeaking(false);
-    
-    // Add empty answer for skipped question
     setAnswers(prev => [...prev, "Question skipped"]);
-    
-    // Move to next question or finish
     moveToNextQuestion();
   };
 
   const handleNextQuestion = async () => {
-    // Stop recording if active
     if (isRecordingAudio) {
       stopRecording();
     }
 
-    // Use a placeholder for now (in a real app, you'd use the actual transcribed answer)
-    const currentAnswer = "Sample answer for question " + (currentQuestionIndex + 1);
+    const currentAnswer = audioBlob ? "Audio answer recorded" : "No answer provided";
     const updatedAnswers = [...answers, currentAnswer];
     setAnswers(updatedAnswers);
     
-    // Update the interview in the database
     if (interviewId) {
-      await updateInterview(interviewId, {
-        answers: updatedAnswers,
-        current_question: currentQuestionIndex + 1
-      });
+      try {
+        await updateInterview(interviewId, {
+          answers: updatedAnswers,
+          current_question: currentQuestionIndex + 1
+        });
+      } catch (error) {
+        console.error('Error updating interview:', error);
+      }
     }
     
-    // Get feedback for the answer (simulated)
+    // Try to get feedback, but don't block progression if it fails
     try {
-      const feedback = await getAnswerFeedback(
-        questions[currentQuestionIndex],
-        currentAnswer
-      );
-      console.log('Answer feedback:', feedback);
+      await getAnswerFeedback(questions[currentQuestionIndex], currentAnswer);
     } catch (error) {
       console.error('Error getting feedback:', error);
+      setApiError('Answer feedback temporarily unavailable');
     }
     
-    // Move to next question or finish
     moveToNextQuestion();
   };
   
   const moveToNextQuestion = () => {
-    // Stop TTS if it's currently speaking
     ttsService.stop();
     setIsSpeaking(false);
     
@@ -254,36 +236,34 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     
     if (nextIndex < questions.length) {
       setCurrentQuestionIndex(nextIndex);
-      setAudioBlob(null); // Reset audio for next question
+      setAudioBlob(null);
+      setApiError(null);
     } else {
-      // Interview complete
       finishInterview();
     }
   };
   
   const finishInterview = async () => {
-    // Stop all recording and media
     stopRecording();
     stopMediaStream();
     
-    // Mark interview as completed in database
     if (interviewId) {
-      await updateInterview(interviewId, {
-        status: 'completed',
-        completed_at: new Date().toISOString()
-      });
+      try {
+        await updateInterview(interviewId, {
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error completing interview:', error);
+      }
     }
     
-    // Call the completion callback with results
     onInterviewComplete(answers, facialData);
   };
   
   const repeatQuestion = () => {
-    // Stop TTS if it's currently speaking
     ttsService.stop();
     setIsSpeaking(false);
-    
-    // Speak the question again
     speakQuestion();
   };
 
@@ -295,6 +275,15 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
           Question {currentQuestionIndex + 1} of {questions.length}
         </p>
       </div>
+      
+      {apiError && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mr-2" />
+            <span className="text-amber-800">{apiError}</span>
+          </div>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
@@ -339,7 +328,6 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                     ></video>
                     <canvas ref={canvasRef} className="hidden"></canvas>
                     
-                    {/* Recording indicator */}
                     {(isRecordingAudio || isRecordingVideo) && (
                       <div className="absolute top-4 right-4 flex items-center bg-black bg-opacity-50 text-white px-3 py-1 rounded-full">
                         <div className="w-3 h-3 bg-red-500 rounded-full mr-2 animate-pulse"></div>

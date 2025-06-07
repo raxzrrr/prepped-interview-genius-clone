@@ -1,6 +1,8 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
+import { generateConsistentUUID } from "@/utils/userUtils";
 
 interface InterviewQuestion {
   id?: string;
@@ -51,61 +53,32 @@ export const useInterviewApi = () => {
     try {
       console.log("Generating interview questions for role:", jobRole);
       
-      // Create mock questions if we're in development or edge function fails
-      // This ensures the app works even when backend services are unavailable
-      const mockQuestions = [
-        "Tell me about yourself and your background.",
-        `What experience do you have related to ${jobRole}?`,
-        "Describe a challenging project you worked on.",
-        "How do you handle tight deadlines?",
-        "What are your strengths and weaknesses?"
-      ];
-      
-      try {
-        // Try using the Supabase Edge Function
-        const { data, error } = await supabase.functions.invoke('gemini-interview', {
-          body: { type: 'interview-questions', prompt: jobRole }
-        });
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { type: 'interview-questions', prompt: jobRole }
+      });
 
-        if (error) throw new Error(error.message);
-        
-        // If we got an array back, format it into question objects
-        if (Array.isArray(data)) {
-          return data.map((question, index) => ({
-            id: `q-${index + 1}`,
-            question
-          }));
-        }
-        
-        // If we didn't get proper data back, use mock questions
-        console.log("Using mock questions as fallback");
-        return mockQuestions.map((question, index) => ({
-          id: `q-${index + 1}`,
-          question
-        }));
-      } catch (error) {
-        console.error('Error in edge function, using mock questions:', error);
-        return mockQuestions.map((question, index) => ({
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message);
+      }
+      
+      if (Array.isArray(data)) {
+        return data.map((question, index) => ({
           id: `q-${index + 1}`,
           question
         }));
       }
+      
+      // If data is not an array or is invalid, throw error instead of using mock data
+      throw new Error('Invalid response format from API');
     } catch (error) {
       console.error('Error generating interview questions:', error);
       toast({
-        title: "Error",
-        description: "Failed to generate interview questions. Using sample questions instead.",
+        title: "API Error",
+        description: "Failed to generate interview questions. Please check your API configuration.",
         variant: "destructive"
       });
-      
-      // Return sample questions as fallback
-      return [
-        { id: "q-1", question: "Tell me about yourself and your background." },
-        { id: "q-2", question: `What experience do you have related to this role?` },
-        { id: "q-3", question: "Describe a challenging project you worked on." },
-        { id: "q-4", question: "How do you handle tight deadlines?" },
-        { id: "q-5", question: "What are your strengths and weaknesses?" }
-      ];
+      throw error;
     }
   };
 
@@ -120,23 +93,20 @@ export const useInterviewApi = () => {
         }
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message);
+      }
+      
       return data;
     } catch (error) {
       console.error('Error getting answer feedback:', error);
       toast({
-        title: "Error",
-        description: "Failed to analyze your answer. Using mock feedback instead.",
+        title: "API Error",
+        description: "Failed to analyze your answer. Please check your API configuration.",
         variant: "destructive"
       });
-      
-      // Return mock feedback as fallback
-      return {
-        score: 75,
-        strengths: ["Good structure", "Clear explanation"],
-        areas_to_improve: ["Could provide more specific examples"],
-        suggestion: "Consider adding more concrete examples to strengthen your answer."
-      };
+      throw error;
     }
   };
 
@@ -151,23 +121,20 @@ export const useInterviewApi = () => {
         }
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message);
+      }
+      
       return data;
     } catch (error) {
       console.error('Error analyzing facial expression:', error);
       toast({
-        title: "Error",
-        description: "Failed to analyze facial expressions. Using mock data instead.",
+        title: "API Error",
+        description: "Failed to analyze facial expressions. Please check your API configuration.",
         variant: "destructive"
       });
-      
-      // Return mock facial analysis as fallback
-      return {
-        primary_emotion: "neutral",
-        confidence_score: 0.85,
-        engagement_level: 7,
-        observations: ["Good eye contact", "Neutral facial expression"]
-      };
+      throw error;
     }
   };
 
@@ -175,61 +142,53 @@ export const useInterviewApi = () => {
     if (!checkApiKey()) return null;
     
     try {
-      console.log("Analyzing resume, length:", resumeBase64.length);
+      console.log("Analyzing resume...");
       
-      // Create mock resume analysis if the edge function fails
-      const mockResumeAnalysis = {
-        skills: ["Communication", "Problem Solving", "JavaScript", "React", "Node.js"],
-        suggested_role: "Software Engineer",
-        strengths: ["Technical expertise", "Project experience"],
-        areas_to_improve: ["Could highlight leadership more"],
-        suggestions: "Consider organizing your resume by projects rather than chronologically."
-      };
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('gemini-interview', {
-          body: { 
-            type: 'resume-analysis', 
-            prompt: { resume: resumeBase64 } 
-          }
-        });
-
-        if (error) throw new Error(error.message);
-        
-        if (!data) {
-          console.log("No data returned from resume analysis, using mock data");
-          return mockResumeAnalysis;
-        }
-        
-        return data;
-      } catch (error) {
-        console.error('Error in edge function, using mock resume analysis:', error);
-        return mockResumeAnalysis;
+      if (!resumeBase64.includes('application/pdf')) {
+        throw new Error('Only PDF files are supported');
       }
+      
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { 
+          type: 'resume-analysis', 
+          prompt: { resume: resumeBase64 } 
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message);
+      }
+      
+      if (!data) {
+        throw new Error('No analysis data received');
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error analyzing resume:', error);
       toast({
-        title: "Error",
-        description: "Failed to analyze resume. Using sample analysis instead.",
+        title: "API Error",
+        description: "Failed to analyze resume. Please check your API configuration.",
         variant: "destructive"
       });
-      
-      // Return sample resume analysis as fallback
-      return {
-        skills: ["Communication", "Problem Solving", "JavaScript", "React", "Node.js"],
-        suggested_role: "Software Engineer",
-        strengths: ["Technical expertise", "Project experience"],
-        areas_to_improve: ["Could highlight leadership more"],
-        suggestions: "Consider organizing your resume by projects rather than chronologically."
-      };
+      throw error;
     }
   };
 
   const saveInterview = async (interviewData: any): Promise<string> => {
     try {
+      // Convert Clerk user ID to consistent UUID
+      const supabaseUserId = generateConsistentUUID(interviewData.user_id);
+      
+      const dataWithUUID = {
+        ...interviewData,
+        user_id: supabaseUserId
+      };
+      
       const { data, error } = await supabase
         .from('interviews')
-        .insert(interviewData)
+        .insert(dataWithUUID)
         .select('id')
         .single();
 
@@ -238,7 +197,7 @@ export const useInterviewApi = () => {
     } catch (error) {
       console.error('Error saving interview:', error);
       toast({
-        title: "Error",
+        title: "Database Error",
         description: "Failed to save the interview. Please try again.",
         variant: "destructive"
       });
@@ -257,7 +216,7 @@ export const useInterviewApi = () => {
     } catch (error) {
       console.error('Error updating interview:', error);
       toast({
-        title: "Error",
+        title: "Database Error",
         description: "Failed to update the interview. Please try again.",
         variant: "destructive"
       });
@@ -265,19 +224,23 @@ export const useInterviewApi = () => {
     }
   };
 
-  const getInterviews = async () => {
+  const getInterviews = async (userId: string) => {
     try {
+      // Convert Clerk user ID to consistent UUID
+      const supabaseUserId = generateConsistentUUID(userId);
+      
       const { data, error } = await supabase
         .from('interviews')
         .select('*')
+        .eq('user_id', supabaseUserId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data || [];
     } catch (error) {
       console.error('Error fetching interviews:', error);
       toast({
-        title: "Error",
+        title: "Database Error",
         description: "Failed to fetch interviews. Please try again.",
         variant: "destructive"
       });
@@ -298,7 +261,7 @@ export const useInterviewApi = () => {
     } catch (error) {
       console.error('Error fetching interview:', error);
       toast({
-        title: "Error",
+        title: "Database Error",
         description: "Failed to fetch interview details. Please try again.",
         variant: "destructive"
       });
