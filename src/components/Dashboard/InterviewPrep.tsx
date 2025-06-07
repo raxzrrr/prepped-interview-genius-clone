@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -173,17 +172,14 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     const newEvaluations: any[] = [];
     
     try {
+      // Generate evaluations for ALL questions, including skipped ones
       for (let i = 0; i < questions.length; i++) {
         const question = questions[i];
         const answer = finalAnswers[i] || 'No answer provided';
         
-        if (answer !== 'No answer provided' && answer !== 'Question skipped') {
-          console.log(`Generating evaluation for question ${i + 1}`);
-          const evaluation = await evaluateAnswer(question, answer);
-          newEvaluations[i] = evaluation;
-        } else {
-          newEvaluations[i] = null;
-        }
+        console.log(`Generating evaluation for question ${i + 1} (Answer: ${answer})`);
+        const evaluation = await evaluateAnswer(question, answer);
+        newEvaluations[i] = evaluation;
       }
       
       setEvaluations(newEvaluations);
@@ -346,7 +342,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       setAnswers(finalAnswers);
       console.log('Final answers array:', finalAnswers);
       
-      // Generate evaluations for all answers
+      // Generate evaluations for all answers (including skipped ones)
       const newEvaluations = await generateEvaluations(finalAnswers);
       
       cleanup();
@@ -649,7 +645,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={toggleAudio}
+                onClick={() => setAudioEnabled(!audioEnabled)}
                 className="flex items-center"
               >
                 {audioEnabled ? (
@@ -668,7 +664,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={replayQuestion}
+                  onClick={() => speakQuestion(currentQuestion)}
                   disabled={isPlaying}
                   className="flex items-center"
                 >

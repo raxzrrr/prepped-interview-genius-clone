@@ -146,10 +146,15 @@ export const useInterviewApi = () => {
     try {
       console.log('Getting evaluation for question:', question.substring(0, 50) + '...');
       
+      // Always send the question for evaluation, even if no answer was provided
+      const answerToEvaluate = userAnswer && userAnswer.trim() !== '' && userAnswer !== 'Question skipped' && userAnswer !== 'No answer provided'
+        ? userAnswer
+        : 'No answer provided';
+      
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'evaluation', 
-          prompt: { question, answer: userAnswer } 
+          prompt: { question, answer: answerToEvaluate } 
         }
       });
 
