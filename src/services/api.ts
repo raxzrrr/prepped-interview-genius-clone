@@ -206,37 +206,48 @@ export const useInterviewApi = () => {
     try {
       console.log('Saving interview with data:', interviewData);
       
-      // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get current user session with more robust error handling
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
-      if (!session?.user) {
-        throw new Error('User must be logged in to save interview');
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error(`Authentication error: ${sessionError.message}`);
       }
       
-      console.log('User session found, inserting interview...');
+      if (!sessionData?.session?.user) {
+        console.error('No authenticated user found');
+        throw new Error('You must be logged in to save interviews. Please log in and try again.');
+      }
+      
+      const userId = sessionData.session.user.id;
+      console.log('Authenticated user ID:', userId);
       
       // Insert directly into interviews table with current user ID
       const { data, error } = await supabase
         .from('interviews')
         .insert({
           ...interviewData,
-          user_id: session.user.id
+          user_id: userId
         })
         .select('id')
         .single();
           
       if (error) {
-        console.error('Insert error:', error);
-        throw error;
+        console.error('Database insert error:', error);
+        throw new Error(`Database error: ${error.message}`);
       }
       
-      console.log('Successfully saved interview:', data);
+      if (!data?.id) {
+        throw new Error('No interview ID returned from database');
+      }
+      
+      console.log('Successfully saved interview with ID:', data.id);
       return data.id;
     } catch (error: any) {
       console.error('Error saving interview:', error);
       toast({
-        title: "Database Error",
-        description: `Failed to save the interview: ${error.message}. Please ensure you are logged in and try again.`,
+        title: "Save Failed",
+        description: error.message || "Failed to save the interview. Please try again.",
         variant: "destructive"
       });
       throw error;
@@ -247,30 +258,39 @@ export const useInterviewApi = () => {
     try {
       console.log('Updating interview:', id, 'with data:', interviewData);
       
-      // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get current user session with more robust error handling
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
-      if (!session?.user) {
-        throw new Error('User must be logged in to update interview');
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error(`Authentication error: ${sessionError.message}`);
       }
       
+      if (!sessionData?.session?.user) {
+        console.error('No authenticated user found');
+        throw new Error('You must be logged in to update interviews. Please log in and try again.');
+      }
+      
+      const userId = sessionData.session.user.id;
+      console.log('Authenticated user ID:', userId);
+
       const { error } = await supabase
         .from('interviews')
         .update(interviewData)
         .eq('id', id)
-        .eq('user_id', session.user.id); // Ensure user can only update their own interviews
+        .eq('user_id', userId); // Ensure user can only update their own interviews
 
       if (error) {
-        console.error('Supabase update error:', error);
-        throw error;
+        console.error('Database update error:', error);
+        throw new Error(`Database error: ${error.message}`);
       }
       
       console.log('Successfully updated interview');
     } catch (error: any) {
       console.error('Error updating interview:', error);
       toast({
-        title: "Database Error",
-        description: `Failed to update the interview: ${error.message}. Please ensure you are logged in and try again.`,
+        title: "Update Failed",
+        description: error.message || "Failed to update the interview. Please try again.",
         variant: "destructive"
       });
       throw error;

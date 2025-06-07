@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -227,6 +228,18 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
 
   const finishInterview = async () => {
     try {
+      console.log('Starting interview finish process...');
+      
+      // Check if user is authenticated
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "You must be logged in to save the interview. Please log in and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Save the current answer if there is one
       const finalAnswers = [...answers];
       if (currentAnswer.trim()) {
@@ -243,29 +256,51 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       );
       const score = Math.round((validAnswers.length / questions.length) * 100);
       
+      console.log('Final answers:', finalAnswers);
+      console.log('Calculated score:', score);
+      
       // Save or update the interview
-      if (actualInterviewId) {
-        await updateInterview(actualInterviewId, {
-          status: 'completed',
-          answers: finalAnswers,
-          score: score,
-          facial_analysis: facialAnalysis,
-          completed_at: new Date().toISOString()
-        });
-      } else if (user) {
-        const newInterviewData = {
-          user_id: user.id,
-          title: `Interview - ${new Date().toLocaleDateString()}`,
-          questions: questions,
-          answers: finalAnswers,
-          status: 'completed',
-          score: score,
-          facial_analysis: facialAnalysis,
-          completed_at: new Date().toISOString()
-        };
+      try {
+        if (actualInterviewId) {
+          console.log('Updating existing interview:', actualInterviewId);
+          await updateInterview(actualInterviewId, {
+            status: 'completed',
+            answers: finalAnswers,
+            score: score,
+            facial_analysis: facialAnalysis,
+            completed_at: new Date().toISOString()
+          });
+          console.log('Interview updated successfully');
+        } else {
+          console.log('Creating new interview record');
+          const newInterviewData = {
+            user_id: user.id,
+            title: `Interview - ${new Date().toLocaleDateString()}`,
+            questions: questions,
+            answers: finalAnswers,
+            status: 'completed',
+            score: score,
+            facial_analysis: facialAnalysis,
+            completed_at: new Date().toISOString()
+          };
+          
+          const newInterviewId = await saveInterview(newInterviewData);
+          setActualInterviewId(newInterviewId);
+          console.log('New interview created with ID:', newInterviewId);
+        }
         
-        const newInterviewId = await saveInterview(newInterviewData);
-        setActualInterviewId(newInterviewId);
+        toast({
+          title: "Interview Completed",
+          description: "Your interview has been saved successfully!",
+        });
+        
+      } catch (saveError: any) {
+        console.error('Error saving interview:', saveError);
+        toast({
+          title: "Save Warning", 
+          description: "Interview completed but failed to save. You can still view your results.",
+          variant: "destructive",
+        });
       }
       
       cleanup();
@@ -279,15 +314,15 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         interviewId: actualInterviewId
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error finishing interview:', error);
       toast({
-        title: "Save Error",
-        description: "Failed to save interview. You can still view your results.",
+        title: "Error",
+        description: error.message || "An error occurred while finishing the interview.",
         variant: "destructive",
       });
       
-      // Even if save fails, show the results
+      // Even if there's an error, show the results
       const finalAnswers = [...answers];
       if (currentAnswer.trim()) {
         finalAnswers[currentQuestionIndex] = currentAnswer.trim();
