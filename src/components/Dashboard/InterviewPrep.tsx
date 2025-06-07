@@ -203,8 +203,24 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
   const handleSkipQuestion = () => {
     ttsService.stop();
     setIsSpeaking(false);
-    setAnswers(prev => [...prev, "Question skipped"]);
+    
+    const skippedAnswer = "Question skipped";
+    const updatedAnswers = [...answers, skippedAnswer];
+    setAnswers(updatedAnswers);
     setCurrentAnswer('');
+    
+    // Update interview in database (don't block if it fails)
+    if (interviewId) {
+      try {
+        updateInterview(interviewId, {
+          answers: updatedAnswers,
+          current_question: currentQuestionIndex + 1
+        });
+      } catch (error) {
+        console.error('Error updating interview:', error);
+      }
+    }
+    
     moveToNextQuestion();
   };
 
@@ -300,6 +316,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
     setTtsEnabled(!ttsEnabled);
     setApiError(null);
   };
+
+  // Check if we're on the last question
+  const isLastQuestion = currentQuestionIndex === questions.length - 1;
 
   return (
     <div className="space-y-6">
@@ -462,15 +481,15 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({ questions, interviewId, o
                   Skip
                 </Button>
                 <Button 
-                  onClick={handleNextQuestion}
-                  disabled={!currentAnswer.trim()}
+                  onClick={isLastQuestion ? finishInterview : handleNextQuestion}
+                  disabled={!isLastQuestion && !currentAnswer.trim()}
                 >
-                  {currentQuestionIndex < questions.length - 1 ? (
+                  {isLastQuestion ? (
+                    'Finish Interview'
+                  ) : (
                     <>
                       Next <ArrowRight className="ml-2 h-4 w-4" />
                     </>
-                  ) : (
-                    'Finish Interview'
                   )}
                 </Button>
               </div>

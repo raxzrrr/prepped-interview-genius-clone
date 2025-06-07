@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Check, Download, RefreshCw, Save, Share2 } from 'lucide-react';
 import { useInterviewApi } from '@/services/api';
+import { useToast } from '@/components/ui/use-toast';
 
 export interface InterviewReportProps {
   questions: string[];
@@ -23,7 +23,10 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<any[]>([]);
   const [overallScore, setOverallScore] = useState(0);
-  const { getAnswerFeedback } = useInterviewApi();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { getAnswerFeedback, updateInterview } = useInterviewApi();
+  const { toast } = useToast();
   
   useEffect(() => {
     if (questions.length > 0 && answers.length > 0) {
@@ -56,6 +59,126 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       console.error('Error analyzing answers:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveReport = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Create report data
+      const reportData = {
+        questions,
+        answers,
+        feedback,
+        overallScore,
+        facialAnalysis,
+        generatedAt: new Date().toISOString()
+      };
+      
+      // Save as JSON file
+      const dataStr = JSON.stringify(reportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `interview-report-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Report Saved",
+        description: "Your interview report has been downloaded successfully.",
+      });
+      
+    } catch (error) {
+      console.error('Error saving report:', error);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save the report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      setIsDownloading(true);
+      
+      // Create HTML content for PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Interview Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .score { font-size: 24px; font-weight: bold; color: #6366f1; }
+            .section { margin-bottom: 20px; }
+            .question { font-weight: bold; margin-bottom: 10px; }
+            .answer { margin-bottom: 15px; padding: 10px; background-color: #f9fafb; }
+            .feedback { margin-bottom: 10px; }
+            .strengths { color: #16a34a; }
+            .improvements { color: #ea580c; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Interview Report</h1>
+            <div class="score">Overall Score: ${overallScore}%</div>
+            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          </div>
+          
+          ${questions.map((question, index) => `
+            <div class="section">
+              <div class="question">Question ${index + 1}: ${question}</div>
+              <div class="answer"><strong>Answer:</strong> ${answers[index] || 'No answer provided'}</div>
+              ${feedback[index] ? `
+                <div class="feedback">
+                  <div class="strengths"><strong>Strengths:</strong> ${feedback[index].strengths?.join(', ') || 'None'}</div>
+                  <div class="improvements"><strong>Areas to Improve:</strong> ${feedback[index].areas_to_improve?.join(', ') || 'None'}</div>
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </body>
+        </html>
+      `;
+      
+      // Create blob and download
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `interview-report-${new Date().toISOString().split('T')[0]}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "PDF Downloaded",
+        description: "Your interview report has been downloaded as HTML (can be converted to PDF by printing).",
+      });
+      
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download the report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -287,7 +410,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                     {feedback.length > 0 ? (
                       feedback.slice(0, 3).flatMap(f => 
                         f.strengths?.slice(0, 2).map((s: string, i: number) => (
-                          <li key={i} className="flex items-start">
+                          <li key={`strength-${i}`} className="flex items-start">
                             <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
                             <span>{s}</span>
                           </li>
@@ -305,7 +428,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                     {feedback.length > 0 ? (
                       feedback.slice(0, 3).flatMap(f => 
                         f.areas_to_improve?.slice(0, 2).map((s: string, i: number) => (
-                          <li key={i} className="flex items-start">
+                          <li key={`improve-${i}`} className="flex items-start">
                             <div className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0 flex items-center justify-center">
                               <div className="h-1.5 w-1.5 bg-amber-500 rounded-full"></div>
                             </div>
@@ -471,13 +594,39 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       
       <div className="flex justify-between">
         <div className="flex space-x-2">
-          <Button variant="outline">
-            <Save className="mr-2 h-4 w-4" />
-            Save Report
+          <Button 
+            variant="outline" 
+            onClick={handleSaveReport}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save Report
+              </>
+            )}
           </Button>
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
+          <Button 
+            variant="outline"
+            onClick={handleDownloadPDF}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500 mr-2" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF
+              </>
+            )}
           </Button>
         </div>
         <Button variant="outline">
