@@ -68,6 +68,8 @@ Deno.serve(async (req) => {
     switch (action) {
       case 'fetch':
         console.log('Fetching user learning data...');
+        
+        // First, try to find existing record
         const { data: existingData, error: fetchError } = await supabase
           .from('user_learning')
           .select('*')
@@ -102,10 +104,13 @@ Deno.serve(async (req) => {
 
           if (createError) {
             console.error('Create error:', createError);
-            throw createError;
+            // If creation fails, return null so frontend can handle it gracefully
+            console.log('Failed to create record, returning null for graceful fallback');
+            result = null;
+          } else {
+            result = createdData;
+            console.log('Created new learning record:', result.id);
           }
-          result = createdData;
-          console.log('Created new learning record:', result.id);
         } else {
           result = existingData;
           console.log('Found existing learning record:', result?.id || 'none');
@@ -114,44 +119,116 @@ Deno.serve(async (req) => {
 
       case 'update':
         console.log('Updating learning record...');
-        const { data: updateData, error: updateError } = await supabase
-          .from('user_learning')
-          .update({
-            ...data,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', supabaseUserId)
-          .select('*')
-          .single();
         
-        if (updateError) {
-          console.error('Update error:', updateError);
-          throw updateError;
+        // First ensure record exists, create if it doesn't
+        const { data: checkData } = await supabase
+          .from('user_learning')
+          .select('id')
+          .eq('user_id', supabaseUserId)
+          .maybeSingle();
+        
+        if (!checkData) {
+          console.log('No existing record found, creating one first...');
+          const newRecord = {
+            user_id: supabaseUserId,
+            course_progress: data.course_progress || {},
+            completed_modules: data.completed_modules || 0,
+            total_modules: data.total_modules || 0,
+            assessment_attempted: false,
+            assessment_score: null,
+            course_score: data.course_score || null,
+            course_completed_at: data.course_completed_at || null,
+            assessment_completed_at: null
+          };
+
+          const { data: createdData, error: createError } = await supabase
+            .from('user_learning')
+            .insert(newRecord)
+            .select('*')
+            .single();
+
+          if (createError) {
+            console.error('Create error during update:', createError);
+            throw createError;
+          }
+          result = createdData;
+          console.log('Created new learning record during update:', result.id);
+        } else {
+          const { data: updateData, error: updateError } = await supabase
+            .from('user_learning')
+            .update({
+              ...data,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', supabaseUserId)
+            .select('*')
+            .single();
+          
+          if (updateError) {
+            console.error('Update error:', updateError);
+            throw updateError;
+          }
+          result = updateData;
+          console.log('Updated learning record:', result.id);
         }
-        result = updateData;
-        console.log('Updated learning record:', result.id);
         break;
 
       case 'updateAssessment':
         console.log('Updating assessment score...');
-        const { data: assessmentData, error: assessmentError } = await supabase
+        
+        // Ensure record exists first
+        const { data: assessmentCheckData } = await supabase
           .from('user_learning')
-          .update({
+          .select('id')
+          .eq('user_id', supabaseUserId)
+          .maybeSingle();
+        
+        if (!assessmentCheckData) {
+          // Create record if it doesn't exist
+          const newRecord = {
+            user_id: supabaseUserId,
+            course_progress: {},
+            completed_modules: 0,
+            total_modules: 0,
             assessment_attempted: true,
             assessment_score: data.score,
             assessment_completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', supabaseUserId)
-          .select('*')
-          .single();
-        
-        if (assessmentError) {
-          console.error('Assessment update error:', assessmentError);
-          throw assessmentError;
+            course_score: null,
+            course_completed_at: null
+          };
+
+          const { data: createdData, error: createError } = await supabase
+            .from('user_learning')
+            .insert(newRecord)
+            .select('*')
+            .single();
+
+          if (createError) {
+            console.error('Create error during assessment update:', createError);
+            throw createError;
+          }
+          result = createdData;
+          console.log('Created new learning record for assessment:', result.id);
+        } else {
+          const { data: assessmentData, error: assessmentError } = await supabase
+            .from('user_learning')
+            .update({
+              assessment_attempted: true,
+              assessment_score: data.score,
+              assessment_completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', supabaseUserId)
+            .select('*')
+            .single();
+          
+          if (assessmentError) {
+            console.error('Assessment update error:', assessmentError);
+            throw assessmentError;
+          }
+          result = assessmentData;
+          console.log('Updated assessment score:', data.score);
         }
-        result = assessmentData;
-        console.log('Updated assessment score:', data.score);
         break;
 
       default:

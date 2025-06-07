@@ -16,7 +16,7 @@ export interface UserLearningData {
   updated_at: string;
 }
 
-const invokeFunction = async (functionName: string, body: any, retries = 2): Promise<any> => {
+const invokeFunction = async (functionName: string, body: any, retries = 3): Promise<any> => {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       console.log(`Invoking ${functionName}, attempt ${attempt + 1}/${retries + 1}`, body);
@@ -27,8 +27,13 @@ const invokeFunction = async (functionName: string, body: any, retries = 2): Pro
 
       if (error) {
         console.error(`Function ${functionName} error:`, error);
-        if (error.message?.includes('Failed to fetch')) {
-          throw new Error('Network error - function not reachable');
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('Network error')) {
+          if (attempt === retries) {
+            throw new Error('Network error - function not reachable after all retries');
+          }
+          console.log(`Network error, retrying attempt ${attempt + 1}...`);
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          continue;
         }
         throw error;
       }
