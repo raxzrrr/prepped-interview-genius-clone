@@ -71,10 +71,15 @@ export const useSubscription = () => {
     return isActive && isNotExpired;
   };
 
+  const hasProPlan = () => {
+    return hasActivePlan('pro') || hasActivePlan('enterprise');
+  };
+
   return {
     subscription,
     loading,
     hasActivePlan,
     hasAnyActivePlan,
+    hasProPlan,
   };
 };

@@ -14,6 +14,7 @@ import { useInterviewApi } from '@/services/api';
 import ResumeUpload from '@/components/Dashboard/ResumeUpload';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
+import ProFeatureGuard from '@/components/ProFeatureGuard';
 
 const CustomInterviewsPage: React.FC = () => {
   const { user, isStudent } = useAuth();
@@ -152,6 +153,7 @@ const CustomInterviewsPage: React.FC = () => {
             <TabsTrigger value="resume" className="flex items-center">
               <FileText className="mr-2 h-4 w-4" />
               Resume-Based Interview
+              <Badge variant="outline" className="ml-2 text-xs">PRO</Badge>
             </TabsTrigger>
           </TabsList>
 
@@ -168,7 +170,7 @@ const CustomInterviewsPage: React.FC = () => {
                       Generate questions based on a specific job role
                     </CardDescription>
                   </div>
-                  <Badge variant="outline">Custom Questions</Badge>
+                  <Badge variant="outline">Free</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -208,10 +210,15 @@ const CustomInterviewsPage: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="resume" className="space-y-4">
-            <ResumeUpload
-              onAnalysisComplete={handleResumeAnalysisComplete}
-              onAnalysisResults={setResumeAnalysis}
-            />
+            <ProFeatureGuard 
+              featureName="Resume-Based Interview"
+              description="Upload your resume to get personalized interview questions based on your skills and experience. This premium feature helps you practice with questions tailored specifically to your background."
+            >
+              <ResumeUpload
+                onAnalysisComplete={handleResumeAnalysisComplete}
+                onAnalysisResults={setResumeAnalysis}
+              />
+            </ProFeatureGuard>
           </TabsContent>
         </Tabs>
       </div>

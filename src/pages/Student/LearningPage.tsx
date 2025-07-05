@@ -13,6 +13,7 @@ import { AlertCircle, Loader2, Award } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ProFeatureGuard from '@/components/ProFeatureGuard';
 
 interface Module {
   id: string;
@@ -288,10 +289,15 @@ const LearningPage: React.FC = () => {
             </p>
           </div>
           
-          <AssessmentQuiz
-            onComplete={handleAssessmentComplete}
-            onClose={() => setShowAssessment(false)}
-          />
+          <ProFeatureGuard 
+            featureName="Assessment & Certification"
+            description="Take our comprehensive technical assessment and earn your professional certificate. This feature is available to Pro subscribers only."
+          >
+            <AssessmentQuiz
+              onComplete={handleAssessmentComplete}
+              onClose={() => setShowAssessment(false)}
+            />
+          </ProFeatureGuard>
         </div>
       </DashboardLayout>
     );
@@ -307,110 +313,115 @@ const LearningPage: React.FC = () => {
           </p>
         </div>
         
-        {learningError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {learningError}. Progress will be saved locally.
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {selectedModule ? (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">{selectedModule.title}</h2>
-              <button 
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => setSelectedModule(null)}
-              >
-                Back to Courses
-              </button>
-            </div>
-            
-            <div className="bg-white rounded-lg border p-6">
-              <VideoPlayer 
-                videoUrl={selectedModule.videoUrl}
-                onProgress={(progress) => handleModuleProgress(selectedModule.id, progress)}
-                initialProgress={0}
-                moduleId={selectedModule.id}
-                onCompleted={handleModuleCompleted}
-                onAdvanceToNext={handleAdvanceToNext}
-              />
+        <ProFeatureGuard 
+          featureName="Learning Hub"
+          description="Access our comprehensive library of interview preparation courses, video tutorials, and earn professional certificates. Upgrade to Pro to unlock the full learning experience."
+        >
+          {learningError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {learningError}. Progress will be saved locally.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {selectedModule ? (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">{selectedModule.title}</h2>
+                <button 
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  onClick={() => setSelectedModule(null)}
+                >
+                  Back to Courses
+                </button>
+              </div>
               
-              <div className="mt-6 space-y-4">
-                <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
-                <p className="text-gray-600">{selectedModule.description}</p>
+              <div className="bg-white rounded-lg border p-6">
+                <VideoPlayer 
+                  videoUrl={selectedModule.videoUrl}
+                  onProgress={(progress) => handleModuleProgress(selectedModule.id, progress)}
+                  initialProgress={0}
+                  moduleId={selectedModule.id}
+                  onCompleted={handleModuleCompleted}
+                  onAdvanceToNext={handleAdvanceToNext}
+                />
+                
+                <div className="mt-6 space-y-4">
+                  <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
+                  <p className="text-gray-600">{selectedModule.description}</p>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="courses">Courses</TabsTrigger>
-              <TabsTrigger value="assessment">Assessment</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="courses">
-              <CourseList
-                courses={courses}
-                onModuleSelect={handleModuleSelect}
-                onMarkAsCompleted={handleMarkAsCompletedFromList}
-              />
-            </TabsContent>
-            
-            <TabsContent value="assessment">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Award className="h-6 w-6 text-yellow-600" />
-                    <CardTitle>Technical Interview Assessment</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-gray-600">
-                    Test your knowledge with our comprehensive technical interview assessment. 
-                    Complete the course first to unlock the assessment.
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Assessment Status:</p>
-                    {userLearningData?.assessment_attempted ? (
-                      <p className="text-green-600">
-                        Completed with score: {userLearningData.assessment_score}%
-                      </p>
-                    ) : (
-                      <p className="text-gray-500">Not attempted</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Course Status:</p>
-                    {canTakeAssessment() ? (
-                      <p className="text-green-600">Course completed - Assessment unlocked!</p>
-                    ) : (
-                      <p className="text-orange-600">
-                        Complete all modules to unlock assessment ({
-                          Object.keys(userLearningData?.course_progress?.['interview-mastery'] || {}).filter(
-                            key => userLearningData?.course_progress?.['interview-mastery']?.[key] === true
-                          ).length
-                        }/5 modules completed)
-                      </p>
-                    )}
-                  </div>
-                  
-                  <Button 
-                    onClick={() => setShowAssessment(true)}
-                    disabled={!canTakeAssessment()}
-                    className="w-full sm:w-auto"
-                  >
-                    {userLearningData?.assessment_attempted ? 'Retake Assessment' : 'Start Assessment'}
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        )}
+          ) : (
+            <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="courses">Courses</TabsTrigger>
+                <TabsTrigger value="assessment">Assessment</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="courses">
+                <CourseList
+                  courses={courses}
+                  onModuleSelect={handleModuleSelect}
+                  onMarkAsCompleted={handleMarkAsCompletedFromList}
+                />
+              </TabsContent>
+              
+              <TabsContent value="assessment">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Award className="h-6 w-6 text-yellow-600" />
+                      <CardTitle>Technical Interview Assessment</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-gray-600">
+                      Test your knowledge with our comprehensive technical interview assessment. 
+                      Complete the course first to unlock the assessment.
+                    </p>
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Assessment Status:</p>
+                      {userLearningData?.assessment_attempted ? (
+                        <p className="text-green-600">
+                          Completed with score: {userLearningData.assessment_score}%
+                        </p>
+                      ) : (
+                        <p className="text-gray-500">Not attempted</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Course Status:</p>
+                      {canTakeAssessment() ? (
+                        <p className="text-green-600">Course completed - Assessment unlocked!</p>
+                      ) : (
+                        <p className="text-orange-600">
+                          Complete all modules to unlock assessment ({
+                            Object.keys(userLearningData?.course_progress?.['interview-mastery'] || {}).filter(
+                              key => userLearningData?.course_progress?.['interview-mastery']?.[key] === true
+                            ).length
+                          }/5 modules completed)
+                        </p>
+                      )}
+                    </div>
+                    
+                    <Button 
+                      onClick={() => setShowAssessment(true)}
+                      disabled={!canTakeAssessment()}
+                      className="w-full sm:w-auto"
+                    >
+                      {userLearningData?.assessment_attempted ? 'Retake Assessment' : 'Start Assessment'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
+        </ProFeatureGuard>
       </div>
     </DashboardLayout>
   );
