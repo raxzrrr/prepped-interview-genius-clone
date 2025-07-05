@@ -13,11 +13,6 @@ class EnvService {
 
   private constructor() {
     this.loadFromLocalStorage();
-    // Get from environment if available
-    if (import.meta.env.VITE_GEMINI_API_KEY) {
-      this.config.GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-      console.log('Loaded Gemini API key from environment');
-    }
   }
 
   public static getInstance(): EnvService {
@@ -71,10 +66,9 @@ class EnvService {
     return { ...this.config };
   }
 
-  // Debug method to check all sources
+  // Debug method to check configuration
   public debugApiKey(): void {
     console.log('=== API Key Debug ===');
-    console.log('Environment VITE_GEMINI_API_KEY:', import.meta.env.VITE_GEMINI_API_KEY ? 'Present' : 'Missing');
     console.log('LocalStorage config:', this.config);
     console.log('Final GEMINI_API_KEY:', this.get('GEMINI_API_KEY') ? 'Present' : 'Missing');
     console.log('===================');

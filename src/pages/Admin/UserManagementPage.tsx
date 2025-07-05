@@ -48,14 +48,11 @@ const UserManagementPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<any>(null);
 
-  // Check for temporary admin access
-  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
-  
-  if (!user && !isTempAdmin) {
+  if (!user) {
     return <Navigate to="/login" />;
   }
 
-  if (!isAdmin() && !isTempAdmin) {
+  if (!isAdmin()) {
     return <Navigate to="/dashboard" />;
   }
 

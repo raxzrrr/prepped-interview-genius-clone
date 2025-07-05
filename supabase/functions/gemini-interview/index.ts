@@ -15,19 +15,18 @@ serve(async (req) => {
   try {
     const { prompt, type } = await req.json();
     
-    // Try to get API key from Supabase secrets first, then fallback to environment
+    // Get API key from Supabase secrets (properly secured)
     const apiKey = Deno.env.get('GEMINI_API_KEY');
 
     console.log('Edge function called with type:', type);
     console.log('API key available:', apiKey ? 'Yes' : 'No');
-    console.log('API key source: Supabase secrets');
 
     if (!apiKey) {
       console.error('GEMINI_API_KEY not found in Supabase secrets');
       return new Response(
         JSON.stringify({ 
-          error: 'GEMINI_API_KEY not configured in Supabase secrets. Please add it in your Supabase dashboard under Project Settings > Edge Function Secrets.',
-          details: 'Go to https://supabase.com/dashboard/project/mxfhtujraqkcswtaxcns/settings/functions and add GEMINI_API_KEY'
+          error: 'API key not configured. Please contact administrator.',
+          details: 'GEMINI_API_KEY must be set in Supabase Edge Function Secrets'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )

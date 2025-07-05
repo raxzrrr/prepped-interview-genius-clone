@@ -8,14 +8,11 @@ import { useAuth } from '@/contexts/ClerkAuthContext';
 const UsersPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
   
-  // Check for temporary admin access
-  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
-  
-  if (!user && !isTempAdmin) {
+  if (!user) {
     return <Navigate to="/login" />;
   }
 
-  if (!isAdmin() && !isTempAdmin) {
+  if (!isAdmin()) {
     return <Navigate to="/dashboard" />;
   }
 

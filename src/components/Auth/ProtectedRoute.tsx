@@ -20,18 +20,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     );
   }
 
-  // Check for temporary admin access
-  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
-
-  if (!user && !isTempAdmin) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole === 'admin' && !isAdmin() && !isTempAdmin) {
+  if (requiredRole === 'admin' && !isAdmin()) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (requiredRole === 'student' && !isStudent() && !isAdmin() && !isTempAdmin) {
+  if (requiredRole === 'student' && !isStudent() && !isAdmin()) {
     return <Navigate to="/login" replace />;
   }
 
