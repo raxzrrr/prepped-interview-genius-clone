@@ -3,9 +3,14 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { CheckIcon } from 'lucide-react';
+import { useAuth } from '@/contexts/ClerkAuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
+import RazorpayButton from '@/components/Payment/RazorpayButton';
 
 const PricingSection: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { hasActivePlan, hasAnyActivePlan } = useSubscription();
   
   const plans = [
     {
@@ -21,12 +26,14 @@ const PricingSection: React.FC = () => {
       ],
       buttonText: "Get Started",
       popular: false,
-      buttonVariant: "outline"
+      buttonVariant: "outline",
+      planType: "basic",
+      amount: 0
     },
     {
       name: "Pro",
-      price: "$19.99",
-      period: "per month",
+      price: "₹1,999",
+      period: " per month",
       description: "Everything you need for interview success",
       features: [
         "Unlimited AI-generated interview questions",
@@ -39,12 +46,14 @@ const PricingSection: React.FC = () => {
       ],
       buttonText: "Upgrade to Pro",
       popular: true,
-      buttonVariant: "default"
+      buttonVariant: "default",
+      planType: "pro",
+      amount: 1999
     },
     {
       name: "Enterprise",
-      price: "$49.99",
-      period: "per month",
+      price: "₹4,999",
+      period: " per month",
       description: "Advanced features for serious job seekers",
       features: [
         "Everything in Pro plan",
@@ -55,11 +64,61 @@ const PricingSection: React.FC = () => {
         "Advanced analytics dashboard",
         "Downloadable resources & templates"
       ],
-      buttonText: "Contact Sales",
+      buttonText: "Get Enterprise",
       popular: false,
-      buttonVariant: "outline"
+      buttonVariant: "outline",
+      planType: "enterprise",
+      amount: 4999
     }
   ];
+
+  const renderButton = (plan: any) => {
+    if (!user) {
+      return (
+        <Button
+          variant={plan.buttonVariant as "default" | "outline"}
+          className={`w-full ${plan.popular ? 'bg-brand-purple hover:bg-brand-lightPurple' : ''}`}
+          onClick={() => navigate('/register')}
+        >
+          {plan.buttonText}
+        </Button>
+      );
+    }
+
+    if (plan.planType === 'basic') {
+      return (
+        <Button
+          variant={plan.buttonVariant as "default" | "outline"}
+          className="w-full"
+          onClick={() => navigate('/dashboard')}
+        >
+          Go to Dashboard
+        </Button>
+      );
+    }
+
+    if (hasActivePlan(plan.planType)) {
+      return (
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled
+        >
+          Current Plan
+        </Button>
+      );
+    }
+
+    return (
+      <RazorpayButton
+        amount={plan.amount}
+        planType={plan.planType}
+        planName={plan.name}
+        buttonText={plan.buttonText}
+        variant={plan.buttonVariant as "default" | "outline"}
+      />
+    );
+  };
 
   return (
     <section className="py-20 bg-white">
@@ -111,13 +170,7 @@ const PricingSection: React.FC = () => {
                 ))}
               </ul>
               
-              <Button
-                variant={plan.buttonVariant as "default" | "outline"}
-                className={`w-full ${plan.popular ? 'bg-brand-purple hover:bg-brand-lightPurple' : ''}`}
-                onClick={() => navigate('/register')}
-              >
-                {plan.buttonText}
-              </Button>
+              {renderButton(plan)}
             </div>
           ))}
         </div>
