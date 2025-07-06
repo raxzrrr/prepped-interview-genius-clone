@@ -27,7 +27,7 @@ export const courseService = {
   async fetchCategories(): Promise<CourseCategory[]> {
     try {
       const { data, error } = await supabase
-        .from('course_categories')
+        .from('course_categories' as any)
         .select('*')
         .order('order_index', { ascending: true });
 
@@ -46,7 +46,7 @@ export const courseService = {
   async fetchVideosByCategory(categoryId: string): Promise<CourseVideo[]> {
     try {
       const { data, error } = await supabase
-        .from('course_videos')
+        .from('course_videos' as any)
         .select('*')
         .eq('category_id', categoryId)
         .order('order_index', { ascending: true });

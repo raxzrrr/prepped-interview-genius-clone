@@ -5,6 +5,7 @@ export interface UserLearningData {
   id: string;
   user_id: string;
   course_progress: Record<string, any>;
+  category_progress: Record<string, any>; // Add this missing property
   completed_modules: number;
   total_modules: number;
   course_score: number | null;
