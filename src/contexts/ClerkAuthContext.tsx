@@ -45,8 +45,14 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
 
+  // Check for temporary admin access
+  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
+
   // Function to get consistent Supabase user ID
   const getSupabaseUserId = () => {
+    if (isTempAdmin) {
+      return 'temp-admin-id';
+    }
     if (!userId) {
       console.log('getSupabaseUserId: No userId available');
       return null;
@@ -58,6 +64,16 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Set up Supabase session with Clerk token
   const setupSupabaseSession = async () => {
+    if (isTempAdmin) {
+      // For temp admin, create a mock session
+      setSupabaseSession({
+        user: { id: 'temp-admin-id', email: 'admin@interview.ai' },
+        access_token: 'temp-admin-token'
+      });
+      setIsAuthenticated(true);
+      return;
+    }
+
     if (!userId || !clerkUser) {
       console.log('No user found, clearing Supabase session');
       await supabase.auth.signOut();
@@ -98,6 +114,19 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   useEffect(() => {
+    if (isTempAdmin) {
+      // Set up temporary admin profile
+      setProfile({
+        id: 'temp-admin-id',
+        full_name: 'Admin User',
+        avatar_url: undefined,
+        role: 'admin'
+      });
+      setIsAuthenticated(true);
+      setLoading(false);
+      return;
+    }
+
     if (!isLoaded) {
       console.log('Clerk not loaded yet');
       return;
@@ -141,7 +170,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     
     setLoading(false);
-  }, [isLoaded, userId, clerkUser, sessionId]);
+  }, [isLoaded, userId, clerkUser, sessionId, isTempAdmin]);
 
   const syncUserWithSupabase = async (userId: string, fullName: string, role: UserRole) => {
     try {
@@ -191,8 +220,13 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const logout = async () => {
     console.log("Logout function called");
     try {
+      // Clear temporary admin access
+      localStorage.removeItem('tempAdmin');
+      
       await supabase.auth.signOut();
-      await clerk.signOut();
+      if (clerkUser) {
+        await clerk.signOut();
+      }
       setProfile(null);
       setSupabaseSession(null);
       setIsAuthenticated(false);
@@ -214,10 +248,10 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Create a session object that includes both Clerk and Supabase session details
   const sessionObject = isAuthenticated ? {
-    id: sessionId,
+    id: sessionId || 'temp-admin-session',
     user: {
       id: getSupabaseUserId(),
-      email: clerkUser?.primaryEmailAddress?.emailAddress
+      email: isTempAdmin ? 'admin@interview.ai' : clerkUser?.primaryEmailAddress?.emailAddress
     },
     supabaseSession,
     isActive: true
@@ -229,12 +263,13 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     isAuthenticated,
     hasProfile: !!profile,
     hasSession: !!sessionObject,
-    supabaseUserId: getSupabaseUserId()
+    supabaseUserId: getSupabaseUserId(),
+    isTempAdmin
   });
 
   return (
     <AuthContext.Provider value={{ 
-      user: clerkUser,
+      user: isTempAdmin ? { primaryEmailAddress: { emailAddress: 'admin@interview.ai' } } : clerkUser,
       session: sessionObject,
       profile,
       loading, 
