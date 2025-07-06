@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Video, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Video, Edit, Trash2, Loader2, Save, X } from 'lucide-react';
 import { courseService, Course, CourseVideo } from '@/services/courseService';
 
 const CourseManagementPage: React.FC = () => {
@@ -22,6 +22,9 @@ const CourseManagementPage: React.FC = () => {
   
   const [showAddCourse, setShowAddCourse] = useState(false);
   const [showAddVideo, setShowAddVideo] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [editingVideo, setEditingVideo] = useState<CourseVideo | null>(null);
+  
   const [newCourse, setNewCourse] = useState({
     name: '',
     description: '',
@@ -110,6 +113,31 @@ const CourseManagementPage: React.FC = () => {
     }
   };
 
+  const handleUpdateCourse = async (course: Course) => {
+    try {
+      const updatedCourse = await courseService.updateCourse(course.id, {
+        name: course.name,
+        description: course.description,
+        order_index: course.order_index
+      });
+      
+      setCourses(courses.map(c => c.id === course.id ? updatedCourse : c));
+      setEditingCourse(null);
+      
+      toast({
+        title: "Success",
+        description: "Course updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating course:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update course",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleAddVideo = async () => {
     if (!selectedCourse || !newVideo.title || !newVideo.video_url) {
       toast({
@@ -144,6 +172,39 @@ const CourseManagementPage: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to add video",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdateVideo = async (video: CourseVideo) => {
+    try {
+      const updatedVideo = await courseService.updateVideo(video.id, {
+        title: video.title,
+        description: video.description,
+        video_url: video.video_url,
+        duration: video.duration,
+        order_index: video.order_index
+      });
+      
+      setVideos({
+        ...videos,
+        [video.course_id]: videos[video.course_id].map(v => 
+          v.id === video.id ? updatedVideo : v
+        )
+      });
+      
+      setEditingVideo(null);
+      
+      toast({
+        title: "Success",
+        description: "Video updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating video:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update video",
         variant: "destructive"
       });
     }
@@ -331,8 +392,41 @@ const CourseManagementPage: React.FC = () => {
           {courses.map((course) => (
             <Card key={course.id}>
               <CardHeader>
-                <CardTitle className="text-lg">{course.name}</CardTitle>
-                <CardDescription>{course.description}</CardDescription>
+                {editingCourse?.id === course.id ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={editingCourse.name}
+                      onChange={(e) => setEditingCourse({...editingCourse, name: e.target.value})}
+                      className="font-semibold"
+                    />
+                    <Textarea
+                      value={editingCourse.description || ''}
+                      onChange={(e) => setEditingCourse({...editingCourse, description: e.target.value})}
+                      className="text-sm"
+                    />
+                    <Input
+                      type="number"
+                      value={editingCourse.order_index}
+                      onChange={(e) => setEditingCourse({...editingCourse, order_index: parseInt(e.target.value) || 0})}
+                      placeholder="Order"
+                    />
+                    <div className="flex space-x-2">
+                      <Button size="sm" onClick={() => handleUpdateCourse(editingCourse)}>
+                        <Save className="w-4 h-4 mr-1" />
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingCourse(null)}>
+                        <X className="w-4 h-4 mr-1" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <CardTitle className="text-lg">{course.name}</CardTitle>
+                    <CardDescription>{course.description}</CardDescription>
+                  </>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="flex justify-between items-center mb-4">
@@ -349,14 +443,43 @@ const CourseManagementPage: React.FC = () => {
                     <h4 className="font-medium text-sm">Videos:</h4>
                     {videos[course.id].slice(0, 3).map((video) => (
                       <div key={video.id} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
-                        <span>{video.title}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteVideo(video.id, course.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                        {editingVideo?.id === video.id ? (
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              value={editingVideo.title}
+                              onChange={(e) => setEditingVideo({...editingVideo, title: e.target.value})}
+                              className="text-xs"
+                            />
+                            <div className="flex space-x-1">
+                              <Button size="sm" onClick={() => handleUpdateVideo(editingVideo)}>
+                                <Save className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingVideo(null)}>
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <span>{video.title}</span>
+                            <div className="flex space-x-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingVideo(video)}
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteVideo(video.id, course.id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                     {videos[course.id].length > 3 && (
@@ -376,6 +499,14 @@ const CourseManagementPage: React.FC = () => {
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     Add Video
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setEditingCourse(course)}
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    Edit
                   </Button>
                   <Button 
                     size="sm" 
