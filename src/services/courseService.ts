@@ -36,7 +36,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as CourseCategory[];
+      return (data || []) as unknown as CourseCategory[];
     } catch (error) {
       console.error('Error in fetchCategories:', error);
       throw error;
@@ -56,7 +56,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as CourseVideo[];
+      return (data || []) as unknown as CourseVideo[];
     } catch (error) {
       console.error('Error in fetchVideosByCategory:', error);
       throw error;
