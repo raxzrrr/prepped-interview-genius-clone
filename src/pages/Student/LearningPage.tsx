@@ -1,110 +1,40 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VideoPlayer from '@/components/Learning/VideoPlayer';
-import CourseList from '@/components/Learning/CourseList';
 import AssessmentQuiz from '@/components/Learning/AssessmentQuiz';
-import { useLearningData } from '@/hooks/useLearningData';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, Loader2, Award } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ProFeatureGuard from '@/components/ProFeatureGuard';
-
-interface Module {
-  id: string;
-  title: string;
-  description: string;
-  videoUrl: string;
-  duration: string;
-  locked: boolean;
-  completed: boolean;
-}
-
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  modules: Module[];
-  progress: number;
-}
-
-const coursesData: Course[] = [
-  {
-    id: 'interview-mastery',
-    title: 'Interview Mastery Course',
-    description: 'Master technical and behavioral interviews with this comprehensive course.',
-    modules: [
-      {
-        id: 'module-1',
-        title: 'Introduction to Technical Interviews',
-        description: 'Overview of what to expect in technical interviews and how to prepare.',
-        videoUrl: 'https://www.youtube.com/embed/PJl4iabBEz0',
-        duration: '15:30',
-        locked: false,
-        completed: false
-      },
-      {
-        id: 'module-2',
-        title: 'Algorithm Problems Walkthrough',
-        description: 'Practical guide to solving algorithm problems in interviews.',
-        videoUrl: 'https://www.youtube.com/embed/zHczhZn-z30',
-        duration: '23:45',
-        locked: false,
-        completed: false
-      },
-      {
-        id: 'module-3',
-        title: 'System Design Interview Techniques',
-        description: 'Learn how to approach system design questions effectively.',
-        videoUrl: 'https://www.youtube.com/embed/q0KGYwNbf-0',
-        duration: '28:15',
-        locked: false,
-        completed: false
-      },
-      {
-        id: 'module-4',
-        title: 'Behavioral Questions Mastery',
-        description: 'How to structure and deliver compelling stories for behavioral questions.',
-        videoUrl: 'https://www.youtube.com/embed/9FgfsL9B9Us',
-        duration: '19:10',
-        locked: false,
-        completed: false
-      },
-      {
-        id: 'module-5',
-        title: 'Mock Interview Simulation',
-        description: 'Real-world simulation of a complete technical interview.',
-        videoUrl: 'https://www.youtube.com/embed/1qw5ITr3k9E',
-        duration: '45:00',
-        locked: false,
-        completed: false
-      }
-    ],
-    progress: 0
-  }
-];
+import CourseCategoryGrid from '@/components/Learning/CourseCategoryGrid';
+import CategoryVideoList from '@/components/Learning/CategoryVideoList';
+import { useCourseData } from '@/hooks/useCourseData';
+import { CourseCategory, CourseVideo } from '@/services/courseService';
 
 const LearningPage: React.FC = () => {
   const { user, isStudent, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('courses');
-  const [courses, setCourses] = useState<Course[]>(coursesData);
-  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CourseCategory | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<CourseVideo | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
   
-  const totalModules = coursesData.reduce((count, course) => count + course.modules.length, 0);
-  const { 
-    userLearningData, 
-    loading: learningLoading, 
-    error: learningError, 
-    updateModuleCompletion,
-    updateAssessmentScore 
-  } = useLearningData(totalModules);
+  const {
+    categories,
+    videos,
+    userLearningData,
+    loading: courseLoading,
+    error: courseError,
+    getCategoryProgress,
+    getCategoryVideoCount,
+    updateVideoCompletion
+  } = useCourseData();
   
   if (authLoading) {
     return (
@@ -121,158 +51,90 @@ const LearningPage: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  useEffect(() => {
-    updateCoursesWithUserProgress();
-  }, [userLearningData]);
-  
-  const updateCoursesWithUserProgress = () => {
-    console.log('Updating courses with user progress:', userLearningData?.course_progress);
-    
-    const updatedCourses = coursesData.map(course => {
-      const courseProgress = userLearningData?.course_progress?.[course.id] || {};
-      
-      const updatedModules = course.modules.map((module) => ({
-        ...module,
-        locked: false,
-        completed: courseProgress[module.id] === true
-      }));
-      
-      const completedCount = updatedModules.filter(m => m.completed).length;
-      const progress = updatedModules.length > 0 
-        ? Math.round((completedCount / updatedModules.length) * 100)
-        : 0;
-      
-      return {
-        ...course,
-        modules: updatedModules,
-        progress
-      };
-    });
-    
-    setCourses(updatedCourses);
+  const handleCategorySelect = (category: CourseCategory) => {
+    setSelectedCategory(category);
+    setSelectedVideo(null);
   };
-  
-  const handleModuleSelect = (module: Module) => {
-    setSelectedModule(module);
+
+  const handleVideoSelect = (video: CourseVideo) => {
+    setSelectedVideo(video);
   };
-  
-  const handleModuleProgress = async (moduleId: string, progress: number) => {
-    if (progress >= 100) {
-      await handleModuleCompleted(moduleId);
+
+  const handleBackToCategories = () => {
+    setSelectedCategory(null);
+    setSelectedVideo(null);
+  };
+
+  const handleBackToVideoList = () => {
+    setSelectedVideo(null);
+  };
+
+  const handleMarkAsCompleted = async (videoId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!selectedCategory) return;
+    
+    const success = await updateVideoCompletion(videoId, selectedCategory.id);
+    if (success) {
+      toast({
+        title: "Video Completed",
+        description: "Great job! Keep up the learning momentum.",
+      });
     }
   };
-  
-  const handleModuleCompleted = async (moduleId: string) => {
-    console.log('Module completed:', moduleId);
-    
-    let courseId = '';
-    
-    for (let i = 0; i < courses.length; i++) {
-      const course = courses[i];
-      const moduleIndex = course.modules.findIndex(m => m.id === moduleId);
-      if (moduleIndex >= 0) {
-        courseId = course.id;
-        break;
-      }
+
+  const handleVideoProgress = async (videoId: string, progress: number) => {
+    if (progress >= 100 && selectedCategory) {
+      await updateVideoCompletion(videoId, selectedCategory.id);
     }
-    
-    if (!courseId) {
-      console.error('Course not found for module:', moduleId);
-      return;
+  };
+
+  const handleVideoCompleted = async (videoId: string) => {
+    if (selectedCategory) {
+      await updateVideoCompletion(videoId, selectedCategory.id);
     }
+  };
+
+  const getVideoProgress = (videoId: string): boolean => {
+    if (!selectedCategory || !userLearningData?.category_progress) return false;
+    const categoryProgress = userLearningData.category_progress[selectedCategory.id] || {};
+    return categoryProgress[videoId] === true;
+  };
+
+  const handleAdvanceToNext = () => {
+    if (!selectedVideo || !selectedCategory) return;
     
-    const success = await updateModuleCompletion(moduleId, courseId);
-    if (!success) return;
+    const categoryVideos = videos[selectedCategory.id] || [];
+    const currentIndex = categoryVideos.findIndex(v => v.id === selectedVideo.id);
     
-    // Force update courses with new progress
-    setTimeout(() => {
-      updateCoursesWithUserProgress();
-    }, 100);
-    
-    // Check for course completion - now using the updated logic from the hook
-    if (courseId === 'interview-mastery') {
-      const course = courses.find(c => c.id === courseId);
-      if (course) {
-        const currentProgress = userLearningData?.course_progress?.[courseId] || {};
-        const completedModules = Object.keys(currentProgress).filter(
-          key => currentProgress[key] === true || key === moduleId
-        ).length;
-        
-        if (completedModules >= 5) { // All 5 modules completed
-          toast({
-            title: "Course Completed!",
-            description: "Congratulations! You've completed the Interview Mastery Course! You can now take the assessment.",
-          });
-        }
-      }
+    if (currentIndex >= 0 && currentIndex < categoryVideos.length - 1) {
+      const nextVideo = categoryVideos[currentIndex + 1];
+      setSelectedVideo(nextVideo);
+      toast({
+        title: "Video Completed",
+        description: "Moving to the next video...",
+      });
+    } else {
+      toast({
+        title: "Video Completed",
+        description: "You've completed the last video in this category!",
+      });
     }
   };
 
   const handleAssessmentComplete = async (score: number) => {
-    const success = await updateAssessmentScore(score);
-    if (success) {
-      setShowAssessment(false);
-      toast({
-        title: "Assessment Completed!",
-        description: `You scored ${score}%! ${score >= 80 ? 'You can now view your certificate!' : 'Complete the course to earn your certificate.'}`,
-      });
-    }
+    setShowAssessment(false);
+    toast({
+      title: "Assessment Completed!",
+      description: `You scored ${score}%! ${score >= 80 ? 'Excellent work!' : 'Keep practicing to improve your score.'}`,
+    });
   };
 
-  const getNextModule = (currentModuleId: string): Module | null => {
-    for (const course of courses) {
-      const currentIndex = course.modules.findIndex(m => m.id === currentModuleId);
-      if (currentIndex >= 0) {
-        if (currentIndex < course.modules.length - 1) {
-          return course.modules[currentIndex + 1];
-        }
-      }
-    }
-    return null;
-  };
-
-  const handleAdvanceToNext = () => {
-    if (!selectedModule) return;
-    
-    const nextModule = getNextModule(selectedModule.id);
-    if (nextModule) {
-      toast({
-        title: "Module Completed",
-        description: "Moving to the next module...",
-      });
-      setTimeout(() => {
-        setSelectedModule(nextModule);
-      }, 500);
-    } else {
-      toast({
-        title: "Module Completed",
-        description: "You've completed the last module in this course!",
-      });
-    }
-  };
-
-  const handleMarkAsCompletedFromList = async (moduleId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    console.log('Mark as completed clicked for module:', moduleId);
-    await handleModuleCompleted(moduleId);
-  };
-
-  const canTakeAssessment = () => {
-    // Check if all interview mastery modules are completed
-    const interviewProgress = userLearningData?.course_progress?.['interview-mastery'] || {};
-    const completedModules = Object.keys(interviewProgress).filter(
-      key => interviewProgress[key] === true
-    ).length;
-    
-    return completedModules >= 5 || userLearningData?.course_completed_at !== null;
-  };
-  
-  if (learningLoading) {
+  if (courseLoading) {
     return (
       <DashboardLayout>
         <div className="flex justify-center items-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading your learning progress...</span>
+          <span className="ml-2">Loading courses...</span>
         </div>
       </DashboardLayout>
     );
@@ -309,51 +171,60 @@ const LearningPage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Learning Hub</h1>
           <p className="mt-2 text-gray-600">
-            Access courses and certifications to enhance your interview skills
+            Access courses and certifications to enhance your skills
           </p>
         </div>
         
         <ProFeatureGuard 
           featureName="Learning Hub"
-          description="Access our comprehensive library of interview preparation courses, video tutorials, and earn professional certificates. Upgrade to Pro to unlock the full learning experience."
+          description="Access our comprehensive library of courses, video tutorials, and earn professional certificates. Upgrade to Pro to unlock the full learning experience."
         >
-          {learningError && (
+          {courseError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                {learningError}. Progress will be saved locally.
+                {courseError}. Some features may be limited.
               </AlertDescription>
             </Alert>
           )}
           
-          {selectedModule ? (
+          {selectedVideo ? (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">{selectedModule.title}</h2>
-                <button 
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                  onClick={() => setSelectedModule(null)}
+                <h2 className="text-2xl font-bold">{selectedVideo.title}</h2>
+                <Button 
+                  variant="outline"
+                  onClick={handleBackToVideoList}
                 >
-                  Back to Courses
-                </button>
+                  Back to Videos
+                </Button>
               </div>
               
               <div className="bg-white rounded-lg border p-6">
                 <VideoPlayer 
-                  videoUrl={selectedModule.videoUrl}
-                  onProgress={(progress) => handleModuleProgress(selectedModule.id, progress)}
-                  initialProgress={0}
-                  moduleId={selectedModule.id}
-                  onCompleted={handleModuleCompleted}
+                  videoUrl={selectedVideo.video_url}
+                  onProgress={(progress) => handleVideoProgress(selectedVideo.id, progress)}
+                  initialProgress={getVideoProgress(selectedVideo.id) ? 100 : 0}
+                  moduleId={selectedVideo.id}
+                  onCompleted={handleVideoCompleted}
                   onAdvanceToNext={handleAdvanceToNext}
                 />
                 
                 <div className="mt-6 space-y-4">
-                  <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
-                  <p className="text-gray-600">{selectedModule.description}</p>
+                  <h3 className="text-xl font-semibold">{selectedVideo.title}</h3>
+                  <p className="text-gray-600">{selectedVideo.description}</p>
                 </div>
               </div>
             </div>
+          ) : selectedCategory ? (
+            <CategoryVideoList
+              category={selectedCategory}
+              videos={videos[selectedCategory.id] || []}
+              onVideoSelect={handleVideoSelect}
+              onMarkAsCompleted={handleMarkAsCompleted}
+              onBackToCategories={handleBackToCategories}
+              getVideoProgress={getVideoProgress}
+            />
           ) : (
             <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-4">
@@ -362,10 +233,12 @@ const LearningPage: React.FC = () => {
               </TabsList>
               
               <TabsContent value="courses">
-                <CourseList
-                  courses={courses}
-                  onModuleSelect={handleModuleSelect}
-                  onMarkAsCompleted={handleMarkAsCompletedFromList}
+                <CourseCategoryGrid
+                  categories={categories}
+                  loading={courseLoading}
+                  onCategorySelect={handleCategorySelect}
+                  getCategoryProgress={getCategoryProgress}
+                  getCategoryVideoCount={getCategoryVideoCount}
                 />
               </TabsContent>
               
@@ -374,13 +247,13 @@ const LearningPage: React.FC = () => {
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <Award className="h-6 w-6 text-yellow-600" />
-                      <CardTitle>Technical Interview Assessment</CardTitle>
+                      <CardTitle>Technical Assessment</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-gray-600">
-                      Test your knowledge with our comprehensive technical interview assessment. 
-                      Complete the course first to unlock the assessment.
+                      Test your knowledge with our comprehensive technical assessment. 
+                      Complete courses to unlock assessments.
                     </p>
                     
                     <div className="space-y-2">
@@ -394,24 +267,8 @@ const LearningPage: React.FC = () => {
                       )}
                     </div>
                     
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Course Status:</p>
-                      {canTakeAssessment() ? (
-                        <p className="text-green-600">Course completed - Assessment unlocked!</p>
-                      ) : (
-                        <p className="text-orange-600">
-                          Complete all modules to unlock assessment ({
-                            Object.keys(userLearningData?.course_progress?.['interview-mastery'] || {}).filter(
-                              key => userLearningData?.course_progress?.['interview-mastery']?.[key] === true
-                            ).length
-                          }/5 modules completed)
-                        </p>
-                      )}
-                    </div>
-                    
                     <Button 
                       onClick={() => setShowAssessment(true)}
-                      disabled={!canTakeAssessment()}
                       className="w-full sm:w-auto"
                     >
                       {userLearningData?.assessment_attempted ? 'Retake Assessment' : 'Start Assessment'}
