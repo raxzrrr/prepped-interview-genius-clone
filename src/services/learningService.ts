@@ -5,6 +5,7 @@ export interface UserLearningData {
   id: string;
   user_id: string;
   course_progress: Record<string, any>;
+  course_progress_new: Record<string, any>;
   completed_modules: number;
   total_modules: number;
   course_score: number | null;
@@ -81,24 +82,13 @@ export const learningService = {
     totalModules: number
   ): Promise<UserLearningData> {
     try {
-      // Check if interview course is completed
-      const interviewCourseProgress = courseProgress['interview-mastery'] || {};
-      const interviewModulesCompleted = Object.keys(interviewCourseProgress).filter(
-        key => interviewCourseProgress[key] === true
-      ).length;
-      const isInterviewCourseComplete = interviewModulesCompleted >= 5;
-
       const updateData: any = {
-        course_progress: courseProgress,
+        course_progress_new: courseProgress,
         completed_modules: completedModulesCount,
         total_modules: totalModules
       };
 
-      if (isInterviewCourseComplete) {
-        updateData.course_score = 85;
-        updateData.course_completed_at = new Date().toISOString();
-      }
-
+      // Check for course completion logic here if needed
       const data = await invokeFunction('learning-service', {
         action: 'update',
         clerkUserId,

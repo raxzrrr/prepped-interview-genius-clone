@@ -12,27 +12,25 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ProFeatureGuard from '@/components/ProFeatureGuard';
-import CourseCategoryGrid from '@/components/Learning/CourseCategoryGrid';
-import CategoryVideoList from '@/components/Learning/CategoryVideoList';
 import { useCourseData } from '@/hooks/useCourseData';
-import { CourseCategory, CourseVideo } from '@/services/courseService';
+import { Course, CourseVideo } from '@/services/courseService';
 
 const LearningPage: React.FC = () => {
   const { user, isStudent, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('courses');
-  const [selectedCategory, setSelectedCategory] = useState<CourseCategory | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<CourseVideo | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
   
   const {
-    categories,
+    courses,
     videos,
     userLearningData,
     loading: courseLoading,
     error: courseError,
-    getCategoryProgress,
-    getCategoryVideoCount,
+    getCourseProgress,
+    getCourseVideoCount,
     updateVideoCompletion
   } = useCourseData();
   
@@ -51,8 +49,8 @@ const LearningPage: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  const handleCategorySelect = (category: CourseCategory) => {
-    setSelectedCategory(category);
+  const handleCourseSelect = (course: Course) => {
+    setSelectedCourse(course);
     setSelectedVideo(null);
   };
 
@@ -60,8 +58,8 @@ const LearningPage: React.FC = () => {
     setSelectedVideo(video);
   };
 
-  const handleBackToCategories = () => {
-    setSelectedCategory(null);
+  const handleBackToCourses = () => {
+    setSelectedCourse(null);
     setSelectedVideo(null);
   };
 
@@ -71,9 +69,9 @@ const LearningPage: React.FC = () => {
 
   const handleMarkAsCompleted = async (videoId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!selectedCategory) return;
+    if (!selectedCourse) return;
     
-    const success = await updateVideoCompletion(videoId, selectedCategory.id);
+    const success = await updateVideoCompletion(videoId, selectedCourse.id);
     if (success) {
       toast({
         title: "Video Completed",
@@ -83,31 +81,31 @@ const LearningPage: React.FC = () => {
   };
 
   const handleVideoProgress = async (videoId: string, progress: number) => {
-    if (progress >= 100 && selectedCategory) {
-      await updateVideoCompletion(videoId, selectedCategory.id);
+    if (progress >= 100 && selectedCourse) {
+      await updateVideoCompletion(videoId, selectedCourse.id);
     }
   };
 
   const handleVideoCompleted = async (videoId: string) => {
-    if (selectedCategory) {
-      await updateVideoCompletion(videoId, selectedCategory.id);
+    if (selectedCourse) {
+      await updateVideoCompletion(videoId, selectedCourse.id);
     }
   };
 
   const getVideoProgress = (videoId: string): boolean => {
-    if (!selectedCategory || !userLearningData?.category_progress) return false;
-    const categoryProgress = userLearningData.category_progress[selectedCategory.id] || {};
-    return categoryProgress[videoId] === true;
+    if (!selectedCourse || !userLearningData?.course_progress_new) return false;
+    const courseProgress = userLearningData.course_progress_new[selectedCourse.id] || {};
+    return courseProgress[videoId] === true;
   };
 
   const handleAdvanceToNext = () => {
-    if (!selectedVideo || !selectedCategory) return;
+    if (!selectedVideo || !selectedCourse) return;
     
-    const categoryVideos = videos[selectedCategory.id] || [];
-    const currentIndex = categoryVideos.findIndex(v => v.id === selectedVideo.id);
+    const courseVideos = videos[selectedCourse.id] || [];
+    const currentIndex = courseVideos.findIndex(v => v.id === selectedVideo.id);
     
-    if (currentIndex >= 0 && currentIndex < categoryVideos.length - 1) {
-      const nextVideo = categoryVideos[currentIndex + 1];
+    if (currentIndex >= 0 && currentIndex < courseVideos.length - 1) {
+      const nextVideo = courseVideos[currentIndex + 1];
       setSelectedVideo(nextVideo);
       toast({
         title: "Video Completed",
@@ -116,7 +114,7 @@ const LearningPage: React.FC = () => {
     } else {
       toast({
         title: "Video Completed",
-        description: "You've completed the last video in this category!",
+        description: "You've completed the last video in this course!",
       });
     }
   };
@@ -216,15 +214,48 @@ const LearningPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          ) : selectedCategory ? (
-            <CategoryVideoList
-              category={selectedCategory}
-              videos={videos[selectedCategory.id] || []}
-              onVideoSelect={handleVideoSelect}
-              onMarkAsCompleted={handleMarkAsCompleted}
-              onBackToCategories={handleBackToCategories}
-              getVideoProgress={getVideoProgress}
-            />
+          ) : selectedCourse ? (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">{selectedCourse.name}</h2>
+                <Button 
+                  variant="outline"
+                  onClick={handleBackToCourses}
+                >
+                  Back to Courses
+                </Button>
+              </div>
+              
+              <div className="grid gap-4">
+                {videos[selectedCourse.id]?.map((video) => (
+                  <Card key={video.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1" onClick={() => handleVideoSelect(video)}>
+                          <h3 className="font-semibold">{video.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{video.description}</p>
+                          {video.duration && (
+                            <p className="text-xs text-gray-500 mt-2">Duration: {video.duration}</p>
+                          )}
+                        </div>
+                        <div className="ml-4 flex items-center gap-2">
+                          {getVideoProgress(video.id) && (
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          )}
+                          <Button
+                            size="sm"
+                            variant={getVideoProgress(video.id) ? "secondary" : "outline"}
+                            onClick={(e) => handleMarkAsCompleted(video.id, e)}
+                          >
+                            {getVideoProgress(video.id) ? "Completed" : "Mark Complete"}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           ) : (
             <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-4">
@@ -233,13 +264,38 @@ const LearningPage: React.FC = () => {
               </TabsList>
               
               <TabsContent value="courses">
-                <CourseCategoryGrid
-                  categories={categories}
-                  loading={courseLoading}
-                  onCategorySelect={handleCategorySelect}
-                  getCategoryProgress={getCategoryProgress}
-                  getCategoryVideoCount={getCategoryVideoCount}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {courses.map((course) => (
+                    <Card key={course.id} className="cursor-pointer hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <CardTitle className="text-lg">{course.name}</CardTitle>
+                        <p className="text-sm text-gray-600">{course.description}</p>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span>Videos: {getCourseVideoCount(course.id)}</span>
+                            <span>Progress: {getCourseProgress(course.id)}%</span>
+                          </div>
+                          
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full transition-all"
+                              style={{ width: `${getCourseProgress(course.id)}%` }}
+                            ></div>
+                          </div>
+                          
+                          <Button 
+                            className="w-full"
+                            onClick={() => handleCourseSelect(course)}
+                          >
+                            {getCourseProgress(course.id) > 0 ? 'Continue Learning' : 'Start Course'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </TabsContent>
               
               <TabsContent value="assessment">

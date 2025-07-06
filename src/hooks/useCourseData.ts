@@ -2,13 +2,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { courseService, CourseCategory, CourseVideo } from '@/services/courseService';
+import { courseService, Course, CourseVideo } from '@/services/courseService';
 import { learningService, UserLearningData } from '@/services/learningService';
 
 export const useCourseData = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [categories, setCategories] = useState<CourseCategory[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [videos, setVideos] = useState<Record<string, CourseVideo[]>>({});
   const [userLearningData, setUserLearningData] = useState<UserLearningData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,19 +38,19 @@ export const useCourseData = () => {
       setError(null);
       console.log('Fetching course data...');
       
-      // Fetch categories
-      const categoriesData = await courseService.fetchCategories();
-      setCategories(categoriesData);
+      // Fetch courses
+      const coursesData = await courseService.fetchCourses();
+      setCourses(coursesData);
       
-      // Fetch videos for each category
+      // Fetch videos for each course
       const videosData: Record<string, CourseVideo[]> = {};
-      for (const category of categoriesData) {
+      for (const course of coursesData) {
         try {
-          const categoryVideos = await courseService.fetchVideosByCategory(category.id);
-          videosData[category.id] = categoryVideos;
+          const courseVideos = await courseService.fetchVideosByCourse(course.id);
+          videosData[course.id] = courseVideos;
         } catch (err) {
-          console.error(`Error fetching videos for category ${category.name}:`, err);
-          videosData[category.id] = []; // Fallback to empty array
+          console.error(`Error fetching videos for course ${course.name}:`, err);
+          videosData[course.id] = []; // Fallback to empty array
         }
       }
       setVideos(videosData);
@@ -63,15 +63,15 @@ export const useCourseData = () => {
           
           if (learningData) {
             setUserLearningData(learningData);
-            saveLocalProgress(learningData.category_progress || {});
+            saveLocalProgress(learningData.course_progress_new || {});
           } else {
             // Create fallback with local data
             const localProgress = getLocalProgress();
             const fallbackData: UserLearningData = {
               id: 'local-' + user.id,
               user_id: user.id,
-              course_progress: {}, // Legacy field
-              category_progress: localProgress,
+              course_progress: {},
+              course_progress_new: localProgress,
               completed_modules: 0,
               total_modules: totalVideos,
               course_score: null,
@@ -93,7 +93,7 @@ export const useCourseData = () => {
             id: 'local-' + user.id,
             user_id: user.id,
             course_progress: {},
-            category_progress: localProgress,
+            course_progress_new: localProgress,
             completed_modules: 0,
             total_modules: totalVideos,
             course_score: null,
@@ -121,41 +121,41 @@ export const useCourseData = () => {
     }
   }, [user?.id, toast]);
 
-  const getCategoryProgress = useCallback((categoryId: string): number => {
-    if (!userLearningData?.category_progress) return 0;
+  const getCourseProgress = useCallback((courseId: string): number => {
+    if (!userLearningData?.course_progress_new) return 0;
     
-    const categoryProgress = userLearningData.category_progress[categoryId] || {};
-    const categoryVideos = videos[categoryId] || [];
+    const courseProgress = userLearningData.course_progress_new[courseId] || {};
+    const courseVideos = videos[courseId] || [];
     
-    if (categoryVideos.length === 0) return 0;
+    if (courseVideos.length === 0) return 0;
     
-    const completedCount = Object.values(categoryProgress).filter(completed => completed === true).length;
-    return Math.round((completedCount / categoryVideos.length) * 100);
+    const completedCount = Object.values(courseProgress).filter(completed => completed === true).length;
+    return Math.round((completedCount / courseVideos.length) * 100);
   }, [userLearningData, videos]);
 
-  const getCategoryVideoCount = useCallback((categoryId: string): number => {
-    return videos[categoryId]?.length || 0;
+  const getCourseVideoCount = useCallback((courseId: string): number => {
+    return videos[courseId]?.length || 0;
   }, [videos]);
 
-  const updateVideoCompletion = useCallback(async (videoId: string, categoryId: string) => {
+  const updateVideoCompletion = useCallback(async (videoId: string, courseId: string) => {
     if (!user?.id) return false;
 
     try {
-      const currentProgress = userLearningData?.category_progress || getLocalProgress();
+      const currentProgress = userLearningData?.course_progress_new || getLocalProgress();
       const updatedProgress = { ...currentProgress };
       
-      if (!updatedProgress[categoryId]) {
-        updatedProgress[categoryId] = {};
+      if (!updatedProgress[courseId]) {
+        updatedProgress[courseId] = {};
       }
       
-      updatedProgress[categoryId][videoId] = true;
+      updatedProgress[courseId][videoId] = true;
       
       // Update local state immediately
       setUserLearningData(prev => {
         if (!prev) return null;
         return {
           ...prev,
-          category_progress: updatedProgress,
+          course_progress_new: updatedProgress,
           updated_at: new Date().toISOString()
         };
       });
@@ -180,13 +180,13 @@ export const useCourseData = () => {
   }, [fetchData]);
 
   return {
-    categories,
+    courses,
     videos,
     userLearningData,
     loading,
     error,
-    getCategoryProgress,
-    getCategoryVideoCount,
+    getCourseProgress,
+    getCourseVideoCount,
     updateVideoCompletion,
     refreshData: fetchData
   };
