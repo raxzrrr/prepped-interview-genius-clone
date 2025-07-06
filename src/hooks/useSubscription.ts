@@ -17,20 +17,25 @@ interface Subscription {
 export const useSubscription = () => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, getSupabaseUserId } = useAuth();
 
   useEffect(() => {
     const fetchSubscription = async () => {
-      if (!user) {
+      const supabaseUserId = getSupabaseUserId();
+      
+      if (!user || !supabaseUserId) {
+        console.log('No user or supabaseUserId found:', { user: !!user, supabaseUserId });
         setLoading(false);
         return;
       }
 
       try {
+        console.log('Fetching subscription for supabaseUserId:', supabaseUserId);
+        
         const { data, error } = await supabase
           .from('user_subscriptions')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', supabaseUserId)
           .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(1);
@@ -40,8 +45,13 @@ export const useSubscription = () => {
           return;
         }
 
+        console.log('Subscription query result:', data);
+
         if (data && data.length > 0) {
           setSubscription(data[0]);
+          console.log('Found active subscription:', data[0]);
+        } else {
+          console.log('No active subscription found');
         }
       } catch (error) {
         console.error('Error fetching subscription:', error);
@@ -51,7 +61,7 @@ export const useSubscription = () => {
     };
 
     fetchSubscription();
-  }, [user]);
+  }, [user, getSupabaseUserId]);
 
   const hasActivePlan = (planType: string) => {
     if (!subscription) return false;
@@ -79,6 +89,15 @@ export const useSubscription = () => {
     
     // Check if user has pro or enterprise plan (both should have full access)
     const isProPlan = subscription.plan_type === 'pro' || subscription.plan_type === 'enterprise';
+    
+    console.log('Checking Pro plan access:', {
+      hasSubscription: !!subscription,
+      isActive,
+      isNotExpired,
+      isProPlan,
+      planType: subscription.plan_type,
+      finalResult: isActive && isNotExpired && isProPlan
+    });
     
     return isActive && isNotExpired && isProPlan;
   };
