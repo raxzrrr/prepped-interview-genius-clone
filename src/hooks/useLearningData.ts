@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -62,7 +63,6 @@ export const useLearningData = (totalModules: number) => {
           id: 'local-' + user.id,
           user_id: user.id,
           course_progress: localProgress,
-          category_progress: {}, // Add missing property
           completed_modules: completedCount,
           total_modules: totalModules,
           course_score: null,
@@ -95,7 +95,6 @@ export const useLearningData = (totalModules: number) => {
         id: 'local-' + user.id,
         user_id: user.id,
         course_progress: localProgress,
-        category_progress: {}, // Add missing property
         completed_modules: completedCount,
         total_modules: totalModules,
         course_score: null,
@@ -161,7 +160,6 @@ export const useLearningData = (totalModules: number) => {
             id: 'local-' + user.id,
             user_id: user.id,
             course_progress: courseProgress,
-            category_progress: {}, // Add missing property
             completed_modules: completedModulesCount,
             total_modules: totalModules,
             course_score: isInterviewCourseComplete ? 85 : null,
