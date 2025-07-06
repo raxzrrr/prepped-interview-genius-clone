@@ -39,7 +39,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as Course[];
+      return data || [];
     } catch (error) {
       console.error('Error in fetchCourses:', error);
       throw error;
@@ -60,7 +60,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as CourseVideo[];
+      return data || [];
     } catch (error) {
       console.error('Error in fetchVideosByCourse:', error);
       throw error;
@@ -80,7 +80,7 @@ export const courseService = {
         throw error;
       }
 
-      return data as Course;
+      return data;
     } catch (error) {
       console.error('Error in addCourse:', error);
       throw error;
@@ -101,7 +101,7 @@ export const courseService = {
         throw error;
       }
 
-      return data as Course;
+      return data;
     } catch (error) {
       console.error('Error in updateCourse:', error);
       throw error;
@@ -138,7 +138,7 @@ export const courseService = {
         throw error;
       }
 
-      return data as CourseVideo;
+      return data;
     } catch (error) {
       console.error('Error in addVideo:', error);
       throw error;
@@ -159,7 +159,7 @@ export const courseService = {
         throw error;
       }
 
-      return data as CourseVideo;
+      return data;
     } catch (error) {
       console.error('Error in updateVideo:', error);
       throw error;
