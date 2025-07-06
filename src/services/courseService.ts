@@ -27,7 +27,7 @@ export const courseService = {
   async fetchCategories(): Promise<CourseCategory[]> {
     try {
       const { data, error } = await supabase
-        .from('course_categories')
+        .from('course_categories' as any)
         .select('*')
         .order('order_index', { ascending: true });
 
@@ -36,7 +36,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as CourseCategory[];
+      return (data || []) as unknown as CourseCategory[];
     } catch (error) {
       console.error('Error in fetchCategories:', error);
       throw error;
@@ -46,7 +46,7 @@ export const courseService = {
   async fetchVideosByCategory(categoryId: string): Promise<CourseVideo[]> {
     try {
       const { data, error } = await supabase
-        .from('course_videos')
+        .from('course_videos' as any)
         .select('*')
         .eq('category_id', categoryId)
         .order('order_index', { ascending: true });
@@ -56,7 +56,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as CourseVideo[];
+      return (data || []) as unknown as CourseVideo[];
     } catch (error) {
       console.error('Error in fetchVideosByCategory:', error);
       throw error;
