@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth as useClerkAuth, useUser, useClerk } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,7 +78,8 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         
         if (error) {
           console.error('Supabase session error:', error);
-          setIsAuthenticated(false);
+          // Even if Supabase session fails, user is still authenticated via Clerk
+          setIsAuthenticated(true);
         } else {
           setSupabaseSession(data.session);
           setIsAuthenticated(true);
@@ -87,11 +87,13 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       } else {
         console.error('No Supabase token received from Clerk');
-        setIsAuthenticated(false);
+        // Still set authenticated to true since Clerk user exists
+        setIsAuthenticated(true);
       }
     } catch (error) {
       console.error('Error setting up Supabase session:', error);
-      setIsAuthenticated(false);
+      // Still set authenticated to true since Clerk user exists
+      setIsAuthenticated(true);
     }
   };
 
@@ -122,7 +124,10 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         role: role
       });
 
-      // Set up Supabase session
+      // Set authenticated to true immediately when we have a Clerk user
+      setIsAuthenticated(true);
+
+      // Set up Supabase session (this can fail but shouldn't affect authentication state)
       setupSupabaseSession();
 
       // Sync with supabase for data consistency if needed
@@ -208,7 +213,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // Create a session object that includes both Clerk and Supabase session details
-  const sessionObject = isAuthenticated && supabaseSession ? {
+  const sessionObject = isAuthenticated ? {
     id: sessionId,
     user: {
       id: getSupabaseUserId(),

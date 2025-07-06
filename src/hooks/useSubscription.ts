@@ -30,8 +30,9 @@ export const useSubscription = () => {
         userEmail: user?.primaryEmailAddress?.emailAddress
       });
       
-      if (!user || !supabaseUserId || !isAuthenticated) {
-        console.log('useSubscription - Auth check failed:', { 
+      // Check if we have user and supabaseUserId (isAuthenticated might still be false during setup)
+      if (!user || !supabaseUserId) {
+        console.log('useSubscription - Missing user or supabaseUserId:', { 
           user: !!user, 
           supabaseUserId,
           isAuthenticated 
@@ -95,7 +96,7 @@ export const useSubscription = () => {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [user, getSupabaseUserId, isAuthenticated]);
+  }, [user, getSupabaseUserId]); // Removed isAuthenticated dependency
 
   const hasActivePlan = (planType: string) => {
     if (!subscription) return false;
