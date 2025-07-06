@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Check, PlayCircle, ArrowLeft } from 'lucide-react';
-import { CourseCategory, CourseVideo } from '@/services/courseService';
+import { Course, CourseVideo } from '@/services/courseService';
 
 interface CategoryVideoListProps {
-  category: CourseCategory;
+  category: Course;
   videos: CourseVideo[];
   onVideoSelect: (video: CourseVideo) => void;
   onMarkAsCompleted: (videoId: string, event: React.MouseEvent) => void;

@@ -3,10 +3,10 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Play } from 'lucide-react';
-import { CourseCategory } from '@/services/courseService';
+import { Course } from '@/services/courseService';
 
 interface CategoryCardProps {
-  category: CourseCategory;
+  category: Course;
   progress?: number;
   videoCount?: number;
   onClick: () => void;

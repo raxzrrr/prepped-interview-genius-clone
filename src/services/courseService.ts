@@ -29,7 +29,7 @@ export const courseService = {
   async fetchCourses(): Promise<Course[]> {
     try {
       const { data, error } = await supabase
-        .from('courses')
+        .from('courses' as any)
         .select('*')
         .eq('is_active', true)
         .order('order_index', { ascending: true });
@@ -39,7 +39,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as Course[];
+      return (data || []) as unknown as Course[];
     } catch (error) {
       console.error('Error in fetchCourses:', error);
       throw error;
@@ -49,7 +49,7 @@ export const courseService = {
   async fetchVideosByCourse(courseId: string): Promise<CourseVideo[]> {
     try {
       const { data, error } = await supabase
-        .from('course_videos')
+        .from('course_videos' as any)
         .select('*')
         .eq('course_id', courseId)
         .eq('is_active', true)
@@ -60,7 +60,7 @@ export const courseService = {
         throw error;
       }
 
-      return (data || []) as CourseVideo[];
+      return (data || []) as unknown as CourseVideo[];
     } catch (error) {
       console.error('Error in fetchVideosByCourse:', error);
       throw error;
@@ -70,7 +70,7 @@ export const courseService = {
   async addCourse(course: Omit<Course, 'id' | 'created_at' | 'updated_at'>): Promise<Course> {
     try {
       const { data, error } = await supabase
-        .from('courses')
+        .from('courses' as any)
         .insert(course)
         .select()
         .single();
@@ -90,7 +90,7 @@ export const courseService = {
   async updateCourse(id: string, updates: Partial<Course>): Promise<Course> {
     try {
       const { data, error } = await supabase
-        .from('courses')
+        .from('courses' as any)
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -111,7 +111,7 @@ export const courseService = {
   async deleteCourse(id: string): Promise<void> {
     try {
       const { error } = await supabase
-        .from('courses')
+        .from('courses' as any)
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', id);
 
@@ -128,7 +128,7 @@ export const courseService = {
   async addVideo(video: Omit<CourseVideo, 'id' | 'created_at' | 'updated_at'>): Promise<CourseVideo> {
     try {
       const { data, error } = await supabase
-        .from('course_videos')
+        .from('course_videos' as any)
         .insert(video)
         .select()
         .single();
@@ -148,7 +148,7 @@ export const courseService = {
   async updateVideo(id: string, updates: Partial<CourseVideo>): Promise<CourseVideo> {
     try {
       const { data, error } = await supabase
-        .from('course_videos')
+        .from('course_videos' as any)
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -169,7 +169,7 @@ export const courseService = {
   async deleteVideo(id: string): Promise<void> {
     try {
       const { error } = await supabase
-        .from('course_videos')
+        .from('course_videos' as any)
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', id);
 

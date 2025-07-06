@@ -2,12 +2,12 @@
 import React from 'react';
 import { Grid3X3, Loader2 } from 'lucide-react';
 import CategoryCard from './CategoryCard';
-import { CourseCategory } from '@/services/courseService';
+import { Course } from '@/services/courseService';
 
 interface CourseCategoryGridProps {
-  categories: CourseCategory[];
+  categories: Course[];
   loading: boolean;
-  onCategorySelect: (category: CourseCategory) => void;
+  onCategorySelect: (category: Course) => void;
   getCategoryProgress: (categoryId: string) => number;
   getCategoryVideoCount: (categoryId: string) => number;
 }
