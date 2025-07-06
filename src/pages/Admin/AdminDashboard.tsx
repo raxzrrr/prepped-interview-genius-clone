@@ -3,33 +3,13 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend
-} from 'recharts';
-import { Users, Video, CreditCard, ArrowUpRight } from 'lucide-react';
+import { BookOpen, FileText, Settings, CreditCard, Gift, Award } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAdmin } = useAuth();
-  
+
   // Check for temporary admin access
   const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
   
@@ -40,171 +20,115 @@ const AdminDashboard: React.FC = () => {
   if (!isAdmin() && !isTempAdmin) {
     return <Navigate to="/dashboard" />;
   }
-  
-  // TODO: Replace with actual data fetching
-  const userActivityData = [];
-  const subscriptionData = [];
-  const COLORS = ['#E5E7EB', '#7C4DFF', '#4285F4'];
-  
+
+  const adminCards = [
+    {
+      title: "Course Management",
+      description: "Create and manage educational courses and video content",
+      icon: BookOpen,
+      href: "/admin/courses",
+      color: "bg-blue-500"
+    },
+    {
+      title: "Content Management",
+      description: "Manage learning materials and resources",
+      icon: FileText,
+      href: "/admin/content",
+      color: "bg-green-500"
+    },
+    {
+      title: "Payment Management",
+      description: "View and manage payment transactions",
+      icon: CreditCard,
+      href: "/admin/payments",
+      color: "bg-purple-500"
+    },
+    {
+      title: "Coupon Management",
+      description: "Create and manage discount coupons",
+      icon: Gift,
+      href: "/admin/coupons",
+      color: "bg-orange-500"
+    },
+    {
+      title: "Certificate Management",
+      description: "Manage course certificates and achievements",
+      icon: Award,
+      href: "/admin/certificates",
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Settings",
+      description: "Configure system settings and preferences",
+      icon: Settings,
+      href: "/admin/settings",
+      color: "bg-gray-500"
+    }
+  ];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="mt-2 text-gray-600">
-            Overview of platform metrics and user activity
+            Manage your educational platform from here
           </p>
         </div>
-        
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <div className="text-xs text-gray-500">
-                Data will be available when connected to database
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Interview Sessions</CardTitle>
-              <Video className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <div className="text-xs text-gray-500">
-                Data will be available when connected to database
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Active Subscribers</CardTitle>
-              <Users className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <div className="text-xs text-gray-500">
-                Data will be available when connected to database
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Revenue (MTD)</CardTitle>
-              <CreditCard className="w-4 h-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <div className="text-xs text-gray-500">
-                Data will be available when connected to database
-              </div>
-            </CardContent>
-          </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {adminCards.map((card, index) => (
+            <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+                <div className={`${card.color} p-2 rounded-lg mr-3`}>
+                  <card.icon className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-lg">{card.title}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="mb-4">
+                  {card.description}
+                </CardDescription>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => window.location.href = card.href}
+                >
+                  Manage
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-        
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+        <div className="mt-8">
           <Card>
             <CardHeader>
-              <CardTitle>User Growth</CardTitle>
-              <CardDescription>
-                Monthly user registration over time
-              </CardDescription>
+              <CardTitle>Quick Stats</CardTitle>
+              <CardDescription>Overview of your platform</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <p>No data available</p>
-                  <p className="text-sm">Connect to database to view user growth metrics</p>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <h3 className="text-2xl font-bold text-blue-600">-</h3>
+                  <p className="text-sm text-gray-600">Total Courses</p>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <h3 className="text-2xl font-bold text-green-600">-</h3>
+                  <p className="text-sm text-gray-600">Active Students</p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <h3 className="text-2xl font-bold text-purple-600">-</h3>
+                  <p className="text-sm text-gray-600">Total Revenue</p>
+                </div>
+                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                  <h3 className="text-2xl font-bold text-orange-600">-</h3>
+                  <p className="text-sm text-gray-600">Certificates Issued</p>
                 </div>
               </div>
             </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Subscription Distribution</CardTitle>
-              <CardDescription>
-                User breakdown by subscription tier
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-80 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <p>No data available</p>
-                  <p className="text-sm">Connect to database to view subscription metrics</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Signups</CardTitle>
-              <CardDescription>
-                New users in the last 24 hours
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <p>No recent signups</p>
-                <p className="text-sm">Data will appear when users start signing up</p>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" disabled>
-                View All Users
-              </Button>
-            </CardFooter>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Courses</CardTitle>
-              <CardDescription>
-                Most popular learning content
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <p>No courses available</p>
-                <p className="text-sm">Add courses to see popularity metrics</p>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" disabled>
-                View All Courses
-              </Button>
-            </CardFooter>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Payments</CardTitle>
-              <CardDescription>
-                Latest subscription payments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <p>No recent payments</p>
-                <p className="text-sm">Payment data will appear when users subscribe</p>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" disabled>
-                View All Payments
-              </Button>
-            </CardFooter>
           </Card>
         </div>
       </div>
