@@ -9,6 +9,86 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      course_videos: {
+        Row: {
+          course_id: string
+          created_at: string
+          description: string | null
+          duration: string | null
+          id: string
+          is_active: boolean
+          order_index: number
+          title: string
+          updated_at: string
+          video_url: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          description?: string | null
+          duration?: string | null
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          title: string
+          updated_at?: string
+          video_url: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          duration?: string | null
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          title?: string
+          updated_at?: string
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_videos_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courses: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -83,6 +163,54 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_learning: {
+        Row: {
+          assessment_attempted: boolean | null
+          assessment_completed_at: string | null
+          assessment_score: number | null
+          completed_modules: number | null
+          course_completed_at: string | null
+          course_progress: Json | null
+          course_progress_new: Json | null
+          course_score: number | null
+          created_at: string
+          id: string
+          total_modules: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assessment_attempted?: boolean | null
+          assessment_completed_at?: string | null
+          assessment_score?: number | null
+          completed_modules?: number | null
+          course_completed_at?: string | null
+          course_progress?: Json | null
+          course_progress_new?: Json | null
+          course_score?: number | null
+          created_at?: string
+          id?: string
+          total_modules?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assessment_attempted?: boolean | null
+          assessment_completed_at?: string | null
+          assessment_score?: number | null
+          completed_modules?: number | null
+          course_completed_at?: string | null
+          course_progress?: Json | null
+          course_progress_new?: Json | null
+          course_score?: number | null
+          created_at?: string
+          id?: string
+          total_modules?: number | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
