@@ -18,8 +18,16 @@ const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({
   featureName, 
   description = "This feature is available for Pro subscribers only." 
 }) => {
-  const { hasProPlan, loading } = useSubscription();
+  const { hasProPlan, loading, subscription } = useSubscription();
   const navigate = useNavigate();
+
+  console.log('ProFeatureGuard state:', {
+    featureName,
+    loading,
+    hasSubscription: !!subscription,
+    subscriptionData: subscription,
+    hasProAccess: hasProPlan()
+  });
 
   if (loading) {
     return (
@@ -31,8 +39,11 @@ const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({
 
   // If user has Pro plan, show the content without any restrictions
   if (hasProPlan()) {
+    console.log('ProFeatureGuard: User has Pro access, showing content');
     return <>{children}</>;
   }
+
+  console.log('ProFeatureGuard: User does not have Pro access, showing upgrade prompt');
 
   // If user doesn't have Pro plan, show the upgrade prompt
   return (

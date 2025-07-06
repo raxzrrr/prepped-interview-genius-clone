@@ -48,8 +48,13 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Function to get consistent Supabase user ID
   const getSupabaseUserId = () => {
-    if (!userId) return null;
-    return generateConsistentUUID(userId);
+    if (!userId) {
+      console.log('getSupabaseUserId: No userId available');
+      return null;
+    }
+    const supabaseId = generateConsistentUUID(userId);
+    console.log('getSupabaseUserId: Generated Supabase ID:', { clerkId: userId, supabaseId });
+    return supabaseId;
   };
 
   // Set up Supabase session with Clerk token
@@ -218,7 +223,8 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     userId,
     isAuthenticated,
     hasProfile: !!profile,
-    hasSession: !!sessionObject
+    hasSession: !!sessionObject,
+    supabaseUserId: getSupabaseUserId()
   });
 
   return (

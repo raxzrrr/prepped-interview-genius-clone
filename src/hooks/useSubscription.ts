@@ -17,14 +17,25 @@ interface Subscription {
 export const useSubscription = () => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const { user, getSupabaseUserId } = useAuth();
+  const { user, getSupabaseUserId, isAuthenticated } = useAuth();
 
   useEffect(() => {
     const fetchSubscription = async () => {
       const supabaseUserId = getSupabaseUserId();
       
-      if (!user || !supabaseUserId) {
-        console.log('No user or supabaseUserId found:', { user: !!user, supabaseUserId });
+      console.log('useSubscription fetchSubscription called:', {
+        hasUser: !!user,
+        isAuthenticated,
+        supabaseUserId,
+        userEmail: user?.primaryEmailAddress?.emailAddress
+      });
+      
+      if (!user || !supabaseUserId || !isAuthenticated) {
+        console.log('No user, supabaseUserId, or not authenticated:', { 
+          user: !!user, 
+          supabaseUserId,
+          isAuthenticated 
+        });
         setLoading(false);
         return;
       }
@@ -42,6 +53,7 @@ export const useSubscription = () => {
 
         if (error) {
           console.error('Error fetching subscription:', error);
+          setLoading(false);
           return;
         }
 
@@ -51,7 +63,8 @@ export const useSubscription = () => {
           setSubscription(data[0]);
           console.log('Found active subscription:', data[0]);
         } else {
-          console.log('No active subscription found');
+          console.log('No active subscription found for user:', supabaseUserId);
+          setSubscription(null);
         }
       } catch (error) {
         console.error('Error fetching subscription:', error);
@@ -60,8 +73,13 @@ export const useSubscription = () => {
       }
     };
 
-    fetchSubscription();
-  }, [user, getSupabaseUserId]);
+    // Add a small delay to ensure auth context is fully loaded
+    const timer = setTimeout(() => {
+      fetchSubscription();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [user, getSupabaseUserId, isAuthenticated]);
 
   const hasActivePlan = (planType: string) => {
     if (!subscription) return false;
@@ -82,7 +100,10 @@ export const useSubscription = () => {
   };
 
   const hasProPlan = () => {
-    if (!subscription) return false;
+    if (!subscription) {
+      console.log('hasProPlan: No subscription found');
+      return false;
+    }
     
     const isActive = subscription.status === 'active';
     const isNotExpired = new Date(subscription.current_period_end) > new Date();
