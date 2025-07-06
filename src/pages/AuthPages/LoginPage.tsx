@@ -1,13 +1,15 @@
 
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/Layout/MainLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { SignIn } from "@clerk/clerk-react";
 
 const LoginPage: React.FC = () => {
   const { user, isAdmin, isStudent } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
   // Redirect if already logged in
   useEffect(() => {
@@ -29,7 +31,6 @@ const LoginPage: React.FC = () => {
             <p className="text-gray-600 mb-8 text-center">
               Welcome back! Sign in to your account to continue your interview preparation
             </p>
-            
             <SignIn 
               signUpUrl="/register"
               afterSignInUrl="/dashboard"

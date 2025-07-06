@@ -26,7 +26,6 @@ const RegisterPage: React.FC = () => {
             <p className="text-gray-600 mb-8 text-center">
               Create your Interview Genius account to start practicing for interviews
             </p>
-            
             <SignUp 
               signInUrl="/login"
               afterSignUpUrl="/dashboard"
