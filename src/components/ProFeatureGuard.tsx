@@ -29,10 +29,12 @@ const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({
     );
   }
 
+  // If user has Pro plan, show the content without any restrictions
   if (hasProPlan()) {
     return <>{children}</>;
   }
 
+  // If user doesn't have Pro plan, show the upgrade prompt
   return (
     <Card className="border-2 border-dashed border-gray-300">
       <CardHeader className="text-center">

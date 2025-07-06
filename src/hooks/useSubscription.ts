@@ -72,7 +72,15 @@ export const useSubscription = () => {
   };
 
   const hasProPlan = () => {
-    return hasActivePlan('pro') || hasActivePlan('enterprise');
+    if (!subscription) return false;
+    
+    const isActive = subscription.status === 'active';
+    const isNotExpired = new Date(subscription.current_period_end) > new Date();
+    
+    // Check if user has pro or enterprise plan (both should have full access)
+    const isProPlan = subscription.plan_type === 'pro' || subscription.plan_type === 'enterprise';
+    
+    return isActive && isNotExpired && isProPlan;
   };
 
   return {
