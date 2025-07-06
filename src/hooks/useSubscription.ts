@@ -23,7 +23,7 @@ export const useSubscription = () => {
     const fetchSubscription = async () => {
       const supabaseUserId = getSupabaseUserId();
       
-      console.log('useSubscription fetchSubscription called:', {
+      console.log('useSubscription - Fetch started:', {
         hasUser: !!user,
         isAuthenticated,
         supabaseUserId,
@@ -31,17 +31,18 @@ export const useSubscription = () => {
       });
       
       if (!user || !supabaseUserId || !isAuthenticated) {
-        console.log('No user, supabaseUserId, or not authenticated:', { 
+        console.log('useSubscription - Auth check failed:', { 
           user: !!user, 
           supabaseUserId,
           isAuthenticated 
         });
+        setSubscription(null);
         setLoading(false);
         return;
       }
 
       try {
-        console.log('Fetching subscription for supabaseUserId:', supabaseUserId);
+        console.log('useSubscription - Querying database for user:', supabaseUserId);
         
         const { data, error } = await supabase
           .from('user_subscriptions')
@@ -52,22 +53,37 @@ export const useSubscription = () => {
           .limit(1);
 
         if (error) {
-          console.error('Error fetching subscription:', error);
+          console.error('useSubscription - Database error:', error);
+          setSubscription(null);
           setLoading(false);
           return;
         }
 
-        console.log('Subscription query result:', data);
+        console.log('useSubscription - Database response:', {
+          data,
+          dataLength: data?.length || 0,
+          firstItem: data?.[0] || null
+        });
 
         if (data && data.length > 0) {
-          setSubscription(data[0]);
-          console.log('Found active subscription:', data[0]);
+          const sub = data[0];
+          setSubscription(sub);
+          console.log('useSubscription - Found subscription:', {
+            id: sub.id,
+            userId: sub.user_id,
+            planType: sub.plan_type,
+            status: sub.status,
+            periodStart: sub.current_period_start,
+            periodEnd: sub.current_period_end,
+            isExpired: new Date(sub.current_period_end) <= new Date()
+          });
         } else {
-          console.log('No active subscription found for user:', supabaseUserId);
+          console.log('useSubscription - No active subscription found');
           setSubscription(null);
         }
       } catch (error) {
-        console.error('Error fetching subscription:', error);
+        console.error('useSubscription - Fetch error:', error);
+        setSubscription(null);
       } finally {
         setLoading(false);
       }
@@ -101,22 +117,25 @@ export const useSubscription = () => {
 
   const hasProPlan = () => {
     if (!subscription) {
-      console.log('hasProPlan: No subscription found');
+      console.log('hasProPlan - No subscription found');
       return false;
     }
     
     const isActive = subscription.status === 'active';
     const isNotExpired = new Date(subscription.current_period_end) > new Date();
-    
-    // Check if user has pro or enterprise plan (both should have full access)
     const isProPlan = subscription.plan_type === 'pro' || subscription.plan_type === 'enterprise';
     
-    console.log('Checking Pro plan access:', {
+    console.log('hasProPlan - Detailed check:', {
       hasSubscription: !!subscription,
+      subscriptionId: subscription.id,
+      userId: subscription.user_id,
+      status: subscription.status,
+      planType: subscription.plan_type,
       isActive,
+      currentDate: new Date().toISOString(),
+      periodEnd: subscription.current_period_end,
       isNotExpired,
       isProPlan,
-      planType: subscription.plan_type,
       finalResult: isActive && isNotExpired && isProPlan
     });
     

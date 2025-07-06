@@ -21,12 +21,15 @@ const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({
   const { hasProPlan, loading, subscription } = useSubscription();
   const navigate = useNavigate();
 
-  console.log('ProFeatureGuard state:', {
+  console.log('ProFeatureGuard - Detailed Debug:', {
     featureName,
     loading,
-    hasSubscription: !!subscription,
-    subscriptionData: subscription,
-    hasProAccess: hasProPlan()
+    subscription,
+    hasProAccess: hasProPlan(),
+    subscriptionStatus: subscription?.status,
+    planType: subscription?.plan_type,
+    currentPeriodEnd: subscription?.current_period_end,
+    isExpired: subscription ? new Date(subscription.current_period_end) <= new Date() : 'N/A'
   });
 
   if (loading) {
@@ -37,10 +40,26 @@ const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({
     );
   }
 
-  // If user has Pro plan, show the content without any restrictions
-  if (hasProPlan()) {
-    console.log('ProFeatureGuard: User has Pro access, showing content');
-    return <>{children}</>;
+  // Debug the exact subscription check logic
+  if (subscription) {
+    const isActive = subscription.status === 'active';
+    const isNotExpired = new Date(subscription.current_period_end) > new Date();
+    const isProPlan = subscription.plan_type === 'pro' || subscription.plan_type === 'enterprise';
+    
+    console.log('ProFeatureGuard - Subscription Check Details:', {
+      isActive,
+      isNotExpired,
+      isProPlan,
+      currentDate: new Date().toISOString(),
+      periodEnd: subscription.current_period_end,
+      shouldShowContent: isActive && isNotExpired && isProPlan
+    });
+    
+    // If user has active Pro/Enterprise plan that hasn't expired, show content
+    if (isActive && isNotExpired && isProPlan) {
+      console.log('ProFeatureGuard: User has valid Pro access, showing content');
+      return <>{children}</>;
+    }
   }
 
   console.log('ProFeatureGuard: User does not have Pro access, showing upgrade prompt');
