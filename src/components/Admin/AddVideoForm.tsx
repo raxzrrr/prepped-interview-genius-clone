@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { Course } from '@/services/courseService';
-import { uploadVideoFile } from '@/utils/fileUpload';
+import { uploadVideoFile, UploadProgress } from '@/utils/fileUpload';
 import { X, Upload, Link, Play } from 'lucide-react';
 
 interface AddVideoFormProps {
@@ -133,19 +133,27 @@ const AddVideoForm: React.FC<AddVideoFormProps> = ({
       if (activeTab === 'file' && file) {
         console.log('Starting file upload for:', file.name);
         
-        const uploadResult = await uploadVideoFile(file, (progress) => {
-          setUploadProgress(progress);
-        });
+        const uploadResult = await uploadVideoFile(
+          file, 
+          selectedCourse.id, 
+          (progress: UploadProgress) => {
+            setUploadProgress(progress.progress);
+          }
+        );
 
         console.log('Upload result:', uploadResult);
 
-        videoData = {
-          ...videoData,
-          video_url: uploadResult.publicUrl,
-          file_path: uploadResult.path,
-          file_size: file.size,
-          content_type: 'file'
-        };
+        if (uploadResult) {
+          videoData = {
+            ...videoData,
+            video_url: uploadResult.url,
+            file_path: uploadResult.path,
+            file_size: file.size,
+            content_type: 'file'
+          };
+        } else {
+          throw new Error('Upload failed');
+        }
       }
 
       console.log('Submitting video data:', videoData);
