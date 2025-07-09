@@ -2,10 +2,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Play, Pause, Volume2, VolumeX, Maximize } from 'lucide-react';
 
 interface VideoPlayerProps {
   videoUrl: string;
+  contentType?: string;
   onProgress: (progress: number) => void;
   initialProgress?: number;
   moduleId: string;
@@ -15,16 +16,22 @@ interface VideoPlayerProps {
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
   videoUrl, 
+  contentType = 'url',
   onProgress, 
   initialProgress = 0,
   moduleId,
   onCompleted,
   onAdvanceToNext
 }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(initialProgress);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const { toast } = useToast();
   
   // Prevent right-clicking on the video for download
@@ -44,9 +51,63 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       document.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [toast]);
-  
-  // Track video progress
+
+  // Handle direct video file playback
   useEffect(() => {
+    const video = videoRef.current;
+    if (!video || contentType !== 'file') return;
+
+    const handleLoadedMetadata = () => {
+      setLoading(false);
+      setDuration(video.duration);
+    };
+
+    const handleTimeUpdate = () => {
+      if (video.duration > 0) {
+        const progressPercent = (video.currentTime / video.duration) * 100;
+        setProgress(progressPercent);
+        setCurrentTime(video.currentTime);
+        onProgress(progressPercent);
+
+        // Mark as completed when 90% watched
+        if (progressPercent >= 90 && progress < 90) {
+          onCompleted(moduleId);
+          
+          if (onAdvanceToNext) {
+            setTimeout(() => {
+              onAdvanceToNext();
+            }, 1500);
+          }
+        }
+      }
+    };
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleError = () => {
+      setLoading(false);
+      setError('Failed to load video. Please try again later.');
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('error', handleError);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('error', handleError);
+    };
+  }, [contentType, onProgress, onCompleted, moduleId, onAdvanceToNext, progress]);
+
+  // Handle iframe-based video progress (for URLs like YouTube)
+  useEffect(() => {
+    if (contentType !== 'url') return;
+
     let progressInterval: NodeJS.Timeout;
     
     if (!loading && !error) {
@@ -76,7 +137,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => {
       if (progressInterval) clearInterval(progressInterval);
     };
-  }, [loading, error, onProgress, onCompleted, moduleId, onAdvanceToNext]);
+  }, [loading, error, contentType, onProgress, onCompleted, moduleId, onAdvanceToNext]);
   
   const handleIframeLoad = () => {
     setLoading(false);
@@ -85,6 +146,52 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleIframeError = () => {
     setLoading(false);
     setError('Failed to load video. Please try again later.');
+  };
+
+  const togglePlayPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPlaying) {
+      video.pause();
+    } else {
+      video.play();
+    }
+  };
+
+  const toggleMute = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const video = videoRef.current;
+    if (!video || duration === 0) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const newTime = (clickX / rect.width) * duration;
+    
+    video.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleFullscreen = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.requestFullscreen) {
+      video.requestFullscreen();
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const handleMarkAsCompleted = () => {
@@ -150,16 +257,74 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
       
-      <div className="aspect-video w-full overflow-hidden rounded-md">
-        <iframe
-          ref={iframeRef}
-          src={getEmbedUrl()}
-          className="w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          onLoad={handleIframeLoad}
-          onError={handleIframeError}
-        ></iframe>
+      <div className="aspect-video w-full overflow-hidden rounded-md relative">
+        {contentType === 'file' ? (
+          <div className="relative w-full h-full">
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              className="w-full h-full object-contain bg-black"
+              onContextMenu={(e) => e.preventDefault()}
+              controlsList="nodownload"
+            />
+            
+            {/* Custom video controls overlay */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+              <div className="flex items-center space-x-4 text-white">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={togglePlayPause}
+                  className="text-white hover:text-white hover:bg-white/20"
+                >
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </Button>
+                
+                <div 
+                  className="flex-1 h-2 bg-white/30 rounded-full cursor-pointer"
+                  onClick={handleSeek}
+                >
+                  <div 
+                    className="h-full bg-brand-purple rounded-full transition-all duration-300"
+                    style={{ width: `${(currentTime / duration) * 100}%` }}
+                  />
+                </div>
+                
+                <span className="text-sm">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleMute}
+                  className="text-white hover:text-white hover:bg-white/20"
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleFullscreen}
+                  className="text-white hover:text-white hover:bg-white/20"
+                >
+                  <Maximize className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <iframe
+            ref={iframeRef}
+            src={getEmbedUrl()}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            onLoad={handleIframeLoad}
+            onError={handleIframeError}
+          ></iframe>
+        )}
       </div>
       
       <div className="mt-4 space-y-4">

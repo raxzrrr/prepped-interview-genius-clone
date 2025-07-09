@@ -21,8 +21,26 @@ export interface CourseVideo {
   duration: string;
   order_index: number;
   is_active: boolean;
+  content_type: string;
+  file_path?: string;
+  file_size?: number;
+  thumbnail_url?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AddVideoData {
+  course_id: string;
+  title: string;
+  description: string;
+  video_url: string;
+  duration: string;
+  order_index: number;
+  is_active: boolean;
+  content_type: string;
+  file_path?: string;
+  file_size?: number;
+  thumbnail_url?: string;
 }
 
 export const courseService = {
@@ -125,7 +143,7 @@ export const courseService = {
     }
   },
 
-  async addVideo(video: Omit<CourseVideo, 'id' | 'created_at' | 'updated_at'>): Promise<CourseVideo> {
+  async addVideo(video: AddVideoData): Promise<CourseVideo> {
     try {
       const { data, error } = await supabase
         .from('course_videos')

@@ -16,37 +16,49 @@ export type Database = {
     Tables: {
       course_videos: {
         Row: {
+          content_type: string | null
           course_id: string
           created_at: string
           description: string | null
           duration: string | null
+          file_path: string | null
+          file_size: number | null
           id: string
           is_active: boolean
           order_index: number
+          thumbnail_url: string | null
           title: string
           updated_at: string
           video_url: string
         }
         Insert: {
+          content_type?: string | null
           course_id: string
           created_at?: string
           description?: string | null
           duration?: string | null
+          file_path?: string | null
+          file_size?: number | null
           id?: string
           is_active?: boolean
           order_index?: number
+          thumbnail_url?: string | null
           title: string
           updated_at?: string
           video_url: string
         }
         Update: {
+          content_type?: string | null
           course_id?: string
           created_at?: string
           description?: string | null
           duration?: string | null
+          file_path?: string | null
+          file_size?: number | null
           id?: string
           is_active?: boolean
           order_index?: number
+          thumbnail_url?: string | null
           title?: string
           updated_at?: string
           video_url?: string

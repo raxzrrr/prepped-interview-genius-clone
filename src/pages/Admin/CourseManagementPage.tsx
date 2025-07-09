@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Plus, Video, Loader2 } from 'lucide-react';
 import { courseService, Course, CourseVideo } from '@/services/courseService';
 import { supabase } from '@/integrations/supabase/client';
+import { deleteVideoFile } from '@/utils/fileUpload';
 import AddCourseForm from '@/components/Admin/AddCourseForm';
 import AddVideoForm from '@/components/Admin/AddVideoForm';
 import CourseCard from '@/components/Admin/CourseCard';
@@ -194,7 +195,17 @@ const CourseManagementPage: React.FC = () => {
     }
   };
 
-  const handleAddVideo = async (videoData: { title: string; description: string; video_url: string; duration: string; order_index: number }) => {
+  const handleAddVideo = async (videoData: { 
+    title: string; 
+    description: string; 
+    video_url: string; 
+    duration: string; 
+    order_index: number;
+    content_type: string;
+    file_path?: string;
+    file_size?: number;
+    thumbnail_url?: string;
+  }) => {
     if (!selectedCourse) return;
 
     try {
@@ -261,6 +272,14 @@ const CourseManagementPage: React.FC = () => {
 
   const handleDeleteCourse = async (courseId: string) => {
     try {
+      // Delete associated video files from storage
+      const courseVideos = videos[courseId] || [];
+      for (const video of courseVideos) {
+        if (video.content_type === 'file' && video.file_path) {
+          await deleteVideoFile(video.file_path);
+        }
+      }
+
       await courseService.deleteCourse(courseId);
       setCourses(courses.filter(course => course.id !== courseId));
       const newVideos = { ...videos };
@@ -283,6 +302,14 @@ const CourseManagementPage: React.FC = () => {
 
   const handleDeleteVideo = async (videoId: string, courseId: string) => {
     try {
+      // Find the video to get file path for deletion
+      const video = videos[courseId]?.find(v => v.id === videoId);
+      
+      // Delete file from storage if it's an uploaded file
+      if (video?.content_type === 'file' && video.file_path) {
+        await deleteVideoFile(video.file_path);
+      }
+
       await courseService.deleteVideo(videoId);
       setVideos({
         ...videos,
@@ -321,7 +348,7 @@ const CourseManagementPage: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Course Management</h1>
             <p className="mt-2 text-gray-600">
-              Create and manage educational courses and video content (Real-time updates enabled)
+              Create and manage educational courses and video content (Upload files or add links)
             </p>
           </div>
           <Button onClick={() => setShowAddCourse(true)}>
