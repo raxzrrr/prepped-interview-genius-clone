@@ -44,8 +44,15 @@ export const useCourseManagement = () => {
     }
   }, [toast]);
 
-  const handleAddCourse = useCallback(async (course: Course) => {
+  const handleAddCourse = useCallback(async (courseData: { name: string; description: string; order_index: number }) => {
     try {
+      const course: Omit<Course, 'id' | 'created_at' | 'updated_at'> = {
+        name: courseData.name,
+        description: courseData.description,
+        order_index: courseData.order_index,
+        is_active: true,
+        thumbnail_url: null
+      };
       const newCourse = await courseService.addCourse(course);
       setCourses(prevCourses => [...prevCourses, newCourse]);
       setShowAddCourse(false);
@@ -65,7 +72,7 @@ export const useCourseManagement = () => {
 
   const handleUpdateCourse = useCallback(async (course: Course) => {
     try {
-      const updatedCourse = await courseService.updateCourse(course);
+      const updatedCourse = await courseService.updateCourse(course.id, course);
       setCourses(prevCourses =>
         prevCourses.map(c => (c.id === course.id ? updatedCourse : c))
       );
@@ -84,9 +91,32 @@ export const useCourseManagement = () => {
     }
   }, [toast]);
 
-  const handleAddVideo = useCallback(async (video: CourseVideo) => {
+  const handleAddVideo = useCallback(async (videoData: { 
+    title: string; 
+    description: string; 
+    video_url: string; 
+    duration: string; 
+    order_index: number;
+    content_type: string;
+    file_path?: string;
+    file_size?: number;
+    thumbnail_url?: string;
+  }) => {
     if (!selectedCourse) return;
     try {
+      const video: Omit<CourseVideo, 'id' | 'created_at' | 'updated_at'> = {
+        course_id: selectedCourse.id,
+        title: videoData.title,
+        description: videoData.description,
+        video_url: videoData.video_url,
+        duration: videoData.duration,
+        order_index: videoData.order_index,
+        content_type: videoData.content_type,
+        file_path: videoData.file_path,
+        file_size: videoData.file_size,
+        thumbnail_url: videoData.thumbnail_url,
+        is_active: true
+      };
       const newVideo = await courseService.addVideo(video);
       setVideos(prevVideos => ({
         ...prevVideos,
@@ -109,7 +139,7 @@ export const useCourseManagement = () => {
 
   const handleUpdateVideo = useCallback(async (video: CourseVideo) => {
     try {
-      const updatedVideo = await courseService.updateVideo(video);
+      const updatedVideo = await courseService.updateVideo(video.id, video);
       setVideos(prevVideos => {
         const updatedVideos = { ...prevVideos };
         if (updatedVideos[video.course_id]) {
