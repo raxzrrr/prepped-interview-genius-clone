@@ -8,8 +8,8 @@ const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
 >(({ className, value, ...props }, ref) => {
-  // Ensure value is between 0 and 100
-  const clampedValue = Math.min(Math.max(value || 0, 0), 100);
+  // Ensure value is between 0 and 100, handle null/undefined
+  const safeValue = typeof value === 'number' ? Math.min(Math.max(value, 0), 100) : 0;
   
   return (
     <ProgressPrimitive.Root
@@ -21,8 +21,8 @@ const Progress = React.forwardRef<
       {...props}
     >
       <ProgressPrimitive.Indicator
-        className="h-full w-full flex-1 bg-primary transition-all"
-        style={{ transform: `translateX(-${100 - clampedValue}%)` }}
+        className="h-full w-full flex-1 bg-primary transition-all duration-300 ease-in-out"
+        style={{ transform: `translateX(-${100 - safeValue}%)` }}
       />
     </ProgressPrimitive.Root>
   )

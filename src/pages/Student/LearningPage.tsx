@@ -127,6 +127,19 @@ const LearningPage: React.FC = () => {
     });
   };
 
+  // Safe progress calculation with proper bounds checking
+  const calculateCourseProgress = (courseId: string): number => {
+    const courseVideos = videos[courseId] || [];
+    if (courseVideos.length === 0) return 0;
+    
+    const completedVideos = courseVideos.filter(video => 
+      getVideoProgress(video.id)
+    ).length;
+    
+    const progress = (completedVideos / courseVideos.length) * 100;
+    return Math.min(Math.max(Math.round(progress), 0), 100);
+  };
+
   if (courseLoading) {
     return (
       <DashboardLayout>
@@ -265,36 +278,41 @@ const LearningPage: React.FC = () => {
               
               <TabsContent value="courses">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {courses.map((course) => (
-                    <Card key={course.id} className="cursor-pointer hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <CardTitle className="text-lg">{course.name}</CardTitle>
-                        <p className="text-sm text-gray-600">{course.description}</p>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="flex justify-between text-sm">
-                            <span>Videos: {getCourseVideoCount(course.id)}</span>
-                            <span>Progress: {getCourseProgress(course.id)}%</span>
+                  {courses.map((course) => {
+                    const courseProgress = calculateCourseProgress(course.id);
+                    const videoCount = getCourseVideoCount(course.id);
+                    
+                    return (
+                      <Card key={course.id} className="cursor-pointer hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <CardTitle className="text-lg">{course.name}</CardTitle>
+                          <p className="text-sm text-gray-600">{course.description}</p>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-sm">
+                              <span>Videos: {videoCount}</span>
+                              <span>Progress: {courseProgress}%</span>
+                            </div>
+                            
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-in-out"
+                                style={{ width: `${courseProgress}%` }}
+                              ></div>
+                            </div>
+                            
+                            <Button 
+                              className="w-full"
+                              onClick={() => handleCourseSelect(course)}
+                            >
+                              {courseProgress > 0 ? 'Continue Learning' : 'Start Course'}
+                            </Button>
                           </div>
-                          
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full transition-all"
-                              style={{ width: `${getCourseProgress(course.id)}%` }}
-                            ></div>
-                          </div>
-                          
-                          <Button 
-                            className="w-full"
-                            onClick={() => handleCourseSelect(course)}
-                          >
-                            {getCourseProgress(course.id) > 0 ? 'Continue Learning' : 'Start Course'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </TabsContent>
               

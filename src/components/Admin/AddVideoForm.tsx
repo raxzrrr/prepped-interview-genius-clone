@@ -43,6 +43,7 @@ const AddVideoForm: React.FC<AddVideoFormProps> = ({
   });
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('url');
 
@@ -112,9 +113,15 @@ const AddVideoForm: React.FC<AddVideoFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent double submission
+    if (submitting || uploading) {
+      return;
+    }
+    
     if (!validateForm()) return;
 
     try {
+      setSubmitting(true);
       setUploading(true);
       setUploadProgress(0);
 
@@ -180,6 +187,7 @@ const AddVideoForm: React.FC<AddVideoFormProps> = ({
       });
     } finally {
       setUploading(false);
+      setSubmitting(false);
     }
   };
 
@@ -328,7 +336,7 @@ const AddVideoForm: React.FC<AddVideoFormProps> = ({
           <div className="flex space-x-2 pt-4">
             <Button 
               type="submit" 
-              disabled={uploading}
+              disabled={uploading || submitting}
               className="flex-1"
             >
               {uploading ? 'Adding Video...' : 'Add Video'}
@@ -337,7 +345,7 @@ const AddVideoForm: React.FC<AddVideoFormProps> = ({
               type="button" 
               variant="outline" 
               onClick={onCancel}
-              disabled={uploading}
+              disabled={uploading || submitting}
             >
               Cancel
             </Button>
