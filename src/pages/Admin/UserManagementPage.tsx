@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Trash2, Search, Loader2, MoreHorizontal, CheckCircle, XCircle, Clock, User, Calendar, Mail, Crown, Shield } from 'lucide-react';
+import { Edit, Trash2, Search, Loader2, MoreHorizontal, CheckCircle, XCircle, Clock, User, Calendar, Mail, Crown, Shield, Users, Activity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -230,11 +230,11 @@ const UserManagementPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>;
+        return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>;
       case 'inactive':
-        return <Badge className="bg-red-100 text-red-800"><XCircle className="w-3 h-3 mr-1" />Inactive</Badge>;
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200"><XCircle className="w-3 h-3 mr-1" />Inactive</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
@@ -243,9 +243,9 @@ const UserManagementPage: React.FC = () => {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
-        return <Badge className="bg-purple-100 text-purple-800"><Crown className="w-3 h-3 mr-1" />Admin</Badge>;
+        return <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-200"><Crown className="w-3 h-3 mr-1" />Admin</Badge>;
       case 'student':
-        return <Badge className="bg-blue-100 text-blue-800"><User className="w-3 h-3 mr-1" />Student</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200"><User className="w-3 h-3 mr-1" />Student</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
@@ -258,7 +258,7 @@ const UserManagementPage: React.FC = () => {
     
     const isActive = subscription.status === 'active' && new Date(subscription.current_period_end) > new Date();
     return (
-      <Badge className={isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+      <Badge className={isActive ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-gray-100 text-gray-800"}>
         <Shield className="w-3 h-3 mr-1" />
         {subscription.plan_type} {isActive ? '(Active)' : '(Expired)'}
       </Badge>
@@ -286,9 +286,11 @@ const UserManagementPage: React.FC = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading users...</span>
+        <div className="flex justify-center items-center py-20">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+            <span className="text-lg font-medium text-muted-foreground">Loading users...</span>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -296,87 +298,116 @@ const UserManagementPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="mt-2 text-gray-600">
-            Manage users, roles, and subscriptions with real-time updates
-          </p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search users..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
-              />
+      <div className="space-y-8 p-6">
+        {/* Header Section */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Users className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+                <p className="text-muted-foreground">
+                  Manage users, roles, and subscriptions with real-time updates
+                </p>
+              </div>
             </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter by role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="student">Student</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-
-          <Badge variant="outline" className="bg-green-50 text-green-700">
-            {filteredUsers.length} users • Live updates
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-green-500" />
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              Live Updates
+            </Badge>
+          </div>
         </div>
 
+        {/* Filters and Search */}
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 items-center flex-1">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    placeholder="Search by name or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-background"
+                  />
+                </div>
+                
+                <div className="flex gap-3">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Filter by role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="student">Student</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                {filteredUsers.length} users found
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Edit User Modal */}
         {editingUser && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Edit User</CardTitle>
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b">
+              <CardTitle className="flex items-center gap-2">
+                <Edit className="h-5 w-5" />
+                Edit User
+              </CardTitle>
               <CardDescription>Update user information and settings</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium">Full Name</Label>
                   <Input
                     id="name"
                     value={editingUser.full_name}
                     onChange={(e) => setEditingUser({...editingUser, full_name: e.target.value})}
+                    className="bg-background"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     value={editingUser.email || ''}
                     onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                    className="bg-background"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="role">Role</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="role" className="text-sm font-medium">Role</Label>
                   <Select 
                     value={editingUser.role} 
                     onValueChange={(value: 'student' | 'admin') => setEditingUser({...editingUser, role: value})}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-background">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -385,13 +416,13 @@ const UserManagementPage: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="status">Status</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="status" className="text-sm font-medium">Status</Label>
                   <Select 
                     value={editingUser.status || 'active'} 
                     onValueChange={(value: string) => setEditingUser({...editingUser, status: value})}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-background">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -402,97 +433,115 @@ const UserManagementPage: React.FC = () => {
                   </Select>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <Button onClick={() => handleUpdateUser(editingUser)}>Save Changes</Button>
-                <Button variant="outline" onClick={() => setEditingUser(null)}>Cancel</Button>
+              <div className="flex gap-3 pt-4 border-t">
+                <Button onClick={() => handleUpdateUser(editingUser)} className="flex-1">
+                  Save Changes
+                </Button>
+                <Button variant="outline" onClick={() => setEditingUser(null)} className="flex-1">
+                  Cancel
+                </Button>
               </div>
             </CardContent>
           </Card>
         )}
         
-        <Card>
+        {/* Users Table */}
+        <Card className="border-0 shadow-sm">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Subscription</TableHead>
-                  <TableHead>Last Active</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-brand-purple flex items-center justify-center text-white font-medium">
-                          {user.full_name.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-medium">{user.full_name}</div>
-                          <div className="text-sm text-gray-500">ID: {user.id.slice(0, 8)}...</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {user.email && (
-                          <div className="flex items-center text-sm">
-                            <Mail className="w-3 h-3 mr-1" />
-                            {user.email}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>{getStatusBadge(user.status || 'active')}</TableCell>
-                    <TableCell>{getSubscriptionBadge(user.subscription)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {user.last_active ? formatDateTime(user.last_active) : 'Never'}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-gray-600">
-                        {formatDate(user.created_at)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleToggleStatus(user.id, user.status || 'active')}
-                        >
-                          {user.status === 'active' ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => setEditingUser(user)}
-                        >
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="font-semibold">User</TableHead>
+                    <TableHead className="font-semibold">Email</TableHead>
+                    <TableHead className="font-semibold">Role</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="font-semibold">Subscription</TableHead>
+                    <TableHead className="font-semibold">Last Active</TableHead>
+                    <TableHead className="font-semibold">Joined</TableHead>
+                    <TableHead className="text-right font-semibold">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="py-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-semibold text-lg shadow-sm">
+                            {user.full_name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-foreground">{user.full_name}</div>
+                            <div className="text-sm text-muted-foreground">ID: {user.id.slice(0, 8)}...</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        {user.email ? (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{user.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic">No email</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-4">{getRoleBadge(user.role)}</TableCell>
+                      <TableCell className="py-4">{getStatusBadge(user.status || 'active')}</TableCell>
+                      <TableCell className="py-4">{getSubscriptionBadge(user.subscription)}</TableCell>
+                      <TableCell className="py-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          {user.last_active ? formatDateTime(user.last_active) : 'Never'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <div className="text-sm text-muted-foreground">
+                          {formatDate(user.created_at)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            size="sm" 
+                            variant={user.status === 'active' ? 'outline' : 'default'}
+                            onClick={() => handleToggleStatus(user.id, user.status || 'active')}
+                            className="text-xs"
+                          >
+                            {user.status === 'active' ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setEditingUser(user)}
+                            className="text-xs"
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Empty State */}
         {filteredUsers.length === 0 && (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <p className="text-gray-500">No users found matching your search criteria.</p>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-12 text-center">
+              <div className="space-y-4">
+                <div className="p-4 bg-muted/50 rounded-full w-16 h-16 mx-auto flex items-center justify-center">
+                  <Users className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">No users found</h3>
+                  <p className="text-muted-foreground">No users match your current search criteria.</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
