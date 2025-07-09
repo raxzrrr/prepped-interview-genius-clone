@@ -27,7 +27,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(initialProgress);
+  const [progress, setProgress] = useState(Math.min(Math.max(initialProgress, 0), 100));
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -64,7 +64,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     const handleTimeUpdate = () => {
       if (video.duration > 0) {
-        const progressPercent = (video.currentTime / video.duration) * 100;
+        const progressPercent = Math.min((video.currentTime / video.duration) * 100, 100);
         setProgress(progressPercent);
         setCurrentTime(video.currentTime);
         onProgress(progressPercent);
@@ -331,12 +331,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <div>
           <div className="flex justify-between text-sm text-gray-500 mb-1">
             <span>Progress</span>
-            <span>{Math.round(progress)}%</span>
+            <span>{Math.round(Math.min(progress, 100))}%</span>
           </div>
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
             <div 
               className="h-full bg-brand-purple rounded-full transition-all duration-300 ease-in-out"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${Math.min(progress, 100)}%` }}
             ></div>
           </div>
         </div>
@@ -345,10 +345,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <Button 
             onClick={handleMarkAsCompleted}
             className="bg-brand-purple hover:bg-brand-purple/90 font-medium"
-            disabled={progress === 100}
+            disabled={progress >= 100}
           >
             <CheckCircle className="h-4 w-4 mr-2" />
-            {progress === 100 ? "Completed" : "Mark as Completed"}
+            {progress >= 100 ? "Completed" : "Mark as Completed"}
           </Button>
         </div>
       </div>

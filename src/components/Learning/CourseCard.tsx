@@ -32,6 +32,9 @@ const CourseCard: React.FC<CourseCardProps> = ({
   progress = 0,
   onClick
 }) => {
+  // Ensure progress is between 0 and 100
+  const clampedProgress = Math.min(Math.max(progress || 0, 0), 100);
+  
   return (
     <Card className="overflow-hidden h-full flex flex-col transition-shadow hover:shadow-md">
       <div className="relative">
@@ -72,18 +75,18 @@ const CourseCard: React.FC<CourseCardProps> = ({
         </div>
         
         {/* Progress bar */}
-        {progress > 0 && (
+        {clampedProgress > 0 && (
           <div className="mt-2">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>{progress >= 90 ? 'Completed' : 'In Progress'}</span>
-              <span>{Math.round(progress)}%</span>
+              <span>{clampedProgress >= 100 ? 'Completed' : 'In Progress'}</span>
+              <span>{Math.round(clampedProgress)}%</span>
             </div>
             <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div 
-                className={`h-full rounded-full ${
-                  progress >= 90 ? 'bg-green-500' : 'bg-brand-purple'
+                className={`h-full rounded-full transition-all duration-300 ${
+                  clampedProgress >= 100 ? 'bg-green-500' : 'bg-brand-purple'
                 }`}
-                style={{ width: `${progress}%` }}
+                style={{ width: `${clampedProgress}%` }}
               ></div>
             </div>
           </div>
@@ -96,7 +99,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
           className="w-full"
           onClick={onClick}
         >
-          {progress === 0 ? 'Start Course' : progress >= 90 ? 'Review Course' : 'Continue Course'}
+          {clampedProgress === 0 ? 'Start Course' : clampedProgress >= 100 ? 'Review Course' : 'Continue Course'}
         </Button>
       </CardFooter>
     </Card>

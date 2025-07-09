@@ -18,6 +18,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   videoCount = 0,
   onClick
 }) => {
+  // Ensure progress is between 0 and 100
+  const clampedProgress = Math.min(Math.max(progress || 0, 0), 100);
+  
   return (
     <Card className="h-full flex flex-col transition-all hover:shadow-lg hover:scale-105 cursor-pointer group" onClick={onClick}>
       <CardHeader className="pb-3">
@@ -37,14 +40,14 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-gray-500">
             <span>{videoCount} {videoCount === 1 ? 'video' : 'videos'}</span>
-            <span>{Math.round(progress)}% Complete</span>
+            <span>{Math.round(clampedProgress)}% Complete</span>
           </div>
           
-          {progress > 0 && (
+          {clampedProgress > 0 && (
             <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-brand-purple rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                style={{ width: `${clampedProgress}%` }}
               />
             </div>
           )}
@@ -58,7 +61,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           className="w-full bg-brand-purple hover:bg-brand-purple/90"
         >
           <Play className="h-4 w-4 mr-2" />
-          {progress === 0 ? 'Start Learning' : progress >= 100 ? 'Review' : 'Continue'}
+          {clampedProgress === 0 ? 'Start Learning' : clampedProgress >= 100 ? 'Review' : 'Continue'}
         </Button>
       </CardFooter>
     </Card>

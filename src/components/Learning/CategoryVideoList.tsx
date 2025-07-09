@@ -24,7 +24,7 @@ const CategoryVideoList: React.FC<CategoryVideoListProps> = ({
   getVideoProgress
 }) => {
   const completedCount = videos.filter(video => getVideoProgress(video.id)).length;
-  const progress = videos.length > 0 ? Math.round((completedCount / videos.length) * 100) : 0;
+  const progress = videos.length > 0 ? Math.min(Math.round((completedCount / videos.length) * 100), 100) : 0;
 
   return (
     <div className="space-y-6">
