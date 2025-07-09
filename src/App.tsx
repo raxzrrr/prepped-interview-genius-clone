@@ -27,7 +27,6 @@ import ReportDetailPage from './pages/Student/ReportDetailPage';
 
 // Admin Pages
 import AdminDashboard from "@/pages/Admin/AdminDashboard";
-import UsersPage from "@/pages/Admin/UsersPage";
 import UserManagementPage from "@/pages/Admin/UserManagementPage";
 import CourseManagementPage from "@/pages/Admin/CourseManagementPage";
 import AdminContentPage from "@/pages/Admin/AdminContentPage";
@@ -65,7 +64,6 @@ const App = () => (
               
               {/* Admin Routes */}
               <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
-              <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
               <Route path="/admin/user-management" element={<ProtectedRoute requiredRole="admin"><UserManagementPage /></ProtectedRoute>} />
               <Route path="/admin/courses" element={<ProtectedRoute requiredRole="admin"><CourseManagementPage /></ProtectedRoute>} />
               <Route path="/admin/content" element={<ProtectedRoute requiredRole="admin"><AdminContentPage /></ProtectedRoute>} />
