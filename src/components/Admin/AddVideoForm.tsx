@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,17 +8,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
-import { Upload, Link, Video, Loader2, X } from 'lucide-react';
 import { Course } from '@/services/courseService';
-import { uploadVideoFile, generateThumbnail, UploadProgress } from '@/utils/fileUpload';
+import { uploadVideoFile } from '@/utils/fileUpload';
+import { X, Upload, Link, Play } from 'lucide-react';
 
 interface AddVideoFormProps {
   selectedCourse: Course;
-  onAddVideo: (video: { 
-    title: string; 
-    description: string; 
-    video_url: string; 
-    duration: string; 
+  onAddVideo: (videoData: {
+    title: string;
+    description: string;
+    video_url: string;
+    duration: string;
     order_index: number;
     content_type: string;
     file_path?: string;
@@ -28,310 +28,313 @@ interface AddVideoFormProps {
   onCancel: () => void;
 }
 
-const AddVideoForm: React.FC<AddVideoFormProps> = ({ selectedCourse, onAddVideo, onCancel }) => {
+const AddVideoForm: React.FC<AddVideoFormProps> = ({
+  selectedCourse,
+  onAddVideo,
+  onCancel
+}) => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('url');
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  const [newVideo, setNewVideo] = useState({
+  const [formData, setFormData] = useState({
     title: '',
     description: '',
     video_url: '',
     duration: '',
     order_index: 0
   });
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [activeTab, setActiveTab] = useState('url');
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      
-      // Create preview URL
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      
-      // Auto-fill title from filename if empty
-      if (!newVideo.title) {
-        const nameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
-        setNewVideo(prev => ({ ...prev, title: nameWithoutExtension }));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'order_index' ? parseInt(value) || 0 : value
+    }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.type.startsWith('video/')) {
+        setFile(selectedFile);
+        // Auto-fill title if empty
+        if (!formData.title) {
+          setFormData(prev => ({
+            ...prev,
+            title: selectedFile.name.replace(/\.[^/.]+$/, '')
+          }));
+        }
+      } else {
+        toast({
+          title: "Invalid file type",
+          description: "Please select a video file (MP4, WebM, etc.)",
+          variant: "destructive"
+        });
       }
     }
   };
 
-  const handleSubmitUrl = () => {
-    if (!newVideo.title || !newVideo.video_url) {
+  const validateForm = () => {
+    if (!formData.title.trim()) {
       toast({
-        title: "Missing Information",
-        description: "Please provide both title and video URL",
+        title: "Validation Error",
+        description: "Please enter a video title",
         variant: "destructive"
       });
-      return;
+      return false;
     }
 
-    onAddVideo({
-      ...newVideo,
-      content_type: 'url'
-    });
-    
-    resetForm();
+    if (activeTab === 'url') {
+      if (!formData.video_url.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Please enter a video URL",
+          variant: "destructive"
+        });
+        return false;
+      }
+    } else {
+      if (!file) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a video file",
+          variant: "destructive"
+        });
+        return false;
+      }
+    }
+
+    return true;
   };
 
-  const handleSubmitFile = async () => {
-    if (!newVideo.title || !selectedFile) {
-      toast({
-        title: "Missing Information", 
-        description: "Please provide both title and video file",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setUploading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
+    if (!validateForm()) return;
+
     try {
-      // Generate thumbnail
-      let thumbnailUrl;
-      try {
-        thumbnailUrl = await generateThumbnail(selectedFile);
-      } catch (error) {
-        console.log('Could not generate thumbnail:', error);
+      setUploading(true);
+      setUploadProgress(0);
+
+      let videoData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        video_url: formData.video_url.trim(),
+        duration: formData.duration.trim(),
+        order_index: formData.order_index,
+        content_type: activeTab,
+        file_path: undefined as string | undefined,
+        file_size: undefined as number | undefined,
+        thumbnail_url: undefined as string | undefined
+      };
+
+      if (activeTab === 'file' && file) {
+        console.log('Starting file upload for:', file.name);
+        
+        const uploadResult = await uploadVideoFile(file, (progress) => {
+          setUploadProgress(progress);
+        });
+
+        console.log('Upload result:', uploadResult);
+
+        videoData = {
+          ...videoData,
+          video_url: uploadResult.publicUrl,
+          file_path: uploadResult.path,
+          file_size: file.size,
+          content_type: 'file'
+        };
       }
 
-      // Upload file
-      const uploadResult = await uploadVideoFile(
-        selectedFile, 
-        selectedCourse.id,
-        (progress) => setUploadProgress(progress)
-      );
-
-      if (!uploadResult) {
-        throw new Error('Upload failed');
-      }
-
-      // Add video with file information
-      onAddVideo({
-        ...newVideo,
-        video_url: uploadResult.url,
-        content_type: 'file',
-        file_path: uploadResult.path,
-        file_size: selectedFile.size,
-        thumbnail_url: thumbnailUrl
+      console.log('Submitting video data:', videoData);
+      
+      await onAddVideo(videoData);
+      
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        video_url: '',
+        duration: '',
+        order_index: 0
       });
-
-      toast({
-        title: "Success",
-        description: "Video uploaded successfully!",
-      });
-
-      resetForm();
+      setFile(null);
+      setUploadProgress(0);
+      
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Error adding video:', error);
       toast({
-        title: "Upload Failed",
-        description: "Failed to upload video. Please try again.",
+        title: "Error",
+        description: "Failed to add video. Please try again.",
         variant: "destructive"
       });
     } finally {
       setUploading(false);
-      setUploadProgress(null);
-    }
-  };
-
-  const resetForm = () => {
-    setNewVideo({ title: '', description: '', video_url: '', duration: '', order_index: 0 });
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-  };
-
-  const handleCancel = () => {
-    resetForm();
-    onCancel();
-  };
-
-  const removeSelectedFile = () => {
-    setSelectedFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
     }
   };
 
   return (
-    <Card>
+    <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Add New Video to "{selectedCourse.name}"</CardTitle>
-        <CardDescription>Upload video files or add video links to this course</CardDescription>
+        <div className="flex justify-between items-center">
+          <CardTitle>Add Video to "{selectedCourse.name}"</CardTitle>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="url" className="flex items-center gap-2">
-              <Link className="w-4 h-4" />
-              Video Link
-            </TabsTrigger>
-            <TabsTrigger value="file" className="flex items-center gap-2">
-              <Upload className="w-4 h-4" />
-              Upload File
-            </TabsTrigger>
-          </TabsList>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="url" className="flex items-center space-x-2">
+                <Link className="w-4 h-4" />
+                <span>Video URL</span>
+              </TabsTrigger>
+              <TabsTrigger value="file" className="flex items-center space-x-2">
+                <Upload className="w-4 h-4" />
+                <span>Upload File</span>
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Common fields */}
-          <div className="space-y-4 mt-4">
-            <div>
-              <Label htmlFor="videoTitle">Video Title *</Label>
-              <Input
-                id="videoTitle"
-                value={newVideo.title}
-                onChange={(e) => setNewVideo({...newVideo, title: e.target.value})}
-                placeholder="Enter video title"
-              />
-            </div>
-            <div>
-              <Label htmlFor="videoDescription">Video Description</Label>
-              <Textarea
-                id="videoDescription"
-                value={newVideo.description}
-                onChange={(e) => setNewVideo({...newVideo, description: e.target.value})}
-                placeholder="Enter video description (optional)"
-                rows={3}
-              />
-            </div>
+            <TabsContent value="url" className="space-y-4">
+              <div>
+                <Label htmlFor="video_url">Video URL *</Label>
+                <Input
+                  id="video_url"
+                  name="video_url"
+                  type="url"
+                  value={formData.video_url}
+                  onChange={handleInputChange}
+                  placeholder="https://example.com/video.mp4 or YouTube URL"
+                  required={activeTab === 'url'}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="file" className="space-y-4">
+              <div>
+                <Label htmlFor="video_file">Video File *</Label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <input
+                    id="video_file"
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <label htmlFor="video_file" className="cursor-pointer">
+                    <Upload className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600">
+                      {file ? file.name : 'Click to select video file or drag and drop'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      MP4, WebM, AVI (max 100MB)
+                    </p>
+                  </label>
+                </div>
+                
+                {file && (
+                  <div className="mt-2 p-2 bg-gray-50 rounded flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Play className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm">{file.name}</span>
+                      <span className="text-xs text-gray-500">
+                        ({(file.size / (1024 * 1024)).toFixed(1)} MB)
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFile(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div>
+            <Label htmlFor="title">Title *</Label>
+            <Input
+              id="title"
+              name="title"
+              value={formData.title}
+              onChange={handleInputChange}
+              placeholder="Enter video title"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Enter video description (optional)"
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="duration">Duration</Label>
               <Input
                 id="duration"
-                value={newVideo.duration}
-                onChange={(e) => setNewVideo({...newVideo, duration: e.target.value})}
-                placeholder="e.g., 15:30 or 1h 20m"
+                name="duration"
+                value={formData.duration}
+                onChange={handleInputChange}
+                placeholder="e.g. 10:30 or 5 minutes"
               />
             </div>
             <div>
-              <Label htmlFor="videoOrder">Order Index</Label>
+              <Label htmlFor="order_index">Order</Label>
               <Input
-                id="videoOrder"
+                id="order_index"
+                name="order_index"
                 type="number"
-                value={newVideo.order_index}
-                onChange={(e) => setNewVideo({...newVideo, order_index: parseInt(e.target.value) || 0})}
-                placeholder="Enter order index"
+                value={formData.order_index}
+                onChange={handleInputChange}
+                min="0"
               />
             </div>
           </div>
 
-          <TabsContent value="url" className="space-y-4">
-            <div>
-              <Label htmlFor="videoUrl">Video URL *</Label>
-              <Input
-                id="videoUrl"
-                value={newVideo.video_url}
-                onChange={(e) => setNewVideo({...newVideo, video_url: e.target.value})}
-                placeholder="Enter YouTube URL or embed link"
-              />
-            </div>
-            <div className="flex space-x-2">
-              <Button onClick={handleSubmitUrl} disabled={uploading}>
-                Add Video Link
-              </Button>
-              <Button variant="outline" onClick={handleCancel}>
-                Cancel
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="file" className="space-y-4">
-            <div>
-              <Label htmlFor="videoFile">Video File *</Label>
-              <div className="mt-2">
-                {!selectedFile ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-                    <Video className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <div className="space-y-2">
-                      <p className="text-lg font-medium text-gray-600">
-                        Choose a video file to upload
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        MP4, WebM, MOV, AVI up to 500MB
-                      </p>
-                      <Input
-                        id="videoFile"
-                        type="file"
-                        accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
-                        onChange={handleFileSelect}
-                        className="max-w-xs mx-auto"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <Video className="w-8 h-8 text-brand-purple" />
-                        <div>
-                          <p className="font-medium">{selectedFile.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={removeSelectedFile}
-                        disabled={uploading}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    {previewUrl && (
-                      <div className="aspect-video w-full max-w-md mx-auto">
-                        <video
-                          src={previewUrl}
-                          controls
-                          className="w-full h-full rounded-lg"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
+          {uploading && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Uploading video...</span>
+                <span>{uploadProgress}%</span>
               </div>
+              <Progress value={uploadProgress} className="w-full" />
             </div>
+          )}
 
-            {uploadProgress && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>{uploadProgress.message}</span>
-                  <span>{uploadProgress.progress}%</span>
-                </div>
-                <Progress value={uploadProgress.progress} className="w-full" />
-              </div>
-            )}
-
-            <div className="flex space-x-2">
-              <Button 
-                onClick={handleSubmitFile} 
-                disabled={uploading || !selectedFile}
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  'Upload Video'
-                )}
-              </Button>
-              <Button variant="outline" onClick={handleCancel} disabled={uploading}>
-                Cancel
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
+          <div className="flex space-x-2 pt-4">
+            <Button 
+              type="submit" 
+              disabled={uploading}
+              className="flex-1"
+            >
+              {uploading ? 'Adding Video...' : 'Add Video'}
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
       </CardContent>
     </Card>
   );

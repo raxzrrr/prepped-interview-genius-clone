@@ -46,6 +46,8 @@ export interface AddVideoData {
 export const courseService = {
   async fetchCourses(): Promise<Course[]> {
     try {
+      console.log('Fetching courses from database...');
+      
       const { data, error } = await supabase
         .from('courses')
         .select('*')
@@ -57,6 +59,7 @@ export const courseService = {
         throw error;
       }
 
+      console.log(`Successfully fetched ${data?.length || 0} courses`);
       return data || [];
     } catch (error) {
       console.error('Error in fetchCourses:', error);
@@ -66,6 +69,8 @@ export const courseService = {
 
   async fetchVideosByCourse(courseId: string): Promise<CourseVideo[]> {
     try {
+      console.log(`Fetching videos for course: ${courseId}`);
+      
       const { data, error } = await supabase
         .from('course_videos')
         .select('*')
@@ -78,6 +83,7 @@ export const courseService = {
         throw error;
       }
 
+      console.log(`Successfully fetched ${data?.length || 0} videos for course ${courseId}`);
       return data || [];
     } catch (error) {
       console.error('Error in fetchVideosByCourse:', error);
@@ -87,6 +93,8 @@ export const courseService = {
 
   async addCourse(course: Omit<Course, 'id' | 'created_at' | 'updated_at'>): Promise<Course> {
     try {
+      console.log('Adding course to database:', course);
+      
       const { data, error } = await supabase
         .from('courses')
         .insert(course)
@@ -98,6 +106,7 @@ export const courseService = {
         throw error;
       }
 
+      console.log('Successfully added course:', data);
       return data;
     } catch (error) {
       console.error('Error in addCourse:', error);
@@ -107,6 +116,8 @@ export const courseService = {
 
   async updateCourse(id: string, updates: Partial<Course>): Promise<Course> {
     try {
+      console.log(`Updating course ${id}:`, updates);
+      
       const { data, error } = await supabase
         .from('courses')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -119,6 +130,7 @@ export const courseService = {
         throw error;
       }
 
+      console.log('Successfully updated course:', data);
       return data;
     } catch (error) {
       console.error('Error in updateCourse:', error);
@@ -128,6 +140,8 @@ export const courseService = {
 
   async deleteCourse(id: string): Promise<void> {
     try {
+      console.log(`Deleting course: ${id}`);
+      
       const { error } = await supabase
         .from('courses')
         .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -137,6 +151,8 @@ export const courseService = {
         console.error('Error deleting course:', error);
         throw error;
       }
+
+      console.log('Successfully deleted course');
     } catch (error) {
       console.error('Error in deleteCourse:', error);
       throw error;
@@ -145,6 +161,8 @@ export const courseService = {
 
   async addVideo(video: AddVideoData): Promise<CourseVideo> {
     try {
+      console.log('Adding video to database:', video);
+      
       const { data, error } = await supabase
         .from('course_videos')
         .insert(video)
@@ -153,9 +171,11 @@ export const courseService = {
 
       if (error) {
         console.error('Error adding video:', error);
+        console.error('Video data that failed:', video);
         throw error;
       }
 
+      console.log('Successfully added video:', data);
       return data;
     } catch (error) {
       console.error('Error in addVideo:', error);
@@ -165,6 +185,8 @@ export const courseService = {
 
   async updateVideo(id: string, updates: Partial<CourseVideo>): Promise<CourseVideo> {
     try {
+      console.log(`Updating video ${id}:`, updates);
+      
       const { data, error } = await supabase
         .from('course_videos')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -177,6 +199,7 @@ export const courseService = {
         throw error;
       }
 
+      console.log('Successfully updated video:', data);
       return data;
     } catch (error) {
       console.error('Error in updateVideo:', error);
@@ -186,6 +209,8 @@ export const courseService = {
 
   async deleteVideo(id: string): Promise<void> {
     try {
+      console.log(`Deleting video: ${id}`);
+      
       const { error } = await supabase
         .from('course_videos')
         .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -195,6 +220,8 @@ export const courseService = {
         console.error('Error deleting video:', error);
         throw error;
       }
+
+      console.log('Successfully deleted video');
     } catch (error) {
       console.error('Error in deleteVideo:', error);
       throw error;

@@ -32,16 +32,22 @@ export const useCourseManagement = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
+      console.log('Fetching courses...');
+      
       const coursesData = await courseService.fetchCourses();
+      console.log('Fetched courses:', coursesData);
       setCourses(coursesData);
       
       // Fetch videos for each course
       const videosData: Record<string, CourseVideo[]> = {};
       for (const course of coursesData) {
+        console.log(`Fetching videos for course: ${course.name} (${course.id})`);
         const courseVideos = await courseService.fetchVideosByCourse(course.id);
+        console.log(`Found ${courseVideos.length} videos for course ${course.name}:`, courseVideos);
         videosData[course.id] = courseVideos;
       }
       setVideos(videosData);
+      console.log('All videos loaded:', videosData);
     } catch (error) {
       console.error('Error fetching courses:', error);
       toast({
@@ -100,6 +106,7 @@ export const useCourseManagement = () => {
           
           if (payload.eventType === 'INSERT') {
             const newVideo = payload.new as CourseVideo;
+            console.log('New video added via realtime:', newVideo);
             setVideos(prev => ({
               ...prev,
               [newVideo.course_id]: [...(prev[newVideo.course_id] || []), newVideo]
@@ -133,10 +140,14 @@ export const useCourseManagement = () => {
 
   const handleAddCourse = async (courseData: { name: string; description: string; order_index: number }) => {
     try {
+      console.log('Adding course:', courseData);
+      
       const course = await courseService.addCourse({
         ...courseData,
         is_active: true
       });
+      
+      console.log('Course added successfully:', course);
       
       setCourses([...courses, course]);
       setVideos({ ...videos, [course.id]: [] });
@@ -158,11 +169,15 @@ export const useCourseManagement = () => {
 
   const handleUpdateCourse = async (course: Course) => {
     try {
+      console.log('Updating course:', course);
+      
       const updatedCourse = await courseService.updateCourse(course.id, {
         name: course.name,
         description: course.description,
         order_index: course.order_index
       });
+      
+      console.log('Course updated successfully:', updatedCourse);
       
       setCourses(courses.map(c => c.id === course.id ? updatedCourse : c));
       setEditingCourse(null);
@@ -192,14 +207,22 @@ export const useCourseManagement = () => {
     file_size?: number;
     thumbnail_url?: string;
   }) => {
-    if (!selectedCourse) return;
+    if (!selectedCourse) {
+      console.error('No course selected for video addition');
+      return;
+    }
 
     try {
+      console.log('Adding video to course:', selectedCourse.id);
+      console.log('Video data:', videoData);
+
       const video = await courseService.addVideo({
         ...videoData,
         course_id: selectedCourse.id,
         is_active: true
       });
+      
+      console.log('Video added successfully:', video);
       
       setVideos({
         ...videos,
@@ -225,6 +248,8 @@ export const useCourseManagement = () => {
 
   const handleUpdateVideo = async (video: CourseVideo) => {
     try {
+      console.log('Updating video:', video);
+      
       const updatedVideo = await courseService.updateVideo(video.id, {
         title: video.title,
         description: video.description,
@@ -232,6 +257,8 @@ export const useCourseManagement = () => {
         duration: video.duration,
         order_index: video.order_index
       });
+      
+      console.log('Video updated successfully:', updatedVideo);
       
       setVideos({
         ...videos,
@@ -258,6 +285,8 @@ export const useCourseManagement = () => {
 
   const handleDeleteCourse = async (courseId: string) => {
     try {
+      console.log('Deleting course:', courseId);
+      
       // Delete associated video files from storage
       const courseVideos = videos[courseId] || [];
       for (const video of courseVideos) {
@@ -267,6 +296,8 @@ export const useCourseManagement = () => {
       }
 
       await courseService.deleteCourse(courseId);
+      console.log('Course deleted successfully');
+      
       setCourses(courses.filter(course => course.id !== courseId));
       const newVideos = { ...videos };
       delete newVideos[courseId];
@@ -288,6 +319,8 @@ export const useCourseManagement = () => {
 
   const handleDeleteVideo = async (videoId: string, courseId: string) => {
     try {
+      console.log('Deleting video:', videoId);
+      
       // Find the video to get file path for deletion
       const video = videos[courseId]?.find(v => v.id === videoId);
       
@@ -297,6 +330,8 @@ export const useCourseManagement = () => {
       }
 
       await courseService.deleteVideo(videoId);
+      console.log('Video deleted successfully');
+      
       setVideos({
         ...videos,
         [courseId]: videos[courseId].filter(video => video.id !== videoId)
