@@ -4,7 +4,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { courseService, Course, CourseVideo } from '@/services/courseService';
 
 export const useCourseManagement = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   
   // State
@@ -17,8 +17,11 @@ export const useCourseManagement = () => {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingVideo, setEditingVideo] = useState<CourseVideo | null>(null);
 
-  // Check admin access
-  const hasAdminAccess = user?.publicMetadata?.role === 'admin' || user?.emailAddresses?.[0]?.emailAddress === 'admin@interview.ai';
+  // Check admin access - including temporary admin
+  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
+  const hasAdminAccess = isTempAdmin || 
+    user?.publicMetadata?.role === 'admin' || 
+    user?.emailAddresses?.[0]?.emailAddress === 'admin@interview.ai';
 
   const fetchData = useCallback(async () => {
     try {
@@ -217,8 +220,11 @@ export const useCourseManagement = () => {
   }, [toast]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Only fetch data if we have admin access or are still loading auth
+    if (hasAdminAccess || authLoading) {
+      fetchData();
+    }
+  }, [fetchData, hasAdminAccess, authLoading]);
 
   return {
     // State
@@ -232,6 +238,7 @@ export const useCourseManagement = () => {
     editingVideo,
     hasAdminAccess,
     user,
+    authLoading,
     
     // State setters
     setSelectedCourse,

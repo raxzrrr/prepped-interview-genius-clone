@@ -21,6 +21,7 @@ const CourseManagementPage: React.FC = () => {
     editingVideo,
     hasAdminAccess,
     user,
+    authLoading,
     
     // State setters
     setSelectedCourse,
@@ -38,12 +39,27 @@ const CourseManagementPage: React.FC = () => {
     handleDeleteVideo
   } = useCourseManagement();
 
-  if (!user && !hasAdminAccess) {
-    return <Navigate to="/login" />;
+  // Show loading while auth is being determined
+  if (authLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading...</span>
+        </div>
+      </DashboardLayout>
+    );
   }
 
-  if (!hasAdminAccess) {
-    return <Navigate to="/dashboard" />;
+  // Check for temporary admin access
+  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
+
+  // Redirect if no admin access
+  if (!hasAdminAccess && !isTempAdmin) {
+    if (!user && !isTempAdmin) {
+      return <Navigate to="/login" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (loading) {
