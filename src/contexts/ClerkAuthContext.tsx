@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth as useClerkAuth, useUser, useClerk } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +11,7 @@ type UserProfile = {
   id: string;
   full_name: string;
   avatar_url?: string;
+  email?: string;
   role: UserRole;
 } | null;
 
@@ -120,6 +122,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         id: 'temp-admin-id',
         full_name: 'Admin User',
         avatar_url: undefined,
+        email: 'admin@interview.ai',
         role: 'admin'
       });
       setIsAuthenticated(true);
@@ -150,6 +153,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         id: userId,
         full_name: userName,
         avatar_url: clerkUser.imageUrl,
+        email: userEmail,
         role: role
       });
 
@@ -159,8 +163,8 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Set up Supabase session (this can fail but shouldn't affect authentication state)
       setupSupabaseSession();
 
-      // Sync with supabase for data consistency if needed
-      syncUserWithSupabase(userId, userName, role);
+      // Sync with supabase for data consistency
+      syncUserWithSupabase(userId, userName, userEmail, role);
     } else {
       console.log('No user found, clearing all state');
       setProfile(null);
@@ -172,9 +176,9 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setLoading(false);
   }, [isLoaded, userId, clerkUser, sessionId, isTempAdmin]);
 
-  const syncUserWithSupabase = async (userId: string, fullName: string, role: UserRole) => {
+  const syncUserWithSupabase = async (userId: string, fullName: string, email: string, role: UserRole) => {
     try {
-      console.log('Syncing user with Supabase:', userId);
+      console.log('Syncing user with Supabase:', { userId, fullName, email, role });
       
       // Convert Clerk user ID to consistent UUID for Supabase
       const supabaseUserId = generateConsistentUUID(userId);
@@ -198,6 +202,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           .insert({
             id: supabaseUserId,
             full_name: fullName,
+            email: email,
             role: role
           });
           
@@ -207,7 +212,25 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           console.log('Profile created successfully');
         }
       } else {
-        console.log('Profile already exists');
+        // Update existing profile with email if it's missing or different
+        if (!existingProfile.email || existingProfile.email !== email) {
+          console.log('Updating existing profile with email');
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              email: email,
+              full_name: fullName
+            })
+            .eq('id', supabaseUserId);
+            
+          if (updateError) {
+            console.error('Error updating profile:', updateError);
+          } else {
+            console.log('Profile updated successfully with email');
+          }
+        } else {
+          console.log('Profile already exists with correct email');
+        }
       }
     } catch (error) {
       console.error('Error syncing user with Supabase:', error);
@@ -264,7 +287,8 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     hasProfile: !!profile,
     hasSession: !!sessionObject,
     supabaseUserId: getSupabaseUserId(),
-    isTempAdmin
+    isTempAdmin,
+    profileEmail: profile?.email
   });
 
   return (
