@@ -10,7 +10,6 @@ import {
   Award, 
   Settings, 
   LogOut,
-  Users,
   FileVideo,
   Tag,
   CreditCard,
@@ -76,7 +75,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   const adminNavItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin' },
-    { icon: Users, label: 'Manage Users', href: '/admin/users' },
     { icon: UserCog, label: 'User Management', href: '/admin/user-management' },
     { icon: GraduationCap, label: 'Course Management', href: '/admin/courses' },
     { icon: FileVideo, label: 'Manage Content', href: '/admin/content' },
