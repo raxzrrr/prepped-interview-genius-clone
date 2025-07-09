@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VideoPlayer from '@/components/Learning/VideoPlayer';
 import AssessmentQuiz from '@/components/Learning/AssessmentQuiz';
+import CategoryVideoList from '@/components/Learning/CategoryVideoList';
 import { useToast } from '@/components/ui/use-toast';
 import { AlertCircle, Loader2, Award } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,7 +32,8 @@ const LearningPage: React.FC = () => {
     error: courseError,
     getCourseProgress,
     getCourseVideoCount,
-    updateVideoCompletion
+    updateVideoCompletion,
+    removeVideoCompletion
   } = useCourseData();
   
   if (authLoading) {
@@ -76,6 +78,19 @@ const LearningPage: React.FC = () => {
       toast({
         title: "Video Completed",
         description: "Great job! Keep up the learning momentum.",
+      });
+    }
+  };
+
+  const handleMarkAsIncomplete = async (videoId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!selectedCourse) return;
+    
+    const success = await removeVideoCompletion(videoId, selectedCourse.id);
+    if (success) {
+      toast({
+        title: "Video Marked Incomplete",
+        description: "Video has been unmarked as completed.",
       });
     }
   };
@@ -132,9 +147,11 @@ const LearningPage: React.FC = () => {
     const courseVideos = videos[courseId] || [];
     if (courseVideos.length === 0) return 0;
     
-    const completedVideos = courseVideos.filter(video => 
-      getVideoProgress(video.id)
-    ).length;
+    const completedVideos = courseVideos.filter(video => {
+      if (!userLearningData?.course_progress_new) return false;
+      const courseProgress = userLearningData.course_progress_new[courseId] || {};
+      return courseProgress[video.id] === true;
+    }).length;
     
     const progress = (completedVideos / courseVideos.length) * 100;
     return Math.min(Math.max(Math.round(progress), 0), 100);
@@ -228,47 +245,15 @@ const LearningPage: React.FC = () => {
               </div>
             </div>
           ) : selectedCourse ? (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">{selectedCourse.name}</h2>
-                <Button 
-                  variant="outline"
-                  onClick={handleBackToCourses}
-                >
-                  Back to Courses
-                </Button>
-              </div>
-              
-              <div className="grid gap-4">
-                {videos[selectedCourse.id]?.map((video) => (
-                  <Card key={video.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1" onClick={() => handleVideoSelect(video)}>
-                          <h3 className="font-semibold">{video.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{video.description}</p>
-                          {video.duration && (
-                            <p className="text-xs text-gray-500 mt-2">Duration: {video.duration}</p>
-                          )}
-                        </div>
-                        <div className="ml-4 flex items-center gap-2">
-                          {getVideoProgress(video.id) && (
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          )}
-                          <Button
-                            size="sm"
-                            variant={getVideoProgress(video.id) ? "secondary" : "outline"}
-                            onClick={(e) => handleMarkAsCompleted(video.id, e)}
-                          >
-                            {getVideoProgress(video.id) ? "Completed" : "Mark Complete"}
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+            <CategoryVideoList
+              category={selectedCourse}
+              videos={videos[selectedCourse.id] || []}
+              onVideoSelect={handleVideoSelect}
+              onMarkAsCompleted={handleMarkAsCompleted}
+              onMarkAsIncomplete={handleMarkAsIncomplete}
+              onBackToCategories={handleBackToCourses}
+              getVideoProgress={getVideoProgress}
+            />
           ) : (
             <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-4">

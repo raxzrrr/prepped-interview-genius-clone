@@ -1,355 +1,194 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { courseService, Course, CourseVideo } from '@/services/courseService';
-import { supabase } from '@/integrations/supabase/client';
-import { deleteVideoFile } from '@/utils/fileUpload';
 
 export const useCourseManagement = () => {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
+  
+  // State
   const [courses, setCourses] = useState<Course[]>([]);
   const [videos, setVideos] = useState<Record<string, CourseVideo[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  
   const [showAddCourse, setShowAddCourse] = useState(false);
   const [showAddVideo, setShowAddVideo] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingVideo, setEditingVideo] = useState<CourseVideo | null>(null);
 
-  // Check for temporary admin access
-  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
-  const hasAdminAccess = isAdmin() || isTempAdmin;
+  // Check admin access
+  const hasAdminAccess = user?.publicMetadata?.role === 'admin' || user?.emailAddresses?.[0]?.emailAddress === 'admin@interview.ai';
 
-  useEffect(() => {
-    fetchCourses();
-    const cleanup = setupRealtimeSubscription();
-    return cleanup;
-  }, []);
-
-  const fetchCourses = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('Fetching courses...');
-      
       const coursesData = await courseService.fetchCourses();
-      console.log('Fetched courses:', coursesData);
       setCourses(coursesData);
-      
-      // Fetch videos for each course
+
       const videosData: Record<string, CourseVideo[]> = {};
       for (const course of coursesData) {
-        console.log(`Fetching videos for course: ${course.name} (${course.id})`);
         const courseVideos = await courseService.fetchVideosByCourse(course.id);
-        console.log(`Found ${courseVideos.length} videos for course ${course.name}:`, courseVideos);
         videosData[course.id] = courseVideos;
       }
       setVideos(videosData);
-      console.log('All videos loaded:', videosData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching courses:', error);
       toast({
         title: "Error",
-        description: "Failed to load courses",
+        description: error.message || "Failed to fetch courses. Please try again.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const setupRealtimeSubscription = () => {
-    const courseChannel = supabase
-      .channel('courses-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'courses'
-        },
-        (payload) => {
-          console.log('Course realtime update:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            setCourses(prev => [...prev, payload.new as Course]);
-            setVideos(prev => ({ ...prev, [payload.new.id]: [] }));
-          } else if (payload.eventType === 'UPDATE') {
-            setCourses(prev => prev.map(course => 
-              course.id === payload.new.id ? payload.new as Course : course
-            ));
-          } else if (payload.eventType === 'DELETE') {
-            setCourses(prev => prev.filter(course => course.id !== payload.old.id));
-            setVideos(prev => {
-              const newVideos = { ...prev };
-              delete newVideos[payload.old.id];
-              return newVideos;
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    const videoChannel = supabase
-      .channel('course-videos-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'course_videos'
-        },
-        (payload) => {
-          console.log('Video realtime update:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            const newVideo = payload.new as CourseVideo;
-            console.log('New video added via realtime:', newVideo);
-            setVideos(prev => ({
-              ...prev,
-              [newVideo.course_id]: [...(prev[newVideo.course_id] || []), newVideo]
-            }));
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedVideo = payload.new as CourseVideo;
-            setVideos(prev => ({
-              ...prev,
-              [updatedVideo.course_id]: prev[updatedVideo.course_id]?.map(video => 
-                video.id === updatedVideo.id ? updatedVideo : video
-              ) || []
-            }));
-          } else if (payload.eventType === 'DELETE') {
-            const deletedVideo = payload.old as CourseVideo;
-            setVideos(prev => ({
-              ...prev,
-              [deletedVideo.course_id]: prev[deletedVideo.course_id]?.filter(video => 
-                video.id !== deletedVideo.id
-              ) || []
-            }));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(courseChannel);
-      supabase.removeChannel(videoChannel);
-    };
-  };
-
-  const handleAddCourse = async (courseData: { name: string; description: string; order_index: number }) => {
+  const handleAddCourse = useCallback(async (course: Course) => {
     try {
-      console.log('Adding course:', courseData);
-      
-      const course = await courseService.addCourse({
-        ...courseData,
-        is_active: true
-      });
-      
-      console.log('Course added successfully:', course);
-      
-      setCourses([...courses, course]);
-      setVideos({ ...videos, [course.id]: [] });
+      const newCourse = await courseService.addCourse(course);
+      setCourses(prevCourses => [...prevCourses, newCourse]);
       setShowAddCourse(false);
-      
       toast({
-        title: "Success",
-        description: "Course added successfully",
+        title: "Course Added",
+        description: "New course has been successfully added.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding course:', error);
       toast({
         title: "Error",
-        description: "Failed to add course",
+        description: error.message || "Failed to add course. Please try again.",
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
-  const handleUpdateCourse = async (course: Course) => {
+  const handleUpdateCourse = useCallback(async (course: Course) => {
     try {
-      console.log('Updating course:', course);
-      
-      const updatedCourse = await courseService.updateCourse(course.id, {
-        name: course.name,
-        description: course.description,
-        order_index: course.order_index
-      });
-      
-      console.log('Course updated successfully:', updatedCourse);
-      
-      setCourses(courses.map(c => c.id === course.id ? updatedCourse : c));
+      const updatedCourse = await courseService.updateCourse(course);
+      setCourses(prevCourses =>
+        prevCourses.map(c => (c.id === course.id ? updatedCourse : c))
+      );
       setEditingCourse(null);
-      
       toast({
-        title: "Success",
-        description: "Course updated successfully",
+        title: "Course Updated",
+        description: "Course has been successfully updated.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating course:', error);
       toast({
         title: "Error",
-        description: "Failed to update course",
+        description: error.message || "Failed to update course. Please try again.",
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
-  const handleAddVideo = async (videoData: { 
-    title: string; 
-    description: string; 
-    video_url: string; 
-    duration: string; 
-    order_index: number;
-    content_type: string;
-    file_path?: string;
-    file_size?: number;
-    thumbnail_url?: string;
-  }) => {
-    if (!selectedCourse) {
-      console.error('No course selected for video addition');
-      return;
-    }
-
+  const handleAddVideo = useCallback(async (video: CourseVideo) => {
+    if (!selectedCourse) return;
     try {
-      console.log('Adding video to course:', selectedCourse.id);
-      console.log('Video data:', videoData);
-
-      const video = await courseService.addVideo({
-        ...videoData,
-        course_id: selectedCourse.id,
-        is_active: true
-      });
-      
-      console.log('Video added successfully:', video);
-      
-      setVideos({
-        ...videos,
-        [selectedCourse.id]: [...(videos[selectedCourse.id] || []), video]
-      });
-      
+      const newVideo = await courseService.addVideo(video);
+      setVideos(prevVideos => ({
+        ...prevVideos,
+        [selectedCourse.id]: [...(prevVideos[selectedCourse.id] || []), newVideo]
+      }));
       setShowAddVideo(false);
-      setSelectedCourse(null);
-      
       toast({
-        title: "Success",
-        description: "Video added successfully",
+        title: "Video Added",
+        description: "New video has been successfully added.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding video:', error);
       toast({
         title: "Error",
-        description: "Failed to add video",
+        description: error.message || "Failed to add video. Please try again.",
         variant: "destructive"
       });
     }
-  };
+  }, [selectedCourse, toast]);
 
-  const handleUpdateVideo = async (video: CourseVideo) => {
+  const handleUpdateVideo = useCallback(async (video: CourseVideo) => {
     try {
-      console.log('Updating video:', video);
-      
-      const updatedVideo = await courseService.updateVideo(video.id, {
-        title: video.title,
-        description: video.description,
-        video_url: video.video_url,
-        duration: video.duration,
-        order_index: video.order_index
+      const updatedVideo = await courseService.updateVideo(video);
+      setVideos(prevVideos => {
+        const updatedVideos = { ...prevVideos };
+        if (updatedVideos[video.course_id]) {
+          updatedVideos[video.course_id] = updatedVideos[video.course_id].map(v =>
+            v.id === video.id ? updatedVideo : v
+          );
+        }
+        return updatedVideos;
       });
-      
-      console.log('Video updated successfully:', updatedVideo);
-      
-      setVideos({
-        ...videos,
-        [video.course_id]: videos[video.course_id].map(v => 
-          v.id === video.id ? updatedVideo : v
-        )
-      });
-      
       setEditingVideo(null);
-      
       toast({
-        title: "Success",
-        description: "Video updated successfully",
+        title: "Video Updated",
+        description: "Video has been successfully updated.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating video:', error);
       toast({
         title: "Error",
-        description: "Failed to update video",
+        description: error.message || "Failed to update video. Please try again.",
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
-  const handleDeleteCourse = async (courseId: string) => {
+  const handleDeleteCourse = useCallback(async (courseId: string) => {
     try {
-      console.log('Deleting course:', courseId);
-      
-      // Delete associated video files from storage
-      const courseVideos = videos[courseId] || [];
-      for (const video of courseVideos) {
-        if (video.content_type === 'file' && video.file_path) {
-          await deleteVideoFile(video.file_path);
-        }
-      }
-
       await courseService.deleteCourse(courseId);
-      console.log('Course deleted successfully');
-      
-      setCourses(courses.filter(course => course.id !== courseId));
-      const newVideos = { ...videos };
-      delete newVideos[courseId];
-      setVideos(newVideos);
-      
-      toast({
-        title: "Success",
-        description: "Course deleted successfully",
+      setCourses(prevCourses => prevCourses.filter(course => course.id !== courseId));
+      setVideos(prevVideos => {
+        const updatedVideos = { ...prevVideos };
+        delete updatedVideos[courseId];
+        return updatedVideos;
       });
-    } catch (error) {
+      toast({
+        title: "Course Deleted",
+        description: "Course has been successfully deleted.",
+      });
+    } catch (error: any) {
       console.error('Error deleting course:', error);
       toast({
         title: "Error",
-        description: "Failed to delete course",
+        description: error.message || "Failed to delete course. Please try again.",
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
-  const handleDeleteVideo = async (videoId: string, courseId: string) => {
+  const handleDeleteVideo = useCallback(async (videoId: string, courseId: string) => {
     try {
-      console.log('Deleting video:', videoId);
+      console.log('Deleting video:', videoId, 'from course:', courseId);
       
-      // Find the video to get file path for deletion
-      const video = videos[courseId]?.find(v => v.id === videoId);
-      
-      // Delete file from storage if it's an uploaded file
-      if (video?.content_type === 'file' && video.file_path) {
-        await deleteVideoFile(video.file_path);
-      }
-
       await courseService.deleteVideo(videoId);
-      console.log('Video deleted successfully');
       
-      setVideos({
-        ...videos,
-        [courseId]: videos[courseId].filter(video => video.id !== videoId)
+      // Update local state by removing the video from the videos array
+      setVideos(prevVideos => {
+        const updatedVideos = { ...prevVideos };
+        if (updatedVideos[courseId]) {
+          updatedVideos[courseId] = updatedVideos[courseId].filter(video => video.id !== videoId);
+        }
+        return updatedVideos;
       });
       
       toast({
-        title: "Success",
-        description: "Video deleted successfully",
+        title: "Video Deleted",
+        description: "Video has been successfully deleted from the database and storage.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting video:', error);
       toast({
         title: "Error",
-        description: "Failed to delete video",
+        description: error.message || "Failed to delete video. Please try again.",
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return {
     // State

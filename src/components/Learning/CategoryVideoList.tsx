@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Check, PlayCircle, ArrowLeft } from 'lucide-react';
+import { Check, PlayCircle, ArrowLeft, X } from 'lucide-react';
 import { Course, CourseVideo } from '@/services/courseService';
 
 interface CategoryVideoListProps {
@@ -11,6 +11,7 @@ interface CategoryVideoListProps {
   videos: CourseVideo[];
   onVideoSelect: (video: CourseVideo) => void;
   onMarkAsCompleted: (videoId: string, event: React.MouseEvent) => void;
+  onMarkAsIncomplete: (videoId: string, event: React.MouseEvent) => void;
   onBackToCategories: () => void;
   getVideoProgress: (videoId: string) => boolean;
 }
@@ -20,6 +21,7 @@ const CategoryVideoList: React.FC<CategoryVideoListProps> = ({
   videos,
   onVideoSelect,
   onMarkAsCompleted,
+  onMarkAsIncomplete,
   onBackToCategories,
   getVideoProgress
 }) => {
@@ -112,17 +114,28 @@ const CategoryVideoList: React.FC<CategoryVideoListProps> = ({
                       </p>
                     </div>
                     
-                    <div className="ml-4 flex items-center">
-                      <Button 
-                        variant={isCompleted ? "outline" : "default"}
-                        size="sm"
-                        className={`${isCompleted ? 'bg-green-50 text-green-600 border-green-200' : 'bg-brand-purple hover:bg-brand-purple/90'}`}
-                        onClick={(e) => onMarkAsCompleted(video.id, e)}
-                        disabled={isCompleted}
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        {isCompleted ? 'Completed' : 'Mark Complete'}
-                      </Button>
+                    <div className="ml-4 flex items-center gap-2">
+                      {isCompleted ? (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="bg-green-50 text-green-600 border-green-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                          onClick={(e) => onMarkAsIncomplete(video.id, e)}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Mark Incomplete
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="default"
+                          size="sm"
+                          className="bg-brand-purple hover:bg-brand-purple/90"
+                          onClick={(e) => onMarkAsCompleted(video.id, e)}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Mark Complete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );

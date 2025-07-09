@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -163,17 +162,43 @@ export const useCourseData = () => {
       // Save to localStorage
       saveLocalProgress(updatedProgress);
       
-      toast({
-        title: "Progress Saved",
-        description: "Video marked as completed!",
-      });
-      
       return true;
     } catch (err: any) {
       console.error('Error updating video completion:', err);
       return false;
     }
-  }, [user?.id, userLearningData, toast]);
+  }, [user?.id, userLearningData]);
+
+  const removeVideoCompletion = useCallback(async (videoId: string, courseId: string) => {
+    if (!user?.id) return false;
+
+    try {
+      const currentProgress = userLearningData?.course_progress_new || getLocalProgress();
+      const updatedProgress = { ...currentProgress };
+      
+      if (updatedProgress[courseId] && updatedProgress[courseId][videoId]) {
+        delete updatedProgress[courseId][videoId];
+      }
+      
+      // Update local state immediately
+      setUserLearningData(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          course_progress_new: updatedProgress,
+          updated_at: new Date().toISOString()
+        };
+      });
+      
+      // Save to localStorage
+      saveLocalProgress(updatedProgress);
+      
+      return true;
+    } catch (err: any) {
+      console.error('Error removing video completion:', err);
+      return false;
+    }
+  }, [user?.id, userLearningData]);
 
   useEffect(() => {
     fetchData();
@@ -188,6 +213,7 @@ export const useCourseData = () => {
     getCourseProgress,
     getCourseVideoCount,
     updateVideoCompletion,
+    removeVideoCompletion,
     refreshData: fetchData
   };
 };
