@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
