@@ -20,6 +20,7 @@ serve(async (req) => {
 
     console.log('Edge function called with type:', type);
     console.log('API key available:', apiKey ? 'Yes' : 'No');
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
 
     if (!apiKey) {
       console.error('GEMINI_API_KEY not found in Supabase secrets');
@@ -42,9 +43,16 @@ serve(async (req) => {
           parts: [{
             text: `Generate a list of 15 interview questions for the following job role: ${prompt}. 
             The questions should be challenging and cover both technical and soft skills.
-            Format the response as a JSON array of question strings only.`
+            Format the response as a JSON array of question strings only.
+            
+            Example format:
+            ["What is your experience with...", "How would you handle...", "Describe a time when..."]`
           }]
-        }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
       };
     } else if (type === 'feedback') {
       url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
@@ -53,16 +61,28 @@ serve(async (req) => {
         contents: [{
           parts: [{
             text: `Question: ${question}\n\nAnswer: ${answer}\n\nProvide detailed feedback on this interview answer. 
-            Evaluate the quality, clarity, and completeness of the response. Suggest improvements. Format the response as a JSON object 
-            with these properties: "score" (0-100), "strengths" (array of strings), "areas_to_improve" (array of strings), "suggestion" (string).`
+            Evaluate the quality, clarity, and completeness of the response. Suggest improvements. 
+            Format the response as a JSON object with these properties: 
+            "score" (0-100), "strengths" (array of strings), "areas_to_improve" (array of strings), "suggestion" (string).
+            
+            Example format:
+            {
+              "score": 75,
+              "strengths": ["Clear explanation", "Good examples"],
+              "areas_to_improve": ["More specific details needed"],
+              "suggestion": "Consider adding more concrete examples..."
+            }`
           }]
-        }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1024,
+        }
       };
     } else if (type === 'evaluation') {
       url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
       const { question, answer } = prompt;
       
-      // Always generate evaluation even for skipped questions
       const userAnswer = answer && answer !== 'Question skipped' && answer !== 'No answer provided' 
         ? answer 
         : 'No answer was provided for this question';
@@ -79,12 +99,24 @@ serve(async (req) => {
             For the ideal answer, provide a CONCISE, well-structured response that directly answers the question in 3-4 sentences. Focus on the key points without excessive detail.
             
             Format the response as a JSON object with these properties:
-            - "ideal_answer" (string): A concise 3-4 sentence sample answer
-            - "evaluation_criteria" (array of strings): Key criteria for evaluating this type of question
-            - "score_breakdown" (object): {"clarity": number, "relevance": number, "depth": number, "examples": number, "overall": number}
-            - "feedback" (string): Detailed feedback on the user's specific answer or note about no answer provided`
+            {
+              "ideal_answer": "A concise 3-4 sentence sample answer",
+              "evaluation_criteria": ["Key criteria for evaluating this type of question"],
+              "score_breakdown": {
+                "clarity": 0-100,
+                "relevance": 0-100,
+                "depth": 0-100,
+                "examples": 0-100,
+                "overall": 0-100
+              },
+              "feedback": "Detailed feedback on the user's specific answer"
+            }`
           }]
-        }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1024,
+        }
       };
     } else if (type === 'resume-analysis') {
       url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
@@ -102,10 +134,24 @@ serve(async (req) => {
         requestBody = {
           contents: [{
             parts: [
-              { text: "Analyze this resume and provide insights. Extract key skills, suggest suitable job roles, and provide constructive feedback. Format the response as a JSON object with these properties: 'skills' (array of strings), 'suggested_role' (string), 'strengths' (array of strings), 'areas_to_improve' (array of strings), 'suggestions' (string)" },
+              { 
+                text: `Analyze this resume and provide insights. Extract key skills, suggest suitable job roles, and provide constructive feedback. 
+                Format the response as a JSON object with these properties: 
+                {
+                  "skills": ["skill1", "skill2", ...],
+                  "suggested_role": "Most suitable job role",
+                  "strengths": ["strength1", "strength2", ...],
+                  "areas_to_improve": ["area1", "area2", ...],
+                  "suggestions": "Overall suggestions for improvement"
+                }` 
+              },
               { inline_data: { mime_type: "application/pdf", data: base64Data } }
             ]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1024,
+          }
         };
       } catch (error) {
         console.error('Error processing resume data:', error);
@@ -149,13 +195,34 @@ serve(async (req) => {
       // Try to parse JSON from the response
       try {
         console.log('Attempting to parse JSON from response');
-        result = JSON.parse(text.replace(/```json|```/g, '').trim());
+        // Clean up the response text to extract valid JSON
+        const cleanedText = text.replace(/```json|```/g, '').trim();
+        // Handle cases where the response might have extra text before/after JSON
+        const jsonMatch = cleanedText.match(/\[.*\]|\{.*\}/s);
+        const jsonString = jsonMatch ? jsonMatch[0] : cleanedText;
+        
+        result = JSON.parse(jsonString);
         console.log('JSON parsed successfully');
       } catch (e) {
         console.error('JSON parsing failed:', e);
         console.log('Raw response text:', text);
-        // If JSON parsing fails, return the text directly
-        result = { text };
+        
+        // For interview questions, try to extract questions from plain text
+        if (type === 'interview-questions') {
+          const questions = text.split('\n')
+            .map(line => line.trim())
+            .filter(line => line && (line.match(/^\d+\./) || line.includes('?')))
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .slice(0, 15);
+          
+          if (questions.length > 0) {
+            result = questions;
+          } else {
+            result = { text };
+          }
+        } else {
+          result = { text };
+        }
       }
     } else if (data.error) {
       console.error('Error in API response:', data.error);
