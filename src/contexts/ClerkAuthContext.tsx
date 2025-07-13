@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth as useClerkAuth, useUser, useClerk } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +21,6 @@ interface AuthContextType {
   profile: UserProfile;
   loading: boolean;
   isAuthenticated: boolean;
-  isLoaded: boolean;
   isAdmin: () => boolean;
   isStudent: () => boolean;
   logout: () => Promise<void>;
@@ -277,11 +277,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       email: isTempAdmin ? 'admin@interview.ai' : clerkUser?.primaryEmailAddress?.emailAddress
     },
     supabaseSession,
-    isActive: true,
-    getToken: async () => {
-      if (isTempAdmin) return 'temp-admin-token';
-      return getToken ? await getToken({ template: 'supabase' }) : null;
-    }
+    isActive: true
   } : null;
 
   console.log('Auth context state:', {
@@ -302,7 +298,6 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       profile,
       loading, 
       isAuthenticated,
-      isLoaded,
       isAdmin,
       isStudent,
       logout,
