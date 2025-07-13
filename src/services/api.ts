@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
@@ -38,15 +39,9 @@ interface ResumeAnalysis {
 
 export const useInterviewApi = () => {
   const { toast } = useToast();
-  const { getSupabaseUserId, session, user, isAuthenticated, isLoaded } = useAuth();
+  const { getSupabaseUserId, session, user, isAuthenticated } = useAuth();
 
   const checkApiKey = (): boolean => {
-    // Wait for auth to load before checking API key
-    if (!isLoaded) {
-      console.log('Auth not loaded yet, waiting...');
-      return false;
-    }
-
     envService.debugApiKey();
     
     const geminiApiKey = envService.get('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY;
@@ -67,56 +62,26 @@ export const useInterviewApi = () => {
     return true;
   };
 
-  const makeSecureApiCall = async (endpoint: string, body: any) => {
-    try {
-      console.log(`Making secure API call to ${endpoint}`);
-      
-      // Get the current session token if available
-      const sessionToken = session?.getToken ? await session.getToken() : null;
-      
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      // Add authorization header if we have a session token
-      if (sessionToken) {
-        headers['Authorization'] = `Bearer ${sessionToken}`;
-        console.log('Added authorization header');
-      }
-
-      const { data, error } = await supabase.functions.invoke(endpoint, {
-        body,
-        headers
-      });
-
-      console.log(`Supabase function response for ${endpoint}:`, { data, error });
-
-      if (error) {
-        console.error(`Edge function error for ${endpoint}:`, error);
-        throw new Error(error.message || `Edge function error: ${endpoint}`);
-      }
-      
-      if (!data) {
-        throw new Error(`No data received from ${endpoint}`);
-      }
-
-      return data;
-    } catch (error: any) {
-      console.error(`Error in ${endpoint}:`, error);
-      throw error;
-    }
-  };
-
   const generateInterviewQuestions = async (jobRole: string): Promise<InterviewQuestion[]> => {
     if (!checkApiKey()) return [];
     
     try {
       console.log("Generating interview questions for role:", jobRole);
       
-      const data = await makeSecureApiCall('gemini-interview', {
-        type: 'interview-questions', 
-        prompt: jobRole 
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { type: 'interview-questions', prompt: jobRole }
       });
+
+      console.log('Supabase function response:', { data, error });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Edge function error');
+      }
+      
+      if (!data) {
+        throw new Error('No data received from API');
+      }
       
       if (Array.isArray(data)) {
         const questions = data.map((question, index) => ({
@@ -150,11 +115,18 @@ export const useInterviewApi = () => {
     try {
       console.log('Getting feedback for question:', question.substring(0, 50) + '...');
       
-      const data = await makeSecureApiCall('gemini-interview', {
-        type: 'feedback', 
-        prompt: { question, answer } 
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { 
+          type: 'feedback', 
+          prompt: { question, answer } 
+        }
       });
 
+      if (error) {
+        console.error('Edge function error for feedback:', error);
+        return null;
+      }
+      
       if (!data) {
         console.log('No feedback data received - continuing without feedback');
         return null;
@@ -179,11 +151,18 @@ export const useInterviewApi = () => {
         ? userAnswer
         : 'No answer provided';
       
-      const data = await makeSecureApiCall('gemini-interview', {
-        type: 'evaluation', 
-        prompt: { question, answer: answerToEvaluate } 
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { 
+          type: 'evaluation', 
+          prompt: { question, answer: answerToEvaluate } 
+        }
       });
 
+      if (error) {
+        console.error('Edge function error for evaluation:', error);
+        return null;
+      }
+      
       if (!data) {
         console.log('No evaluation data received');
         return null;
@@ -207,11 +186,18 @@ export const useInterviewApi = () => {
         throw new Error('Only PDF files are supported');
       }
       
-      const data = await makeSecureApiCall('gemini-interview', {
-        type: 'resume-analysis', 
-        prompt: { resume: resumeBase64 } 
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { 
+          type: 'resume-analysis', 
+          prompt: { resume: resumeBase64 } 
+        }
       });
 
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message);
+      }
+      
       if (!data) {
         throw new Error('No analysis data received');
       }
@@ -233,7 +219,6 @@ export const useInterviewApi = () => {
     generateInterviewQuestions,
     getAnswerFeedback,
     evaluateAnswer,
-    analyzeResume,
-    isReady: isLoaded && checkApiKey()
+    analyzeResume
   };
 };

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Briefcase, FileText, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Briefcase, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import ResumeUpload from '@/components/Dashboard/ResumeUpload';
@@ -17,8 +17,8 @@ import InterviewReport from '@/components/Dashboard/InterviewReport';
 import ProFeatureGuard from '@/components/ProFeatureGuard';
 
 const CustomInterviewsPage: React.FC = () => {
-  const { user, isStudent, isLoaded } = useAuth();
-  const { generateInterviewQuestions, isReady } = useInterviewApi();
+  const { user, isStudent } = useAuth();
+  const { generateInterviewQuestions } = useInterviewApi();
   const { toast } = useToast();
   
   const [currentStep, setCurrentStep] = useState<'setup' | 'interview' | 'completed'>('setup');
@@ -31,54 +31,9 @@ const CustomInterviewsPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState('role');
 
-  // Show loading until auth is ready
-  if (!isLoaded) {
-    return (
-      <DashboardLayout>
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading authentication...</span>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
-  }
-
-  // Show API setup message if not ready
-  if (!isReady) {
-    return (
-      <DashboardLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Custom Interviews</h1>
-            <p className="mt-2 text-gray-600">
-              Create personalized mock interviews tailored to your needs
-            </p>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <AlertCircle className="mr-2 h-5 w-5 text-amber-500" />
-                Setup Required
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                To use the custom interview feature, please configure your Gemini API key in Settings.
-              </p>
-              <Button onClick={() => window.location.href = '/student/settings'}>
-                Go to Settings
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
   }
 
   const handleRoleBasedQuestions = async () => {
