@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
@@ -109,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Store session
       localStorage.setItem('manual_session', JSON.stringify(sessionData));
       
+      // Set state immediately
       setSession(sessionData);
       setUser(userData);
       setProfile(userData);
@@ -119,12 +119,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!",
       });
 
-      // Redirect based on role
-      if (userData.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      // Use setTimeout to ensure state is set before navigation
+      setTimeout(() => {
+        if (userData.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 100);
+
     } catch (error: any) {
       console.error('Login error:', error);
       toast({
