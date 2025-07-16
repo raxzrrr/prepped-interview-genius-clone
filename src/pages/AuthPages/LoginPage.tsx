@@ -1,31 +1,33 @@
 
 import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation, useSearchParams, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/Layout/MainLayout';
-import { useAuth } from '@/contexts/ClerkAuthContext';
+import { useAuth as useClerkAuth } from '@/contexts/ClerkAuthContext';
+import { useAuth as useManualAuth } from '@/contexts/AuthContext';
 import { SignIn } from "@clerk/clerk-react";
 import LoginForm from '@/components/Auth/LoginForm';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const LoginPage: React.FC = () => {
-  const { user, isAdmin, isStudent } = useAuth();
-  const location = useLocation();
+  const clerkAuth = useClerkAuth();
+  const manualAuth = useManualAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('clerk');
   
-  // Redirect if already logged in
+  // Check if user is already logged in with either method
   useEffect(() => {
-    if (user) {
-      if (isAdmin()) {
+    if (clerkAuth.user || manualAuth.isAuthenticated) {
+      const isAdmin = clerkAuth.isAdmin() || manualAuth.isAdmin();
+      const isStudent = clerkAuth.isStudent() || manualAuth.isStudent();
+      
+      if (isAdmin) {
         navigate('/admin');
-      } else if (isStudent()) {
+      } else if (isStudent) {
         navigate('/dashboard');
       }
     }
-  }, [user, isAdmin, isStudent, navigate]);
+  }, [clerkAuth.user, manualAuth.isAuthenticated, clerkAuth.isAdmin, manualAuth.isAdmin, clerkAuth.isStudent, manualAuth.isStudent, navigate]);
   
   return (
     <MainLayout>
