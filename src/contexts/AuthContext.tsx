@@ -58,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedSession = localStorage.getItem('manual_session');
       if (storedSession) {
         const sessionData = JSON.parse(storedSession);
+        console.log('Found stored session:', sessionData);
         setSession(sessionData);
         setUser(sessionData.user);
         setProfile(sessionData.user);
@@ -105,28 +106,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: authResult.user_id
       };
 
+      console.log('Login successful, setting session:', sessionData);
+
       // Store session
       localStorage.setItem('manual_session', JSON.stringify(sessionData));
       
-      // Set state immediately
+      // Set state immediately and synchronously
       setSession(sessionData);
       setUser(userData);
       setProfile(userData);
       setIsAuthenticated(true);
+
+      console.log('State set, userData role:', userData.role);
 
       toast({
         title: "Login Successful",
         description: "Welcome back!",
       });
 
-      // Use setTimeout to ensure state is set before navigation
-      setTimeout(() => {
-        if (userData.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 100);
+      // Navigate immediately after state is set
+      const targetRoute = userData.role === 'admin' ? '/admin' : '/dashboard';
+      console.log('Navigating to:', targetRoute);
+      navigate(targetRoute, { replace: true });
 
     } catch (error: any) {
       console.error('Login error:', error);
@@ -202,6 +203,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = () => profile?.role === 'admin';
   const isStudent = () => profile?.role === 'student';
   const getSupabaseUserId = () => user?.id || null;
+
+  console.log('AuthContext state:', { user, session, profile, loading, isAuthenticated, userRole: profile?.role });
 
   return (
     <AuthContext.Provider value={{ 
