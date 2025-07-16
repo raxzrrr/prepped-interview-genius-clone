@@ -2,11 +2,11 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 
 const Header: React.FC = () => {
-  const { user, profile, isAdmin, isStudent, logout } = useSimpleAuth();
+  const { user, profile, isAdmin, isStudent, logout } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -72,7 +72,7 @@ const Header: React.FC = () => {
               <Link to="/admin" className="text-gray-600 hover:text-brand-purple transition-colors">
                 Admin Panel
               </Link>
-              <Link to="/admin/user-management" className="text-gray-600 hover:text-brand-purple transition-colors">
+              <Link to="/admin/users" className="text-gray-600 hover:text-brand-purple transition-colors">
                 Manage Users
               </Link>
               <Link to="/admin/content" className="text-gray-600 hover:text-brand-purple transition-colors">

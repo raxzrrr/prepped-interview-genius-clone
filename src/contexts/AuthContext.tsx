@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
@@ -25,7 +26,6 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
-  getSupabaseUserId: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,7 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedSession = localStorage.getItem('manual_session');
       if (storedSession) {
         const sessionData = JSON.parse(storedSession);
-        console.log('Found stored session:', sessionData);
         setSession(sessionData);
         setUser(sessionData.user);
         setProfile(sessionData.user);
@@ -106,31 +105,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: authResult.user_id
       };
 
-      console.log('Login successful, setting session:', sessionData);
-
       // Store session
       localStorage.setItem('manual_session', JSON.stringify(sessionData));
       
-      // Set state
       setSession(sessionData);
       setUser(userData);
       setProfile(userData);
       setIsAuthenticated(true);
-
-      console.log('State set, userData role:', userData.role);
 
       toast({
         title: "Login Successful",
         description: "Welcome back!",
       });
 
-      // Navigate after a short delay to ensure state is fully set
-      setTimeout(() => {
-        const targetRoute = userData.role === 'admin' ? '/admin' : '/dashboard';
-        console.log('Navigating to:', targetRoute);
-        navigate(targetRoute, { replace: true });
-      }, 50);
-
+      // Redirect based on role
+      if (userData.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       toast({
@@ -204,9 +197,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = () => profile?.role === 'admin';
   const isStudent = () => profile?.role === 'student';
-  const getSupabaseUserId = () => user?.id || null;
-
-  console.log('AuthContext state:', { user, session, profile, loading, isAuthenticated, userRole: profile?.role });
 
   return (
     <AuthContext.Provider value={{ 
@@ -219,8 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isStudent,
       login,
       register,
-      logout,
-      getSupabaseUserId
+      logout
     }}>
       {children}
     </AuthContext.Provider>
