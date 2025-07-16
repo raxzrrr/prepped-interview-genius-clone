@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Store session
       localStorage.setItem('manual_session', JSON.stringify(sessionData));
       
-      // Set state immediately and synchronously
+      // Set state
       setSession(sessionData);
       setUser(userData);
       setProfile(userData);
@@ -124,10 +124,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Welcome back!",
       });
 
-      // Navigate immediately after state is set
-      const targetRoute = userData.role === 'admin' ? '/admin' : '/dashboard';
-      console.log('Navigating to:', targetRoute);
-      navigate(targetRoute, { replace: true });
+      // Navigate after a short delay to ensure state is fully set
+      setTimeout(() => {
+        const targetRoute = userData.role === 'admin' ? '/admin' : '/dashboard';
+        console.log('Navigating to:', targetRoute);
+        navigate(targetRoute, { replace: true });
+      }, 50);
 
     } catch (error: any) {
       console.error('Login error:', error);

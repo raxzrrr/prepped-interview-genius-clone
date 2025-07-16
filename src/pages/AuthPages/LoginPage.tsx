@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import MainLayout from '@/components/Layout/MainLayout';
 import { useAuth as useClerkAuth } from '@/contexts/ClerkAuthContext';
 import { useAuth as useManualAuth } from '@/contexts/AuthContext';
@@ -12,22 +12,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 const LoginPage: React.FC = () => {
   const clerkAuth = useClerkAuth();
   const manualAuth = useManualAuth();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('clerk');
   
-  // Check if user is already logged in with either method
-  useEffect(() => {
-    if (clerkAuth.user || manualAuth.isAuthenticated) {
-      const isAdmin = clerkAuth.isAdmin() || manualAuth.isAdmin();
-      const isStudent = clerkAuth.isStudent() || manualAuth.isStudent();
-      
-      if (isAdmin) {
-        navigate('/admin');
-      } else if (isStudent) {
-        navigate('/dashboard');
-      }
+  // Only redirect if already authenticated - no useEffect needed
+  if (clerkAuth.user || manualAuth.isAuthenticated) {
+    const isAdmin = clerkAuth.isAdmin() || manualAuth.isAdmin();
+    
+    if (isAdmin) {
+      return <Navigate to="/admin" replace />;
+    } else {
+      return <Navigate to="/dashboard" replace />;
     }
-  }, [clerkAuth.user, manualAuth.isAuthenticated, clerkAuth.isAdmin, manualAuth.isAdmin, clerkAuth.isStudent, manualAuth.isStudent, navigate]);
+  }
   
   return (
     <MainLayout>
