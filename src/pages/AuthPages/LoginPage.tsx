@@ -1,15 +1,17 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/Layout/MainLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { SignIn } from "@clerk/clerk-react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import AdminLoginForm from '@/components/Auth/AdminLoginForm';
 
 const LoginPage: React.FC = () => {
   const { user, isAdmin, isStudent } = useAuth();
   const navigate = useNavigate();
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
   
   // Redirect if already logged in
   useEffect(() => {
@@ -21,12 +23,25 @@ const LoginPage: React.FC = () => {
       }
     }
   }, [user, isAdmin, isStudent, navigate]);
-  
-  const handleAdminLogin = () => {
-    // Set temporary admin access
-    localStorage.setItem('tempAdmin', 'true');
+
+  const handleAdminSuccess = () => {
     window.location.reload();
   };
+  
+  if (showAdminLogin) {
+    return (
+      <MainLayout>
+        <div className="py-16 bg-gray-50 min-h-screen flex items-center justify-center">
+          <div className="container px-4 mx-auto">
+            <AdminLoginForm 
+              onSuccess={handleAdminSuccess}
+              onCancel={() => setShowAdminLogin(false)}
+            />
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
   
   return (
     <MainLayout>
@@ -72,7 +87,7 @@ const LoginPage: React.FC = () => {
                 <div className="border-t pt-4">
                   <Button 
                     variant="outline" 
-                    onClick={handleAdminLogin}
+                    onClick={() => setShowAdminLogin(true)}
                     className="w-full text-sm"
                   >
                     Admin Access

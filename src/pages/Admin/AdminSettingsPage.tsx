@@ -2,21 +2,28 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import AdminCredentialsSettings from '@/components/Admin/AdminCredentialsSettings';
 
 const AdminSettingsPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   
-  // Redirect if not logged in or not an admin
-  if (!user || !isAdmin()) {
+  // Check for temporary admin access
+  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
+  
+  if (!user && !isTempAdmin) {
     return <Navigate to="/login" />;
+  }
+
+  if (!isAdmin() && !isTempAdmin) {
+    return <Navigate to="/dashboard" />;
   }
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -33,9 +40,11 @@ const AdminSettingsPage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Settings</h1>
           <p className="mt-2 text-gray-600">
-            Configure system-wide settings
+            Configure system-wide settings and admin credentials
           </p>
         </div>
+        
+        <AdminCredentialsSettings />
         
         <Card>
           <CardHeader>

@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_credentials: {
+        Row: {
+          created_at: string
+          id: string
+          password_hash: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          password_hash: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          password_hash?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       course_videos: {
         Row: {
           content_type: string | null
@@ -301,6 +325,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      authenticate_admin: {
+        Args: { admin_username: string; admin_password: string }
+        Returns: boolean
+      }
       authenticate_user: {
         Args: { user_email: string; user_password: string }
         Returns: {
@@ -316,6 +344,15 @@ export type Database = {
           user_role?: string
         }
         Returns: string
+      }
+      update_admin_credentials: {
+        Args: {
+          old_username: string
+          old_password: string
+          new_username: string
+          new_password: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
