@@ -5,16 +5,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ClerkProvider } from "@clerk/clerk-react";
-import { ClerkAuthProvider } from "@/contexts/ClerkAuthContext";
-import { AuthProvider } from "@/contexts/AuthContext";
-import ProtectedRoute from "@/components/Auth/ProtectedRoute";
+import { SimpleAuthProvider } from "@/contexts/SimpleAuthContext";
+import SimpleProtectedRoute from "@/components/Auth/SimpleProtectedRoute";
 
 // Public Pages
 import HomePage from "@/pages/HomePage";
-import LoginPage from "@/pages/AuthPages/LoginPage";
-import RegisterPage from "@/pages/AuthPages/RegisterPage";
+import SimpleLoginPage from "@/pages/AuthPages/SimpleLoginPage";
+import SimpleRegisterPage from "@/pages/AuthPages/SimpleRegisterPage";
 import NotFound from "@/pages/NotFound";
-import Index from "@/pages/Index";
 
 // Student Pages
 import Dashboard from "@/pages/Student/Dashboard";
@@ -43,43 +41,41 @@ const App = () => (
   <ClerkProvider publishableKey={clerkPubKey}>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthProvider>
-          <ClerkAuthProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<HomePage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                
-                {/* Student Routes */}
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/interviews" element={<ProtectedRoute><InterviewsPage /></ProtectedRoute>} />
-                <Route path="/custom-interviews" element={<ProtectedRoute><CustomInterviewsPage /></ProtectedRoute>} />
-                <Route path="/learning" element={<ProtectedRoute><LearningPage /></ProtectedRoute>} />
-                <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-                <Route path="/reports/:id" element={<ProtectedRoute><ReportDetailPage /></ProtectedRoute>} />
-                <Route path="/certificates" element={<ProtectedRoute><CertificatesPage /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                
-                {/* Admin Routes */}
-                <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
-                <Route path="/admin/user-management" element={<ProtectedRoute requiredRole="admin"><UserManagementPage /></ProtectedRoute>} />
-                <Route path="/admin/courses" element={<ProtectedRoute requiredRole="admin"><CourseManagementPage /></ProtectedRoute>} />
-                <Route path="/admin/content" element={<ProtectedRoute requiredRole="admin"><AdminContentPage /></ProtectedRoute>} />
-                <Route path="/admin/coupons" element={<ProtectedRoute requiredRole="admin"><AdminCouponsPage /></ProtectedRoute>} />
-                <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPaymentsPage /></ProtectedRoute>} />
-                <Route path="/admin/certificates" element={<ProtectedRoute requiredRole="admin"><AdminCertificatesPage /></ProtectedRoute>} />
-                <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettingsPage /></ProtectedRoute>} />
-                
-                {/* Catch-all / 404 route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </TooltipProvider>
-          </ClerkAuthProvider>
-        </AuthProvider>
+        <SimpleAuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<SimpleLoginPage />} />
+              <Route path="/register" element={<SimpleRegisterPage />} />
+              
+              {/* Student Routes */}
+              <Route path="/dashboard" element={<SimpleProtectedRoute><Dashboard /></SimpleProtectedRoute>} />
+              <Route path="/interviews" element={<SimpleProtectedRoute><InterviewsPage /></SimpleProtectedRoute>} />
+              <Route path="/custom-interviews" element={<SimpleProtectedRoute><CustomInterviewsPage /></SimpleProtectedRoute>} />
+              <Route path="/learning" element={<SimpleProtectedRoute><LearningPage /></SimpleProtectedRoute>} />
+              <Route path="/reports" element={<SimpleProtectedRoute><ReportsPage /></SimpleProtectedRoute>} />
+              <Route path="/reports/:id" element={<SimpleProtectedRoute><ReportDetailPage /></SimpleProtectedRoute>} />
+              <Route path="/certificates" element={<SimpleProtectedRoute><CertificatesPage /></SimpleProtectedRoute>} />
+              <Route path="/settings" element={<SimpleProtectedRoute><SettingsPage /></SimpleProtectedRoute>} />
+              
+              {/* Admin Routes */}
+              <Route path="/admin" element={<SimpleProtectedRoute requiredRole="admin"><AdminDashboard /></SimpleProtectedRoute>} />
+              <Route path="/admin/user-management" element={<SimpleProtectedRoute requiredRole="admin"><UserManagementPage /></SimpleProtectedRoute>} />
+              <Route path="/admin/courses" element={<SimpleProtectedRoute requiredRole="admin"><CourseManagementPage /></SimpleProtectedRoute>} />
+              <Route path="/admin/content" element={<SimpleProtectedRoute requiredRole="admin"><AdminContentPage /></SimpleProtectedRoute>} />
+              <Route path="/admin/coupons" element={<SimpleProtectedRoute requiredRole="admin"><AdminCouponsPage /></SimpleProtectedRoute>} />
+              <Route path="/admin/payments" element={<SimpleProtectedRoute requiredRole="admin"><AdminPaymentsPage /></SimpleProtectedRoute>} />
+              <Route path="/admin/certificates" element={<SimpleProtectedRoute requiredRole="admin"><AdminCertificatesPage /></SimpleProtectedRoute>} />
+              <Route path="/admin/settings" element={<SimpleProtectedRoute requiredRole="admin"><AdminSettingsPage /></SimpleProtectedRoute>} />
+              
+              {/* Catch-all / 404 route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </TooltipProvider>
+        </SimpleAuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </ClerkProvider>
