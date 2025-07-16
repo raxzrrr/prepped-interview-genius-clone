@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
 import { useAuth as useManualAuth } from '@/contexts/AuthContext';
 
 type UserRole = 'student' | 'admin' | null;
@@ -40,6 +40,7 @@ export const useCombinedAuth = () => {
 
 export const CombinedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const clerkAuth = useClerkAuth();
+  const { user: clerkUser } = useUser();
   const manualAuth = useManualAuth();
   
   // Determine which auth system is active
@@ -48,8 +49,8 @@ export const CombinedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   
   // Use the appropriate auth context
   const activeAuth = isClerkActive ? {
-    user: clerkAuth.user,
-    session: clerkAuth.session,
+    user: clerkUser,
+    session: clerkAuth.sessionId ? { id: clerkAuth.sessionId, user: clerkUser } : null,
     profile: null, // You'd need to fetch this from Supabase for Clerk users
     loading: !clerkAuth.isLoaded,
     isAuthenticated: !!clerkAuth.userId,
@@ -59,7 +60,19 @@ export const CombinedAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     register: async () => {}, // Clerk handles this
     logout: async () => clerkAuth.signOut(),
     getSupabaseUserId: () => clerkAuth.userId
-  } : manualAuth;
+  } : {
+    user: manualAuth.user,
+    session: manualAuth.session,
+    profile: manualAuth.profile,
+    loading: manualAuth.loading,
+    isAuthenticated: manualAuth.isAuthenticated,
+    isAdmin: manualAuth.isAdmin,
+    isStudent: manualAuth.isStudent,
+    login: manualAuth.login,
+    register: manualAuth.register,
+    logout: manualAuth.logout,
+    getSupabaseUserId: () => manualAuth.user?.id || null
+  };
 
   return (
     <CombinedAuthContext.Provider value={activeAuth}>

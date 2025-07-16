@@ -26,6 +26,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
+  getSupabaseUserId: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -197,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = () => profile?.role === 'admin';
   const isStudent = () => profile?.role === 'student';
+  const getSupabaseUserId = () => user?.id || null;
 
   return (
     <AuthContext.Provider value={{ 
@@ -209,7 +211,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isStudent,
       login,
       register,
-      logout
+      logout,
+      getSupabaseUserId
     }}>
       {children}
     </AuthContext.Provider>
