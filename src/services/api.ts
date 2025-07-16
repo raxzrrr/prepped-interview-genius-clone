@@ -91,11 +91,28 @@ export const useInterviewApi = () => {
   const generateInterviewQuestions = async (jobRole: string): Promise<InterviewQuestion[]> => {
     if (!(await checkApiKey())) return [];
     
+    if (!isAuthenticated || !user) {
+      console.error('User not authenticated');
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to use this feature.",
+        variant: "destructive"
+      });
+      return [];
+    }
+    
     try {
       console.log("Generating interview questions for role:", jobRole);
       
+      const userId = getSupabaseUserId();
+      console.log('Using user ID for request:', userId);
+      
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
-        body: { type: 'interview-questions', prompt: jobRole }
+        body: { 
+          type: 'interview-questions', 
+          prompt: jobRole,
+          userId: userId // Include user ID in the request
+        }
       });
 
       console.log('Supabase function response:', { data, error });
@@ -138,13 +155,21 @@ export const useInterviewApi = () => {
   const getAnswerFeedback = async (question: string, answer: string): Promise<AnswerFeedback | null> => {
     if (!(await checkApiKey())) return null;
     
+    if (!isAuthenticated || !user) {
+      console.error('User not authenticated');
+      return null;
+    }
+    
     try {
       console.log('Getting feedback for question:', question.substring(0, 50) + '...');
+      
+      const userId = getSupabaseUserId();
       
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'feedback', 
-          prompt: { question, answer } 
+          prompt: { question, answer },
+          userId: userId
         }
       });
 
@@ -169,6 +194,11 @@ export const useInterviewApi = () => {
   const evaluateAnswer = async (question: string, userAnswer: string): Promise<QuestionEvaluation | null> => {
     if (!(await checkApiKey())) return null;
     
+    if (!isAuthenticated || !user) {
+      console.error('User not authenticated');
+      return null;
+    }
+    
     try {
       console.log('Getting evaluation for question:', question.substring(0, 50) + '...');
       
@@ -177,10 +207,13 @@ export const useInterviewApi = () => {
         ? userAnswer
         : 'No answer provided';
       
+      const userId = getSupabaseUserId();
+      
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'evaluation', 
-          prompt: { question, answer: answerToEvaluate } 
+          prompt: { question, answer: answerToEvaluate },
+          userId: userId
         }
       });
 
@@ -205,6 +238,16 @@ export const useInterviewApi = () => {
   const analyzeResume = async (resumeBase64: string): Promise<ResumeAnalysis | null> => {
     if (!(await checkApiKey())) return null;
     
+    if (!isAuthenticated || !user) {
+      console.error('User not authenticated');
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to use this feature.",
+        variant: "destructive"
+      });
+      return null;
+    }
+    
     try {
       console.log("Analyzing resume...");
       
@@ -212,10 +255,13 @@ export const useInterviewApi = () => {
         throw new Error('Only PDF files are supported');
       }
       
+      const userId = getSupabaseUserId();
+      
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'resume-analysis', 
-          prompt: { resume: resumeBase64 } 
+          prompt: { resume: resumeBase64 },
+          userId: userId
         }
       });
 

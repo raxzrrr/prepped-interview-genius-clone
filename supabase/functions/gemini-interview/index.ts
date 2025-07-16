@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -13,10 +12,13 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Gemini interview function called with headers:', Object.fromEntries(req.headers.entries()))
+    
     // Get the authorization header
     const authHeader = req.headers.get('Authorization')
     
     if (!authHeader) {
+      console.error('No authorization header provided')
       throw new Error('No authorization header')
     }
 
@@ -31,25 +33,56 @@ serve(async (req) => {
       }
     )
 
-    // Get the current user
+    // Get the current user - for Clerk auth, we need to handle this differently
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     
-    if (userError || !user) {
-      throw new Error('User not authenticated')
+    console.log('Auth user result:', { user: user?.id, error: userError })
+    
+    // If direct auth fails, try to extract user ID from the request
+    let userId = user?.id
+    
+    if (!userId) {
+      // Try to get user ID from the request body or headers
+      const requestData = await req.json()
+      console.log('Request data:', requestData)
+      
+      // For now, we'll use a fallback approach - get the user ID from the profiles table
+      // using the authorization token or find another way to identify the user
+      
+      // Let's try to parse the JWT token to get user info
+      try {
+        const token = authHeader.replace('Bearer ', '')
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        console.log('JWT payload:', payload)
+        userId = payload.sub || payload.user_id
+      } catch (e) {
+        console.log('Could not parse JWT:', e)
+      }
     }
+
+    if (!userId) {
+      console.error('Could not determine user ID')
+      throw new Error('User authentication failed - no user ID available')
+    }
+
+    console.log('Using user ID:', userId)
 
     // Get the user's API key from their profile
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('gemini_api_key')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
+    console.log('Profile lookup result:', { profile: !!profile, error: profileError })
+
     if (profileError || !profile?.gemini_api_key) {
+      console.error('Gemini API key not found in user profile:', profileError)
       throw new Error('Gemini API key not found in user profile')
     }
 
     const { type, prompt } = await req.json()
+    console.log('Request type:', type)
 
     // Use the user's API key
     const apiKey = profile.gemini_api_key
