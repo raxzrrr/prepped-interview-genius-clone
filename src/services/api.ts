@@ -1,6 +1,5 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import envService from "./env";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/ClerkAuthContext";
 
@@ -41,15 +40,42 @@ export const useInterviewApi = () => {
   const { toast } = useToast();
   const { getSupabaseUserId, session, user, isAuthenticated } = useAuth();
 
-  const checkApiKey = (): boolean => {
-    envService.debugApiKey();
-    
-    const geminiApiKey = envService.get('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY;
+  const getApiKeys = async () => {
+    const userId = getSupabaseUserId();
+    if (!userId) {
+      console.error('No user ID available for API key retrieval');
+      return { geminiApiKey: null, googleTTSApiKey: null };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('gemini_api_key, google_tts_api_key')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching API keys:', error);
+        return { geminiApiKey: null, googleTTSApiKey: null };
+      }
+
+      return {
+        geminiApiKey: data?.gemini_api_key || null,
+        googleTTSApiKey: data?.google_tts_api_key || null
+      };
+    } catch (error) {
+      console.error('Error getting API keys:', error);
+      return { geminiApiKey: null, googleTTSApiKey: null };
+    }
+  };
+
+  const checkApiKey = async (): Promise<boolean> => {
+    const { geminiApiKey } = await getApiKeys();
     
     console.log('API Key check result:', geminiApiKey ? 'Available' : 'Missing');
     
     if (!geminiApiKey) {
-      console.error('No Gemini API key found in any source');
+      console.error('No Gemini API key found in database');
       toast({
         title: "API Key Required",
         description: "Please set up your Gemini API key in Settings to use this feature.",
@@ -63,7 +89,7 @@ export const useInterviewApi = () => {
   };
 
   const generateInterviewQuestions = async (jobRole: string): Promise<InterviewQuestion[]> => {
-    if (!checkApiKey()) return [];
+    if (!(await checkApiKey())) return [];
     
     try {
       console.log("Generating interview questions for role:", jobRole);
@@ -110,7 +136,7 @@ export const useInterviewApi = () => {
   };
 
   const getAnswerFeedback = async (question: string, answer: string): Promise<AnswerFeedback | null> => {
-    if (!checkApiKey()) return null;
+    if (!(await checkApiKey())) return null;
     
     try {
       console.log('Getting feedback for question:', question.substring(0, 50) + '...');
@@ -141,7 +167,7 @@ export const useInterviewApi = () => {
   };
 
   const evaluateAnswer = async (question: string, userAnswer: string): Promise<QuestionEvaluation | null> => {
-    if (!checkApiKey()) return null;
+    if (!(await checkApiKey())) return null;
     
     try {
       console.log('Getting evaluation for question:', question.substring(0, 50) + '...');
@@ -177,7 +203,7 @@ export const useInterviewApi = () => {
   };
 
   const analyzeResume = async (resumeBase64: string): Promise<ResumeAnalysis | null> => {
-    if (!checkApiKey()) return null;
+    if (!(await checkApiKey())) return null;
     
     try {
       console.log("Analyzing resume...");

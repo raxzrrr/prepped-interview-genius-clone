@@ -158,34 +158,49 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auth_provider: string | null
           avatar_url: string | null
           created_at: string
           email: string | null
+          email_verified: boolean | null
           full_name: string
+          gemini_api_key: string | null
+          google_tts_api_key: string | null
           id: string
           last_active: string | null
+          password_hash: string | null
           role: Database["public"]["Enums"]["user_role"]
           status: string | null
           updated_at: string
         }
         Insert: {
+          auth_provider?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          email_verified?: boolean | null
           full_name: string
+          gemini_api_key?: string | null
+          google_tts_api_key?: string | null
           id: string
           last_active?: string | null
+          password_hash?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: string | null
           updated_at?: string
         }
         Update: {
+          auth_provider?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          email_verified?: boolean | null
           full_name?: string
+          gemini_api_key?: string | null
+          google_tts_api_key?: string | null
           id?: string
           last_active?: string | null
+          password_hash?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: string | null
           updated_at?: string
@@ -286,7 +301,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      authenticate_user: {
+        Args: { user_email: string; user_password: string }
+        Returns: {
+          user_id: string
+          user_data: Json
+        }[]
+      }
+      register_manual_user: {
+        Args: {
+          user_email: string
+          user_password: string
+          user_full_name: string
+          user_role?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       user_role: "student" | "admin"

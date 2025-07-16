@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
@@ -16,14 +16,62 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ApiKeySettings from '@/components/Settings/ApiKeySettings';
 import { User, Key, Bell, Shield, CreditCard } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const SettingsPage: React.FC = () => {
-  const { user, isStudent } = useAuth();
+  const { user, isStudent, profile, getSupabaseUserId } = useAuth();
+  const { toast } = useToast();
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   
   // Redirect if not logged in or not a student
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
   }
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setEmail(profile.email || '');
+    }
+  }, [profile]);
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      const userId = getSupabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName,
+        })
+        .eq('id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile information has been saved successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update profile. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -70,42 +118,20 @@ const SettingsPage: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" defaultValue={user?.user_metadata?.full_name || ''} />
+                  <Input 
+                    id="name" 
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" defaultValue={user?.email || ''} disabled />
+                  <Input id="email" value={email} disabled />
                   <p className="text-sm text-gray-500">Email cannot be changed</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input id="username" placeholder="Choose a username" />
-                </div>
-                <Button className="mt-4">Save Profile</Button>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Password</CardTitle>
-                <CardDescription>
-                  Update your password to keep your account secure
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
-                </div>
-                <Button className="mt-4">Change Password</Button>
+                <Button onClick={handleSaveProfile} className="mt-4" disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Profile'}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

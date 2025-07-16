@@ -1,3 +1,5 @@
+// This service is now deprecated - API keys are stored in the database
+// Keeping this file for backward compatibility but functionality is moved to database
 
 interface EnvConfig {
   GEMINI_API_KEY: string | null;
@@ -6,13 +8,9 @@ interface EnvConfig {
 
 class EnvService {
   private static instance: EnvService;
-  private config: EnvConfig = {
-    GEMINI_API_KEY: null,
-    GOOGLE_TTS_API_KEY: null
-  };
 
   private constructor() {
-    this.loadFromLocalStorage();
+    console.log('EnvService: API keys are now stored in the database. Please use the Settings page to manage your API keys.');
   }
 
   public static getInstance(): EnvService {
@@ -22,55 +20,31 @@ class EnvService {
     return EnvService.instance;
   }
 
-  private loadFromLocalStorage(): void {
-    try {
-      const storedConfig = localStorage.getItem('env_config');
-      if (storedConfig) {
-        const parsed = JSON.parse(storedConfig);
-        this.config = { ...this.config, ...parsed };
-        console.log('Loaded config from localStorage');
-      }
-    } catch (error) {
-      console.error('Error loading environment variables from localStorage:', error);
-    }
-  }
-
-  public saveToLocalStorage(): void {
-    try {
-      localStorage.setItem('env_config', JSON.stringify(this.config));
-      console.log('Saved config to localStorage');
-    } catch (error) {
-      console.error('Error saving environment variables to localStorage:', error);
-    }
-  }
-
   public get(key: keyof EnvConfig): string | null {
-    const value = this.config[key];
-    console.log(`Getting ${key}:`, value ? 'Key present' : 'Key missing');
-    return value;
+    console.log(`EnvService.get(${key}): API keys are now stored in the database`);
+    return null;
   }
 
   public set(key: keyof EnvConfig, value: string | null): void {
-    this.config[key] = value;
-    this.saveToLocalStorage();
-    console.log(`Set ${key}:`, value ? 'Key set' : 'Key cleared');
+    console.log(`EnvService.set(${key}): API keys are now stored in the database. Use Settings page to update.`);
   }
 
   public isConfigured(key: keyof EnvConfig): boolean {
-    const isConfigured = this.config[key] !== null && this.config[key] !== '';
-    console.log(`${key} configured:`, isConfigured);
-    return isConfigured;
+    console.log(`EnvService.isConfigured(${key}): Check database instead`);
+    return false;
   }
 
   public getAllConfig(): EnvConfig {
-    return { ...this.config };
+    return {
+      GEMINI_API_KEY: null,
+      GOOGLE_TTS_API_KEY: null
+    };
   }
 
-  // Debug method to check configuration
   public debugApiKey(): void {
     console.log('=== API Key Debug ===');
-    console.log('LocalStorage config:', this.config);
-    console.log('Final GEMINI_API_KEY:', this.get('GEMINI_API_KEY') ? 'Present' : 'Missing');
+    console.log('API keys are now stored in the database');
+    console.log('Use the Settings page to manage your API keys');
     console.log('===================');
   }
 }

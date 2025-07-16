@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/components/ui/use-toast";
 import { Key, Eye, EyeOff, Save, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import envService from '@/services/env';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 
 interface ApiKeySettingsProps {
   onComplete?: () => void;
@@ -17,22 +18,40 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [googleTTSApiKey, setGoogleTTSApiKey] = useState('');
   const [showApiKeys, setShowApiKeys] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { getSupabaseUserId, profile } = useAuth();
 
   useEffect(() => {
-    const storedGeminiKey = envService.get('GEMINI_API_KEY') || '';
-    const storedTTSKey = envService.get('GOOGLE_TTS_API_KEY') || '';
-    
-    if (storedGeminiKey) {
-      setGeminiApiKey(storedGeminiKey);
-    }
-    
-    if (storedTTSKey) {
-      setGoogleTTSApiKey(storedTTSKey);
-    }
+    loadApiKeys();
   }, []);
 
-  const handleSave = () => {
+  const loadApiKeys = async () => {
+    try {
+      const userId = getSupabaseUserId();
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('gemini_api_key, google_tts_api_key')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error loading API keys:', error);
+        return;
+      }
+
+      if (data) {
+        setGeminiApiKey(data.gemini_api_key || '');
+        setGoogleTTSApiKey(data.google_tts_api_key || '');
+      }
+    } catch (error) {
+      console.error('Error loading API keys:', error);
+    }
+  };
+
+  const handleSave = async () => {
     // Validate API keys before saving
     if (geminiApiKey && !geminiApiKey.startsWith('AIza')) {
       toast({
@@ -52,16 +71,43 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
       return;
     }
 
-    envService.set('GEMINI_API_KEY', geminiApiKey);
-    envService.set('GOOGLE_TTS_API_KEY', googleTTSApiKey);
+    setLoading(true);
     
-    toast({
-      title: "API Keys Saved",
-      description: "Your API keys have been saved securely in local storage.",
-    });
-    
-    if (onComplete) {
-      onComplete();
+    try {
+      const userId = getSupabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          gemini_api_key: geminiApiKey || null,
+          google_tts_api_key: googleTTSApiKey || null
+        })
+        .eq('id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "API Keys Saved",
+        description: "Your API keys have been saved securely to the database.",
+      });
+      
+      if (onComplete) {
+        onComplete();
+      }
+    } catch (error: any) {
+      console.error('Error saving API keys:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save API keys. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,7 +130,7 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            API keys are stored locally in your browser for security. They are not transmitted to our servers.
+            API keys are stored securely in the database and are only accessible to you.
           </AlertDescription>
         </Alert>
 
@@ -147,9 +193,9 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onComplete }) => {
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleSave} className="w-full">
+        <Button onClick={handleSave} className="w-full" disabled={loading}>
           <Save className="mr-2 h-4 w-4" />
-          Save API Keys
+          {loading ? 'Saving...' : 'Save API Keys'}
         </Button>
       </CardFooter>
     </Card>

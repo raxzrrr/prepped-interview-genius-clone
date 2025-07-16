@@ -1,18 +1,9 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { LoaderCircle } from "lucide-react";
 
@@ -24,7 +15,6 @@ const RegisterForm: React.FC = () => {
   const [role, setRole] = useState<'student' | 'admin'>('student');
   const [passwordError, setPasswordError] = useState('');
   const { register, loading } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,15 +29,9 @@ const RegisterForm: React.FC = () => {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl">Create an Account</CardTitle>
-        <CardDescription>
-          Sign up for Interview Genius to start your interview preparation
-        </CardDescription>
-      </CardHeader>
+    <div className="w-full">
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
             <Input
@@ -115,8 +99,8 @@ const RegisterForm: React.FC = () => {
               </div>
             </RadioGroup>
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
+        </div>
+        <div className="flex flex-col space-y-2 mt-6">
           <Button
             type="submit"
             className="w-full"
@@ -138,9 +122,9 @@ const RegisterForm: React.FC = () => {
               Login here
             </a>
           </p>
-        </CardFooter>
+        </div>
       </form>
-    </Card>
+    </div>
   );
 };
 

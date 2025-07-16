@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from 'react-router-dom';
 
 type UserRole = 'student' | 'admin' | null;
 
@@ -10,19 +10,22 @@ type UserProfile = {
   id: string;
   full_name: string;
   avatar_url?: string;
+  email?: string;
   role: UserRole;
+  auth_provider: string;
 } | null;
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: any;
+  session: any;
   profile: UserProfile;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, role: 'student' | 'admin') => Promise<void>;
-  logout: () => void;
+  isAuthenticated: boolean;
   isAdmin: () => boolean;
   isStudent: () => boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,124 +39,120 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
-
-  // Fetch profile data for the authenticated user
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (data) {
-        setProfile({
-          id: data.id,
-          full_name: data.full_name,
-          avatar_url: data.avatar_url || undefined,
-          role: data.role as UserRole
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  };
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-
-        if (currentSession?.user) {
-          // Use setTimeout to avoid deadlocks
-          setTimeout(() => {
-            fetchProfile(currentSession.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-      }
-    );
-
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      
-      if (currentSession?.user) {
-        fetchProfile(currentSession.user.id);
-      }
-      
-      setLoading(false);
-    });
-
-    return () => subscription?.unsubscribe();
+    checkSession();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    setLoading(true);
+  const checkSession = async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw error;
+      // Check if there's a manual session stored
+      const storedSession = localStorage.getItem('manual_session');
+      if (storedSession) {
+        const sessionData = JSON.parse(storedSession);
+        setSession(sessionData);
+        setUser(sessionData.user);
+        setProfile(sessionData.user);
+        setIsAuthenticated(true);
       }
-
-      toast({
-        title: "Login Successful",
-        description: "Welcome back to Interview Genius!",
-      });
-
-    } catch (error: any) {
-      toast({
-        title: "Login Failed",
-        description: error.message || "Invalid email or password",
-        variant: "destructive",
-      });
+    } catch (error) {
+      console.error('Error checking session:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (name: string, email: string, password: string, role: 'student' | 'admin') => {
+  const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name,
-            role
-          }
-        }
+      const { data, error } = await supabase.rpc('authenticate_user', {
+        user_email: email,
+        user_password: password
       });
 
       if (error) {
-        throw error;
+        throw new Error(error.message);
       }
+
+      if (!data || data.length === 0) {
+        throw new Error('Invalid credentials');
+      }
+
+      const userData = data[0].user_data;
+      const sessionData = {
+        user: userData,
+        access_token: 'manual_session_token',
+        id: userData.id
+      };
+
+      // Store session
+      localStorage.setItem('manual_session', JSON.stringify(sessionData));
       
+      setSession(sessionData);
+      setUser(userData);
+      setProfile(userData);
+      setIsAuthenticated(true);
+
       toast({
-        title: "Registration Successful",
-        description: "Welcome to Interview Genius! You can now log in.",
+        title: "Login Successful",
+        description: "Welcome back!",
       });
+
+      // Redirect based on role
+      if (userData.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
+      console.error('Login error:', error);
       toast({
-        title: "Registration Error",
-        description: error.message || "An error occurred during registration",
+        title: "Login Failed",
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (name: string, email: string, password: string, role: UserRole) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('register_manual_user', {
+        user_email: email,
+        user_password: password,
+        user_full_name: name,
+        user_role: role || 'student'
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      toast({
+        title: "Registration Successful",
+        description: "Account created successfully! Please log in.",
+      });
+
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Registration Failed",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -161,13 +160,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      localStorage.removeItem('manual_session');
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setIsAuthenticated(false);
+      
       toast({
         title: "Logged Out",
-        description: "You have been successfully logged out.",
+        description: "You have been successfully logged out",
       });
-    } catch (error) {
-      console.error('Error signing out:', error);
+      
+      navigate('/login');
+    } catch (error: any) {
+      console.error("Error logging out:", error);
+      toast({
+        title: "Logout Failed",
+        description: "An error occurred during logout. Please try again.",
+        variant: "destructive"
+      });
+      throw error;
     }
   };
 
@@ -176,15 +188,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{ 
-      user, 
+      user,
       session,
       profile,
       loading, 
-      login, 
-      register, 
-      logout,
+      isAuthenticated,
       isAdmin,
-      isStudent
+      isStudent,
+      login,
+      register,
+      logout
     }}>
       {children}
     </AuthContext.Provider>

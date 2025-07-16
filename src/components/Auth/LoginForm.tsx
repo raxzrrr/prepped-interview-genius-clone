@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +18,6 @@ const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, loading } = useAuth();
-  const navigate = useNavigate();
 
   // Admin login helper
   const handleAdminLogin = (e: React.MouseEvent) => {
@@ -34,15 +32,9 @@ const LoginForm: React.FC = () => {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl">Login</CardTitle>
-        <CardDescription>
-          Enter your credentials to access your account
-        </CardDescription>
-      </CardHeader>
+    <div className="w-full">
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -87,8 +79,8 @@ const LoginForm: React.FC = () => {
               (admin@interview.ai / CurrentTempPass)
             </p>
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
+        </div>
+        <div className="flex flex-col space-y-2 mt-6">
           <Button
             type="submit"
             className="w-full"
@@ -110,9 +102,9 @@ const LoginForm: React.FC = () => {
               Register here
             </a>
           </p>
-        </CardFooter>
+        </div>
       </form>
-    </Card>
+    </div>
   );
 };
 
