@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -12,62 +13,27 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Gemini interview function called with headers:', Object.fromEntries(req.headers.entries()))
+    console.log('Gemini interview function called')
     
-    // Get the authorization header
-    const authHeader = req.headers.get('Authorization')
+    const requestData = await req.json()
+    console.log('Request data:', requestData)
     
-    if (!authHeader) {
-      console.error('No authorization header provided')
-      throw new Error('No authorization header')
+    const { type, prompt, userId } = requestData
+    
+    if (!userId) {
+      console.error('No userId provided in request')
+      throw new Error('User ID is required')
     }
+    
+    console.log('Processing request for user:', userId)
 
-    // Create Supabase client
+    // Create Supabase client with service role key for admin access
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the current user - for Clerk auth, we need to handle this differently
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
-    
-    console.log('Auth user result:', { user: user?.id, error: userError })
-    
-    // If direct auth fails, try to extract user ID from the request
-    let userId = user?.id
-    
-    if (!userId) {
-      // Try to get user ID from the request body or headers
-      const requestData = await req.json()
-      console.log('Request data:', requestData)
-      
-      // For now, we'll use a fallback approach - get the user ID from the profiles table
-      // using the authorization token or find another way to identify the user
-      
-      // Let's try to parse the JWT token to get user info
-      try {
-        const token = authHeader.replace('Bearer ', '')
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        console.log('JWT payload:', payload)
-        userId = payload.sub || payload.user_id
-      } catch (e) {
-        console.log('Could not parse JWT:', e)
-      }
-    }
-
-    if (!userId) {
-      console.error('Could not determine user ID')
-      throw new Error('User authentication failed - no user ID available')
-    }
-
-    console.log('Using user ID:', userId)
-
-    // Get the user's API key from their profile
+    // Get the user's API key from their profile using the provided userId
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('gemini_api_key')
@@ -78,10 +44,9 @@ serve(async (req) => {
 
     if (profileError || !profile?.gemini_api_key) {
       console.error('Gemini API key not found in user profile:', profileError)
-      throw new Error('Gemini API key not found in user profile')
+      throw new Error('Gemini API key not found in user profile. Please set up your API key in Settings.')
     }
 
-    const { type, prompt } = await req.json()
     console.log('Request type:', type)
 
     // Use the user's API key
@@ -107,6 +72,7 @@ serve(async (req) => {
     }
 
     const data = await response.json()
+    console.log('Successfully processed request')
     
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -124,6 +90,8 @@ serve(async (req) => {
 })
 
 async function generateInterviewQuestions(jobRole: string, apiKey: string) {
+  console.log('Generating interview questions for role:', jobRole)
+  
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -134,7 +102,8 @@ async function generateInterviewQuestions(jobRole: string, apiKey: string) {
         parts: [{
           text: `Generate 5 technical and behavioral interview questions for a ${jobRole} position. 
                  Focus on practical scenarios and skills assessment.
-                 Return only the questions as a JSON array of strings.`
+                 Return only the questions as a JSON array of strings.
+                 Example format: ["Question 1", "Question 2", "Question 3", "Question 4", "Question 5"]`
         }]
       }],
       generationConfig: {
@@ -145,6 +114,8 @@ async function generateInterviewQuestions(jobRole: string, apiKey: string) {
   })
 
   if (!response.ok) {
+    const errorData = await response.text()
+    console.error('Gemini API error:', response.status, errorData)
     throw new Error(`Gemini API error: ${response.statusText}`)
   }
 
@@ -155,19 +126,27 @@ async function generateInterviewQuestions(jobRole: string, apiKey: string) {
     throw new Error('No content generated')
   }
 
+  console.log('Generated content:', content)
+
   try {
     // Try to parse as JSON array
     const questions = JSON.parse(content)
-    return new Response(JSON.stringify(questions), {
-      headers: { 'Content-Type': 'application/json' }
-    })
+    if (Array.isArray(questions)) {
+      return new Response(JSON.stringify(questions), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    throw new Error('Invalid JSON format')
   } catch {
     // Fallback: split by lines and clean up
     const questions = content
       .split('\n')
       .filter((line: string) => line.trim().length > 0)
-      .map((line: string) => line.replace(/^\d+\.\s*/, '').trim())
+      .map((line: string) => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, '').trim())
       .filter((q: string) => q.length > 10)
+      .slice(0, 5) // Ensure we only return 5 questions
+    
+    console.log('Fallback questions:', questions)
     
     return new Response(JSON.stringify(questions), {
       headers: { 'Content-Type': 'application/json' }

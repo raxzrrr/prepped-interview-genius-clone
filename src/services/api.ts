@@ -38,7 +38,7 @@ interface ResumeAnalysis {
 
 export const useInterviewApi = () => {
   const { toast } = useToast();
-  const { getSupabaseUserId, session, user, isAuthenticated } = useAuth();
+  const { getSupabaseUserId, isAuthenticated, user } = useAuth();
 
   const getApiKeys = async () => {
     const userId = getSupabaseUserId();
@@ -105,13 +105,17 @@ export const useInterviewApi = () => {
       console.log("Generating interview questions for role:", jobRole);
       
       const userId = getSupabaseUserId();
+      if (!userId) {
+        throw new Error('Unable to get user ID');
+      }
+      
       console.log('Using user ID for request:', userId);
       
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'interview-questions', 
           prompt: jobRole,
-          userId: userId // Include user ID in the request
+          userId: userId
         }
       });
 
@@ -164,6 +168,9 @@ export const useInterviewApi = () => {
       console.log('Getting feedback for question:', question.substring(0, 50) + '...');
       
       const userId = getSupabaseUserId();
+      if (!userId) {
+        throw new Error('Unable to get user ID');
+      }
       
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
@@ -208,6 +215,9 @@ export const useInterviewApi = () => {
         : 'No answer provided';
       
       const userId = getSupabaseUserId();
+      if (!userId) {
+        throw new Error('Unable to get user ID');
+      }
       
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
@@ -256,6 +266,9 @@ export const useInterviewApi = () => {
       }
       
       const userId = getSupabaseUserId();
+      if (!userId) {
+        throw new Error('Unable to get user ID');
+      }
       
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 

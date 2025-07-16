@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth as useClerkAuth, useUser, useClerk } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,7 +60,7 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     const supabaseId = generateConsistentUUID(userId);
     console.log('getSupabaseUserId: Generated Supabase ID:', { clerkId: userId, supabaseId });
-    return supabaseId;
+    return supabaseId; // Return only the UUID string, not an object
   };
 
   // Set up Supabase session with Clerk token
