@@ -39,8 +39,8 @@ const queryClient = new QueryClient();
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "";
 
 const App = () => (
-  <ClerkProvider publishableKey={clerkPubKey}>
-    <QueryClientProvider client={queryClient}>
+  <QueryClientProvider client={queryClient}>
+    <ClerkProvider publishableKey={clerkPubKey}>
       <ClerkAuthProvider>
         <TooltipProvider>
           <Toaster />
@@ -78,8 +78,8 @@ const App = () => (
           </BrowserRouter>
         </TooltipProvider>
       </ClerkAuthProvider>
-    </QueryClientProvider>
-  </ClerkProvider>
+    </ClerkProvider>
+  </QueryClientProvider>
 );
 
 export default App;
