@@ -86,11 +86,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Invalid credentials');
       }
 
-      const userData = data[0].user_data;
+      // Type the response properly
+      const authResult = data[0] as {
+        user_id: string;
+        user_data: {
+          id: string;
+          email: string;
+          full_name: string;
+          role: UserRole;
+          auth_provider: string;
+        };
+      };
+
+      const userData = authResult.user_data;
       const sessionData = {
         user: userData,
         access_token: 'manual_session_token',
-        id: userData.id
+        id: authResult.user_id
       };
 
       // Store session
