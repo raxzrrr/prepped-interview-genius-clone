@@ -8,7 +8,7 @@ import VideoPlayer from '@/components/Learning/VideoPlayer';
 import AssessmentQuiz from '@/components/Learning/AssessmentQuiz';
 import CategoryVideoList from '@/components/Learning/CategoryVideoList';
 import CourseCard from '@/components/Learning/CourseCard';
-import CourseAssessment from '@/components/Learning/CourseAssessment';
+import CourseAssessmentTab from '@/components/Learning/CourseAssessmentTab';
 import { useToast } from '@/components/ui/use-toast';
 import { AlertCircle, Loader2, Award } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -25,8 +25,6 @@ const LearningPage: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<CourseVideo | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
-  const [showCourseAssessment, setShowCourseAssessment] = useState(false);
-  const [assessmentForCourse, setAssessmentForCourse] = useState<Course | null>(null);
   
   const {
     courses,
@@ -77,32 +75,6 @@ const LearningPage: React.FC = () => {
     const course = courses.find(c => c.id === courseId);
     if (course) {
       handleCourseSelect(course);
-    }
-  };
-
-  const handleStartAssessment = (courseId: string) => {
-    const course = courses.find(c => c.id === courseId);
-    if (course) {
-      setAssessmentForCourse(course);
-      setShowCourseAssessment(true);
-    }
-  };
-
-  const handleAssessmentComplete = (passed: boolean, score: number) => {
-    setShowCourseAssessment(false);
-    setAssessmentForCourse(null);
-    
-    if (passed) {
-      toast({
-        title: "Congratulations!",
-        description: `You passed the assessment with ${score}%! Your certificate has been generated.`,
-      });
-    } else {
-      toast({
-        title: "Assessment Incomplete",
-        description: `You scored ${score}%. You need 70% or higher to pass. Please review the course and try again.`,
-        variant: "destructive"
-      });
     }
   };
 
@@ -201,23 +173,6 @@ const LearningPage: React.FC = () => {
           <Loader2 className="h-8 w-8 animate-spin" />
           <span className="ml-2">Loading courses...</span>
         </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (showCourseAssessment && assessmentForCourse) {
-    return (
-      <DashboardLayout>
-        <CourseAssessment
-          courseId={assessmentForCourse.id}
-          courseName={assessmentForCourse.name}
-          isUnlocked={calculateCourseProgress(assessmentForCourse.id) >= 100}
-          onComplete={handleAssessmentComplete}
-          onClose={() => {
-            setShowCourseAssessment(false);
-            setAssessmentForCourse(null);
-          }}
-        />
       </DashboardLayout>
     );
   }
@@ -328,6 +283,7 @@ const LearningPage: React.FC = () => {
                         progress={courseProgress}
                         videoCount={videoCount}
                         onStartCourse={handleStartCourse}
+                        showAssessmentButton={false}
                       />
                     );
                   })}
@@ -335,38 +291,11 @@ const LearningPage: React.FC = () => {
               </TabsContent>
               
               <TabsContent value="assessment">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <Award className="h-6 w-6 text-yellow-600" />
-                      <CardTitle>Technical Assessment</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-gray-600">
-                      Test your knowledge with our comprehensive technical assessment. 
-                      Complete courses to unlock assessments.
-                    </p>
-                    
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Assessment Status:</p>
-                      {userLearningData?.assessment_attempted ? (
-                        <p className="text-green-600">
-                          Completed with score: {userLearningData.assessment_score}%
-                        </p>
-                      ) : (
-                        <p className="text-gray-500">Not attempted</p>
-                      )}
-                    </div>
-                    
-                    <Button 
-                      onClick={() => setShowAssessment(true)}
-                      className="w-full sm:w-auto"
-                    >
-                      {userLearningData?.assessment_attempted ? 'Retake Assessment' : 'Start Assessment'}
-                    </Button>
-                  </CardContent>
-                </Card>
+                <CourseAssessmentTab
+                  courses={courses}
+                  calculateCourseProgress={calculateCourseProgress}
+                  userLearningData={userLearningData}
+                />
               </TabsContent>
             </Tabs>
           )}

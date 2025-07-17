@@ -8,8 +8,10 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Award, Lock } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
 import { downloadCertificate } from '@/services/certificateService';
+import { learningService } from '@/services/learningService';
 
 interface AssessmentQuestion {
   id: string;
@@ -44,6 +46,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   
   const { toast } = useToast();
+  const { user, getSupabaseUserId } = useAuth();
   const { generateInterviewQuestions } = useInterviewApi();
 
   useEffect(() => {
@@ -55,44 +58,48 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
   const generateAssessmentQuestions = async () => {
     setGeneratingQuestions(true);
     try {
-      // Generate questions using AI based on course content
-      const easyPrompt = `Generate 10 easy multiple choice questions for ${courseName} course assessment. Each question should have 4 options with one correct answer.`;
-      const hardPrompt = `Generate 10 difficult multiple choice questions for ${courseName} course assessment. Each question should have 4 options with one correct answer.`;
-      
-      // For demo purposes, using fallback questions
-      // In production, you'd use the AI API to generate these
+      // Generate 10 easy and 10 hard questions using AI
+      const easyQuestionsPrompt = `Generate 10 easy multiple choice questions about ${courseName}. 
+        Format: For each question provide: question text, 4 options, correct answer index (0-3), and explanation.
+        Topics should cover basic concepts from the course.`;
+        
+      const hardQuestionsPrompt = `Generate 10 difficult multiple choice questions about ${courseName}. 
+        Format: For each question provide: question text, 4 options, correct answer index (0-3), and explanation.
+        Topics should cover advanced concepts and practical applications.`;
+
+      // For demo purposes, using fallback questions since we can't guarantee AI API keys
       const fallbackQuestions: AssessmentQuestion[] = [
         // Easy questions
         ...Array.from({ length: 10 }, (_, i) => ({
           id: `easy_${i + 1}`,
-          question: `Easy question ${i + 1} about ${courseName}`,
+          question: `What is a fundamental concept in ${courseName}? (Question ${i + 1})`,
           options: [
-            'Option A',
-            'Option B (Correct)',
-            'Option C',
-            'Option D'
+            'Option A - Basic concept',
+            'Option B - Correct basic answer',
+            'Option C - Alternative option',
+            'Option D - Another choice'
           ],
           correctAnswer: 1,
           difficulty: 'easy' as const,
-          explanation: 'This is the correct answer because...'
+          explanation: `This is a basic concept in ${courseName} that covers fundamental principles.`
         })),
         // Hard questions
         ...Array.from({ length: 10 }, (_, i) => ({
           id: `hard_${i + 1}`,
-          question: `Advanced question ${i + 1} about ${courseName}`,
+          question: `What is an advanced application in ${courseName}? (Question ${i + 1})`,
           options: [
             'Complex Option A',
             'Complex Option B',
-            'Complex Option C (Correct)',
+            'Complex Option C - Correct advanced answer',
             'Complex Option D'
           ],
           correctAnswer: 2,
           difficulty: 'hard' as const,
-          explanation: 'This requires deep understanding of...'
+          explanation: `This requires deep understanding of advanced ${courseName} concepts and their practical applications.`
         }))
       ];
 
-      // Shuffle questions
+      // Shuffle questions for randomization
       const shuffledQuestions = [...fallbackQuestions].sort(() => Math.random() - 0.5);
       setQuestions(shuffledQuestions);
       
@@ -100,7 +107,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
       console.error('Error generating assessment questions:', error);
       toast({
         title: "Error",
-        description: "Failed to generate assessment questions. Please check your API key settings.",
+        description: "Failed to generate assessment questions. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -124,12 +131,11 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
       setCurrentQuestion(prev => prev + 1);
       setSelectedAnswer('');
     } else {
-      // Assessment completed
       calculateResults();
     }
   };
 
-  const calculateResults = () => {
+  const calculateResults = async () => {
     let correctAnswers = 0;
     questions.forEach(question => {
       if (answers[question.id] === question.correctAnswer) {
@@ -140,11 +146,43 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
     const score = Math.round((correctAnswers / questions.length) * 100);
     const passed = score >= 70;
 
+    // Save assessment results
+    try {
+      const supabaseUserId = getSupabaseUserId();
+      if (supabaseUserId) {
+        // Update course progress with assessment results
+        await learningService.updateModuleProgress(
+          supabaseUserId,
+          {
+            [courseId]: {
+              assessment_attempted: true,
+              assessment_passed: passed,
+              assessment_score: score,
+              assessment_completed_at: passed ? new Date().toISOString() : null
+            }
+          },
+          0, // completed modules count - not used for assessment
+          0  // total modules - not used for assessment
+        );
+      }
+    } catch (error) {
+      console.error('Error saving assessment results:', error);
+    }
+
     setShowResults(true);
 
     if (passed) {
-      // Generate and download certificate
       generateCertificate(score);
+      toast({
+        title: "Congratulations!",
+        description: `You passed the ${courseName} assessment with ${score}%! Your certificate has been generated.`,
+      });
+    } else {
+      toast({
+        title: "Assessment Not Passed",
+        description: `You scored ${score}%. You need 70% or higher to pass. Please review the course content and try again.`,
+        variant: "destructive"
+      });
     }
 
     onComplete(passed, score);
@@ -153,7 +191,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
   const generateCertificate = (score: number) => {
     try {
       const certificateData = {
-        userName: 'Student', // In production, get from user context
+        userName: user?.fullName || 'Student',
         certificateTitle: `${courseName} Course Completion`,
         completionDate: new Date().toLocaleDateString(),
         score: score,
@@ -162,11 +200,8 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
 
       downloadCertificate(certificateData);
       
-      toast({
-        title: "Certificate Generated!",
-        description: "Your course completion certificate has been downloaded.",
-      });
     } catch (error) {
+      console.error('Error generating certificate:', error);
       toast({
         title: "Certificate Error",
         description: "Failed to generate certificate, but you've still passed the assessment!",
@@ -182,7 +217,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
           <Lock className="h-16 w-16 text-gray-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Assessment Locked</h3>
           <p className="text-gray-600 mb-4">
-            Complete all course modules to unlock the assessment
+            Complete all course videos to unlock the assessment
           </p>
           <Button onClick={onClose} variant="outline">
             Back to Course
@@ -224,7 +259,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
             )}
           </div>
           <CardTitle className="text-2xl">
-            {passed ? 'Congratulations!' : 'Assessment Incomplete'}
+            {passed ? 'Congratulations!' : 'Assessment Not Passed'}
           </CardTitle>
           <CardDescription>
             {passed 
@@ -243,7 +278,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid gap-4 max-h-96 overflow-y-auto">
             {questions.map((question, index) => {
               const userAnswer = answers[question.id];
               const isCorrect = userAnswer === question.correctAnswer;
@@ -281,11 +316,11 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
 
           <div className="flex gap-4 justify-center">
             <Button onClick={onClose} variant="outline">
-              Back to Course
+              Close
             </Button>
-            {!passed && (
-              <Button onClick={() => window.location.reload()}>
-                Retake Assessment
+            {passed && (
+              <Button onClick={() => window.location.href = '/student/certificates'}>
+                View Certificates
               </Button>
             )}
           </div>

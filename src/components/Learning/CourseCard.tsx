@@ -1,54 +1,28 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Play, Clock, Users, Star, Award, Lock, CheckCircle } from 'lucide-react';
+import { Play, Clock, Users, Star, CheckCircle } from 'lucide-react';
 import { Course } from '@/services/courseService';
-import CourseAssessment from './CourseAssessment';
 
 interface CourseCardProps {
   course: Course;
   progress: number;
   videoCount: number;
   onStartCourse: (courseId: string) => void;
+  showAssessmentButton?: boolean;
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({ 
   course, 
   progress, 
   videoCount, 
-  onStartCourse 
+  onStartCourse,
+  showAssessmentButton = false
 }) => {
-  const [showAssessment, setShowAssessment] = useState(false);
-  const [assessmentPassed, setAssessmentPassed] = useState(false);
-  
   const isCompleted = progress >= 100;
-  const canTakeAssessment = isCompleted && !assessmentPassed;
-
-  const handleAssessmentComplete = (passed: boolean, score: number) => {
-    if (passed) {
-      setAssessmentPassed(true);
-    }
-    setShowAssessment(false);
-  };
-
-  if (showAssessment) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <CourseAssessment
-            courseId={course.id}
-            courseName={course.name}
-            isUnlocked={isCompleted}
-            onComplete={handleAssessmentComplete}
-            onClose={() => setShowAssessment(false)}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <Card className="group hover:shadow-lg transition-all duration-200 border-l-4 border-l-brand-purple">
@@ -62,9 +36,6 @@ const CourseCard: React.FC<CourseCardProps> = ({
               {course.description}
             </CardDescription>
           </div>
-          {assessmentPassed && (
-            <Award className="h-6 w-6 text-yellow-500 flex-shrink-0 ml-2" />
-          )}
         </div>
         
         <div className="flex items-center space-x-4 text-sm text-gray-500 mt-2">
@@ -112,38 +83,13 @@ const CourseCard: React.FC<CourseCardProps> = ({
               )}
             </div>
             
-            <div className="flex space-x-2">
-              <Button
-                onClick={() => onStartCourse(course.id)}
-                size="sm"
-                variant={progress > 0 ? "default" : "outline"}
-              >
-                {progress > 0 ? 'Continue' : 'Start Course'}
-              </Button>
-              
-              {canTakeAssessment && (
-                <Button
-                  onClick={() => setShowAssessment(true)}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Award className="h-4 w-4 mr-1" />
-                  Take Assessment
-                </Button>
-              )}
-              
-              {!isCompleted && progress > 0 && (
-                <Button
-                  onClick={() => setShowAssessment(true)}
-                  size="sm"
-                  variant="outline"
-                  disabled
-                >
-                  <Lock className="h-4 w-4 mr-1" />
-                  Assessment
-                </Button>
-              )}
-            </div>
+            <Button
+              onClick={() => onStartCourse(course.id)}
+              size="sm"
+              variant={progress > 0 ? "default" : "outline"}
+            >
+              {progress > 0 ? 'Continue' : 'Start Course'}
+            </Button>
           </div>
         </div>
       </CardContent>
