@@ -30,9 +30,9 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   const [activeTab, setActiveTab] = useState('overview');
 
   // Calculate overall performance
-  const validEvaluations = evaluations.filter(eval => eval && eval.score_breakdown);
+  const validEvaluations = evaluations.filter(evaluation => evaluation && evaluation.score_breakdown);
   const averageScore = validEvaluations.length > 0 
-    ? validEvaluations.reduce((sum, eval) => sum + (eval.score_breakdown.overall || 0), 0) / validEvaluations.length
+    ? validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown.overall || 0), 0) / validEvaluations.length
     : 0;
 
   const getScoreColor = (score: number) => {
@@ -107,7 +107,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                   <CardContent className="p-4">
                     <div className="text-center space-y-2">
                       <div className="text-2xl font-bold text-blue-600">
-                        {(validEvaluations.reduce((sum, eval) => sum + (eval.score_breakdown?.clarity || 0), 0) / validEvaluations.length).toFixed(1)}
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.clarity || 0), 0) / validEvaluations.length).toFixed(1)}
                       </div>
                       <p className="text-sm text-gray-600">Clarity</p>
                     </div>
@@ -118,7 +118,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                   <CardContent className="p-4">
                     <div className="text-center space-y-2">
                       <div className="text-2xl font-bold text-green-600">
-                        {(validEvaluations.reduce((sum, eval) => sum + (eval.score_breakdown?.relevance || 0), 0) / validEvaluations.length).toFixed(1)}
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.relevance || 0), 0) / validEvaluations.length).toFixed(1)}
                       </div>
                       <p className="text-sm text-gray-600">Relevance</p>
                     </div>
@@ -129,7 +129,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                   <CardContent className="p-4">
                     <div className="text-center space-y-2">
                       <div className="text-2xl font-bold text-purple-600">
-                        {(validEvaluations.reduce((sum, eval) => sum + (eval.score_breakdown?.depth || 0), 0) / validEvaluations.length).toFixed(1)}
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.depth || 0), 0) / validEvaluations.length).toFixed(1)}
                       </div>
                       <p className="text-sm text-gray-600">Depth</p>
                     </div>
@@ -140,7 +140,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                   <CardContent className="p-4">
                     <div className="text-center space-y-2">
                       <div className="text-2xl font-bold text-orange-600">
-                        {(validEvaluations.reduce((sum, eval) => sum + (eval.score_breakdown?.examples || 0), 0) / validEvaluations.length).toFixed(1)}
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.examples || 0), 0) / validEvaluations.length).toFixed(1)}
                       </div>
                       <p className="text-sm text-gray-600">Examples</p>
                     </div>
@@ -174,7 +174,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                     <h4 className="font-medium text-green-700 mb-2">Strengths</h4>
                     <ul className="space-y-1 text-sm">
                       {validEvaluations.length > 0 ? (
-                        validEvaluations.slice(0, 3).map((eval, index) => (
+                        validEvaluations.slice(0, 3).map((evaluation, index) => (
                           <li key={index} className="flex items-start space-x-2">
                             <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                             <span>Good response structure and clarity</span>
@@ -190,7 +190,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                     <h4 className="font-medium text-red-700 mb-2">Areas for Improvement</h4>
                     <ul className="space-y-1 text-sm">
                       {validEvaluations.length > 0 ? (
-                        validEvaluations.slice(0, 3).map((eval, index) => (
+                        validEvaluations.slice(0, 3).map((evaluation, index) => (
                           <li key={index} className="flex items-start space-x-2">
                             <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
                             <span>Add more specific examples</span>
