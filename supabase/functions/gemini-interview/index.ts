@@ -92,7 +92,8 @@ serve(async (req) => {
 async function generateInterviewQuestions(jobRole: string, apiKey: string) {
   console.log('Generating interview questions for role:', jobRole)
   
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+  // Updated to use the correct model name
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -155,7 +156,7 @@ async function generateInterviewQuestions(jobRole: string, apiKey: string) {
 }
 
 async function getAnswerFeedback(question: string, answer: string, apiKey: string) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -214,7 +215,7 @@ async function getAnswerFeedback(question: string, answer: string, apiKey: strin
 }
 
 async function evaluateAnswer(question: string, answer: string, apiKey: string) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -287,7 +288,7 @@ async function evaluateAnswer(question: string, answer: string, apiKey: string) 
 async function analyzeResume(resumeBase64: string, apiKey: string) {
   // For resume analysis, we would need to implement PDF parsing
   // This is a simplified version
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

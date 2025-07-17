@@ -1,107 +1,148 @@
 
-import React from 'react';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star, Users, Clock } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Play, Clock, Users, Star, Award, Lock, CheckCircle } from 'lucide-react';
+import { Course } from '@/services/courseService';
+import CourseAssessment from './CourseAssessment';
 
 interface CourseCardProps {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail: string;
-  duration: string;
-  enrolledCount: number;
-  rating: number;
-  category: string;
-  isPremium: boolean;
-  progress?: number;
-  onClick?: () => void;
+  course: Course;
+  progress: number;
+  videoCount: number;
+  onStartCourse: (courseId: string) => void;
 }
 
-const CourseCard: React.FC<CourseCardProps> = ({
-  id,
-  title,
-  description,
-  thumbnail,
-  duration,
-  enrolledCount,
-  rating,
-  category,
-  isPremium,
-  progress = 0,
-  onClick
+const CourseCard: React.FC<CourseCardProps> = ({ 
+  course, 
+  progress, 
+  videoCount, 
+  onStartCourse 
 }) => {
-  // Ensure progress is between 0 and 100
-  const clampedProgress = Math.min(Math.max(progress || 0, 0), 100);
+  const [showAssessment, setShowAssessment] = useState(false);
+  const [assessmentPassed, setAssessmentPassed] = useState(false);
   
+  const isCompleted = progress >= 100;
+  const canTakeAssessment = isCompleted && !assessmentPassed;
+
+  const handleAssessmentComplete = (passed: boolean, score: number) => {
+    if (passed) {
+      setAssessmentPassed(true);
+    }
+    setShowAssessment(false);
+  };
+
+  if (showAssessment) {
+    return (
+      <CourseAssessment
+        courseId={course.id}
+        courseName={course.name}
+        isUnlocked={isCompleted}
+        onComplete={handleAssessmentComplete}
+        onClose={() => setShowAssessment(false)}
+      />
+    );
+  }
+
   return (
-    <Card className="overflow-hidden h-full flex flex-col transition-shadow hover:shadow-md">
-      <div className="relative">
-        <img
-          src={thumbnail}
-          alt={title}
-          className="w-full h-40 object-cover"
-        />
-        <Badge
-          className={`absolute top-2 right-2 ${
-            isPremium ? 'bg-amber-400 text-black' : 'bg-green-500'
-          }`}
-        >
-          {isPremium ? 'Premium' : 'Free'}
-        </Badge>
-      </div>
-      <CardContent className="pt-4 flex-grow">
-        <div className="flex justify-between items-center mb-2">
-          <Badge variant="outline" className="text-xs">
-            {category}
-          </Badge>
-          <div className="flex items-center text-sm text-gray-600">
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 mr-1" />
-            <span>{rating.toFixed(1)}</span>
+    <Card className="group hover:shadow-lg transition-all duration-200 border-l-4 border-l-brand-purple">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <CardTitle className="text-lg group-hover:text-brand-purple transition-colors">
+              {course.name}
+            </CardTitle>
+            <CardDescription className="mt-1 line-clamp-2">
+              {course.description}
+            </CardDescription>
           </div>
-        </div>
-        <h3 className="font-medium mb-1 line-clamp-1">{title}</h3>
-        <p className="text-sm text-gray-600 line-clamp-2 mb-2">{description}</p>
-        <div className="flex justify-between items-center text-xs text-gray-500">
-          <div className="flex items-center">
-            <Clock className="h-3 w-3 mr-1" />
-            <span>{duration}</span>
-          </div>
-          <div className="flex items-center">
-            <Users className="h-3 w-3 mr-1" />
-            <span>{enrolledCount.toLocaleString()}</span>
-          </div>
+          {assessmentPassed && (
+            <Award className="h-6 w-6 text-yellow-500 flex-shrink-0 ml-2" />
+          )}
         </div>
         
-        {/* Progress bar */}
-        {clampedProgress > 0 && (
-          <div className="mt-2">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>{clampedProgress >= 100 ? 'Completed' : 'In Progress'}</span>
-              <span>{Math.round(clampedProgress)}%</span>
+        <div className="flex items-center space-x-4 text-sm text-gray-500 mt-2">
+          <div className="flex items-center">
+            <Play className="h-4 w-4 mr-1" />
+            {videoCount} videos
+          </div>
+          <div className="flex items-center">
+            <Clock className="h-4 w-4 mr-1" />
+            ~2h duration
+          </div>
+          <div className="flex items-center">
+            <Users className="h-4 w-4 mr-1" />
+            1.2k students
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="pt-0">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Progress</span>
+              <span className="font-medium">{Math.round(progress)}%</span>
             </div>
-            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full transition-all duration-300 ${
-                  clampedProgress >= 100 ? 'bg-green-500' : 'bg-brand-purple'
-                }`}
-                style={{ width: `${clampedProgress}%` }}
-              ></div>
+            <Progress value={progress} className="h-2" />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center">
+                <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                <Star className="h-4 w-4 text-gray-300" />
+                <span className="text-sm text-gray-600 ml-1">4.2</span>
+              </div>
+              
+              {isCompleted && (
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Completed
+                </Badge>
+              )}
+            </div>
+            
+            <div className="flex space-x-2">
+              <Button
+                onClick={() => onStartCourse(course.id)}
+                size="sm"
+                variant={progress > 0 ? "default" : "outline"}
+              >
+                {progress > 0 ? 'Continue' : 'Start Course'}
+              </Button>
+              
+              {canTakeAssessment && (
+                <Button
+                  onClick={() => setShowAssessment(true)}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Award className="h-4 w-4 mr-1" />
+                  Take Assessment
+                </Button>
+              )}
+              
+              {!isCompleted && progress > 0 && (
+                <Button
+                  onClick={() => setShowAssessment(true)}
+                  size="sm"
+                  variant="outline"
+                  disabled
+                >
+                  <Lock className="h-4 w-4 mr-1" />
+                  Assessment
+                </Button>
+              )}
             </div>
           </div>
-        )}
+        </div>
       </CardContent>
-      <CardFooter className="pt-0">
-        <Button
-          variant="default"
-          size="sm"
-          className="w-full"
-          onClick={onClick}
-        >
-          {clampedProgress === 0 ? 'Start Course' : clampedProgress >= 100 ? 'Review Course' : 'Continue Course'}
-        </Button>
-      </CardFooter>
     </Card>
   );
 };

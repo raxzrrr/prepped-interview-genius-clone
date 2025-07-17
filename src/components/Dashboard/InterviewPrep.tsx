@@ -1,29 +1,12 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Mic, 
-  MicOff, 
-  Video, 
-  VideoOff, 
-  Play, 
-  Square, 
-  SkipForward,
-  Clock,
-  User,
-  Zap,
-  Gift
-} from 'lucide-react';
+import { Mic, MicOff, Play, Pause, SkipForward, CheckCircle } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { useInterviewApi } from '@/services/api';
-import { useSubscription } from '@/hooks/useSubscription';
-import { useInterviewUsage } from '@/hooks/useInterviewUsage';
-import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 interface InterviewQuestion {
   id?: string;
@@ -32,7 +15,7 @@ interface InterviewQuestion {
 
 interface InterviewPrepProps {
   questions?: string[];
-  onComplete?: (data: { 
+  onComplete: (data: { 
     questions: string[], 
     answers: string[], 
     evaluations: any[],
@@ -43,371 +26,278 @@ interface InterviewPrepProps {
 }
 
 const InterviewPrep: React.FC<InterviewPrepProps> = ({ 
-  questions: propQuestions = [], 
-  onComplete,
+  questions: initialQuestions = [], 
+  onComplete, 
   resumeAnalysis 
 }) => {
-  const [jobRole, setJobRole] = useState('');
-  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isVideoOn, setIsVideoOn] = useState(false);
-  const [currentAnswer, setCurrentAnswer] = useState('');
-  const [isInterviewStarted, setIsInterviewStarted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [currentAnswer, setCurrentAnswer] = useState('');
+  const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  
-  const { generateInterviewQuestions } = useInterviewApi();
-  const { hasProPlan } = useSubscription();
-  const { canUseFreeInterview, markFreeInterviewUsed } = useInterviewUsage();
   const { toast } = useToast();
-
-  const isPro = hasProPlan();
-  const canStartInterview = isPro || canUseFreeInterview();
-
-  // Initialize with prop questions if provided
-  useEffect(() => {
-    if (propQuestions.length > 0) {
-      const formattedQuestions = propQuestions.map((q, index) => ({
-        id: `q-${index}`,
-        question: q
-      }));
-      setQuestions(formattedQuestions);
-      setIsInterviewStarted(true);
-      setSessionStartTime(new Date());
-    }
-  }, [propQuestions]);
+  const { generateInterviewQuestions, evaluateAnswer } = useInterviewApi();
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
-
-    const getCameraStream = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
-        const recorder = new MediaRecorder(stream);
-        mediaRecorderRef.current = recorder;
-      } catch (error) {
-        console.error('Error accessing media devices:', error);
-      }
-    };
-
-    if (isVideoOn) {
-      getCameraStream();
+    if (initialQuestions.length > 0) {
+      setInterviewQuestions(initialQuestions);
+    } else {
+      generateDynamicQuestions();
     }
+  }, [initialQuestions]);
 
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, [isVideoOn]);
-
-  const startInterview = async () => {
-    if (!jobRole.trim()) {
-      toast({
-        title: "Job Role Required",
-        description: "Please enter a job role to generate interview questions.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!canStartInterview) {
-      toast({
-        title: "Upgrade Required",
-        description: "You've used your free interview. Upgrade to Pro for unlimited access.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    
+  const generateDynamicQuestions = async () => {
+    setIsGeneratingQuestions(true);
     try {
-      const generatedQuestions = await generateInterviewQuestions(jobRole);
+      const role = resumeAnalysis?.suggested_role || 'Software Developer';
+      const generatedQuestions = await generateInterviewQuestions(role);
       
-      if (generatedQuestions.length > 0) {
-        const formattedQuestions = generatedQuestions.map((q: any, index: number) => ({
-          id: `generated-${index}`,
-          question: typeof q === 'string' ? q : q.question
-        }));
-        setQuestions(formattedQuestions);
-        setCurrentQuestionIndex(0);
-        setIsInterviewStarted(true);
-        setSessionStartTime(new Date());
-        
-        // Mark free interview as used if not pro
-        if (!isPro && canUseFreeInterview()) {
-          await markFreeInterviewUsed();
-        }
-
+      if (generatedQuestions && generatedQuestions.length > 0) {
+        const questions = generatedQuestions.map(q => 
+          typeof q === 'string' ? q : q.question
+        );
+        setInterviewQuestions(questions);
         toast({
-          title: "Interview Started",
-          description: `Generated ${formattedQuestions.length} questions for ${jobRole}`,
+          title: "Questions Generated",
+          description: `Generated ${questions.length} interview questions`,
         });
       }
     } catch (error) {
-      console.error('Error starting interview:', error);
+      console.error('Error generating questions:', error);
       toast({
-        title: "Error",
-        description: "Failed to start interview. Please try again.",
+        title: "Generation Failed",
+        description: "Using fallback questions. Please check your API key settings.",
         variant: "destructive"
       });
+      
+      // Fallback questions
+      setInterviewQuestions([
+        "Tell me about yourself and your background.",
+        "What are your greatest strengths?",
+        "Describe a challenging project you worked on.",
+        "Where do you see yourself in 5 years?",
+        "Why are you interested in this role?"
+      ]);
     } finally {
-      setIsLoading(false);
+      setIsGeneratingQuestions(false);
     }
   };
 
-  const nextQuestion = () => {
-    // Save current answer
-    const newAnswers = [...answers];
-    newAnswers[currentQuestionIndex] = currentAnswer;
+  const handleStartRecording = () => {
+    setIsRecording(true);
+    setCurrentAnswer('');
+  };
+
+  const handleStopRecording = () => {
+    setIsRecording(false);
+    // In a real implementation, this would process audio input
+    // For now, we'll simulate with text input
+    const simulatedAnswer = currentAnswer || `Answer for: ${interviewQuestions[currentQuestionIndex]}`;
+    setCurrentAnswer(simulatedAnswer);
+  };
+
+  const handleNextQuestion = async () => {
+    const answer = currentAnswer || 'No answer provided';
+    const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
 
-    if (currentQuestionIndex < questions.length - 1) {
+    // Get AI evaluation for the current answer
+    setIsEvaluating(true);
+    try {
+      const evaluation = await evaluateAnswer(
+        interviewQuestions[currentQuestionIndex], 
+        answer
+      );
+      
+      const newEvaluations = [...evaluations, evaluation];
+      setEvaluations(newEvaluations);
+      
+      if (evaluation) {
+        toast({
+          title: "Answer Evaluated",
+          description: `Score: ${evaluation.score_breakdown?.overall || 'N/A'}/10`,
+        });
+      }
+    } catch (error) {
+      console.error('Error evaluating answer:', error);
+      // Continue without evaluation
+      setEvaluations([...evaluations, null]);
+    } finally {
+      setIsEvaluating(false);
+    }
+
+    if (currentQuestionIndex < interviewQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setCurrentAnswer('');
     } else {
-      finishInterview();
-    }
-  };
-
-  const finishInterview = () => {
-    const finalAnswers = [...answers];
-    finalAnswers[currentQuestionIndex] = currentAnswer;
-    
-    if (onComplete) {
+      // Interview completed
       onComplete({
-        questions: questions.map(q => q.question),
-        answers: finalAnswers,
-        evaluations: [],
-        facialAnalysis: [],
-        interviewId: `interview-${Date.now()}`
-      });
-    } else {
-      setIsInterviewStarted(false);
-      setQuestions([]);
-      setCurrentQuestionIndex(0);
-      setCurrentAnswer('');
-      setAnswers([]);
-      setSessionStartTime(null);
-      
-      toast({
-        title: "Interview Completed",
-        description: "Great job! Your interview session has been completed.",
+        questions: interviewQuestions,
+        answers: newAnswers,
+        evaluations: [...evaluations, evaluations[evaluations.length - 1]],
+        facialAnalysis: [], // Placeholder for future facial analysis
+        interviewId: `interview_${Date.now()}`
       });
     }
   };
 
-  const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
+  const handleSkipQuestion = () => {
+    handleNextQuestion();
+  };
+
+  const progress = ((currentQuestionIndex + 1) / interviewQuestions.length) * 100;
+
+  if (isGeneratingQuestions) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-purple mx-auto mb-4"></div>
+          <p className="text-lg font-medium">Generating personalized interview questions...</p>
+          <p className="text-sm text-gray-500 mt-2">This may take a moment</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (interviewQuestions.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-lg font-medium text-gray-600">No questions available</p>
+        <Button onClick={generateDynamicQuestions} className="mt-4">
+          Generate Questions
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Interview Status */}
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Interview Practice</h1>
+          <p className="text-gray-600">
+            Question {currentQuestionIndex + 1} of {interviewQuestions.length}
+          </p>
+        </div>
+        <Badge variant="outline">
+          AI-Generated Questions
+        </Badge>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm text-gray-600">
+          <span>Progress</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <Progress value={progress} className="h-2" />
+      </div>
+
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                AI Interview Practice
-              </CardTitle>
-              <CardDescription>
-                Practice with AI-powered mock interviews
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {!isPro && (
-                <Badge variant="outline" className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-                  {canUseFreeInterview() ? (
-                    <>
-                      <Gift className="w-3 h-3 mr-1" />
-                      Free Trial
-                    </>
-                  ) : (
-                    'Trial Used'
-                  )}
-                </Badge>
-              )}
-              {isPro && (
-                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500">
-                  <Zap className="w-3 h-3 mr-1" />
-                  PRO
-                </Badge>
-              )}
-            </div>
-          </div>
+          <CardTitle className="text-xl">
+            {interviewQuestions[currentQuestionIndex]}
+          </CardTitle>
+          <CardDescription>
+            Take your time to think about your response. You can record your answer or type it below.
+          </CardDescription>
         </CardHeader>
-      </Card>
-
-      {!isInterviewStarted ? (
-        /* Interview Setup */
-        <Card>
-          <CardHeader>
-            <CardTitle>Start Your Interview</CardTitle>
-            <CardDescription>
-              {canStartInterview 
-                ? "Enter the job role you're preparing for to generate relevant questions"
-                : "You've used your free interview. Upgrade to Pro for unlimited access."
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="jobRole" className="text-sm font-medium">
-                Job Role
-              </label>
-              <Input
-                id="jobRole"
-                value={jobRole}
-                onChange={(e) => setJobRole(e.target.value)}
-                placeholder="e.g., Frontend Developer, Data Scientist, Product Manager"
-                disabled={!canStartInterview}
-              />
-            </div>
-            
-            <Button 
-              onClick={startInterview} 
-              disabled={isLoading || !canStartInterview || !jobRole.trim()}
-              className="w-full"
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-center space-x-4">
+            <Button
+              variant={isRecording ? "destructive" : "default"}
+              size="lg"
+              onClick={isRecording ? handleStopRecording : handleStartRecording}
+              className="flex items-center space-x-2"
             >
-              {isLoading ? (
+              {isRecording ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Generating Questions...
+                  <MicOff className="h-5 w-5" />
+                  <span>Stop Recording</span>
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4 mr-2" />
-                  {canStartInterview ? 'Start Interview' : 'Upgrade to Continue'}
+                  <Mic className="h-5 w-5" />
+                  <span>Start Recording</span>
                 </>
               )}
             </Button>
+          </div>
+
+          {isRecording && (
+            <div className="text-center">
+              <div className="inline-flex items-center space-x-2 text-red-600">
+                <div className="animate-pulse w-3 h-3 bg-red-600 rounded-full"></div>
+                <span>Recording in progress...</span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Or type your answer:</label>
+            <textarea
+              value={currentAnswer}
+              onChange={(e) => setCurrentAnswer(e.target.value)}
+              placeholder="Type your answer here..."
+              className="w-full p-3 border rounded-lg min-h-[100px] resize-none"
+              disabled={isRecording}
+            />
+          </div>
+
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={handleSkipQuestion}
+              className="flex items-center space-x-2"
+            >
+              <SkipForward className="h-4 w-4" />
+              <span>Skip Question</span>
+            </Button>
+
+            <Button
+              onClick={handleNextQuestion}
+              disabled={isEvaluating}
+              className="flex items-center space-x-2"
+            >
+              {isEvaluating ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : currentQuestionIndex === interviewQuestions.length - 1 ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <SkipForward className="h-4 w-4" />
+              )}
+              <span>
+                {isEvaluating 
+                  ? 'Evaluating...' 
+                  : currentQuestionIndex === interviewQuestions.length - 1 
+                    ? 'Complete Interview' 
+                    : 'Next Question'
+                }
+              </span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {resumeAnalysis && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Resume Context</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Suggested Role:</span> {resumeAnalysis.suggested_role}
+              </div>
+              <div>
+                <span className="font-medium">Key Skills:</span> {resumeAnalysis.skills?.slice(0, 3).join(', ')}
+              </div>
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        /* Active Interview */
-        <div className="space-y-6">
-          {/* Progress Bar */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-                  <span>{Math.round(progress)}% Complete</span>
-                </div>
-                <Progress value={progress} className="w-full" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Current Question */}
-          {questions[currentQuestionIndex] && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Interview Question
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                  <p className="text-lg font-medium text-blue-900">
-                    {questions[currentQuestionIndex].question}
-                  </p>
-                </div>
-
-                {/* Video Preview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-4">
-                    <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                      {isVideoOn ? (
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          muted
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <div className="text-center">
-                          <Video className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                          <p className="text-sm text-gray-500">Camera is off</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Camera Controls */}
-                    <div className="flex justify-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsVideoOn(!isVideoOn)}
-                      >
-                        {isVideoOn ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsRecording(!isRecording)}
-                      >
-                        {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Answer Input */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Your Answer</label>
-                      <Textarea
-                        value={currentAnswer}
-                        onChange={(e) => setCurrentAnswer(e.target.value)}
-                        placeholder="Type your answer here or use voice recording..."
-                        className="min-h-[200px]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Question Controls */}
-                <div className="flex justify-between">
-                  <Button variant="outline" onClick={finishInterview}>
-                    <Square className="h-4 w-4 mr-2" />
-                    End Interview
-                  </Button>
-                  <Button onClick={nextQuestion}>
-                    {currentQuestionIndex < questions.length - 1 ? (
-                      <>
-                        <SkipForward className="h-4 w-4 mr-2" />
-                        Next Question
-                      </>
-                    ) : (
-                      <>
-                        <Square className="h-4 w-4 mr-2" />
-                        Finish Interview
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
       )}
     </div>
   );
