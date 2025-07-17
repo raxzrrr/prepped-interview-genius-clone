@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VideoPlayer from '@/components/Learning/VideoPlayer';
 import AssessmentQuiz from '@/components/Learning/AssessmentQuiz';
 import CategoryVideoList from '@/components/Learning/CategoryVideoList';
+import CourseCard from '@/components/Learning/CourseCard';
+import CourseAssessment from '@/components/Learning/CourseAssessment';
 import { useToast } from '@/components/ui/use-toast';
 import { AlertCircle, Loader2, Award } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -23,6 +25,8 @@ const LearningPage: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<CourseVideo | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
+  const [showCourseAssessment, setShowCourseAssessment] = useState(false);
+  const [assessmentForCourse, setAssessmentForCourse] = useState<Course | null>(null);
   
   const {
     courses,
@@ -67,6 +71,39 @@ const LearningPage: React.FC = () => {
 
   const handleBackToVideoList = () => {
     setSelectedVideo(null);
+  };
+
+  const handleStartCourse = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    if (course) {
+      handleCourseSelect(course);
+    }
+  };
+
+  const handleStartAssessment = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    if (course) {
+      setAssessmentForCourse(course);
+      setShowCourseAssessment(true);
+    }
+  };
+
+  const handleAssessmentComplete = (passed: boolean, score: number) => {
+    setShowCourseAssessment(false);
+    setAssessmentForCourse(null);
+    
+    if (passed) {
+      toast({
+        title: "Congratulations!",
+        description: `You passed the assessment with ${score}%! Your certificate has been generated.`,
+      });
+    } else {
+      toast({
+        title: "Assessment Incomplete",
+        description: `You scored ${score}%. You need 70% or higher to pass. Please review the course and try again.`,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleMarkAsCompleted = async (videoId: string, event: React.MouseEvent) => {
@@ -134,7 +171,7 @@ const LearningPage: React.FC = () => {
     }
   };
 
-  const handleAssessmentComplete = async (score: number) => {
+  const handleGlobalAssessmentComplete = async (score: number) => {
     setShowAssessment(false);
     toast({
       title: "Assessment Completed!",
@@ -168,6 +205,23 @@ const LearningPage: React.FC = () => {
     );
   }
 
+  if (showCourseAssessment && assessmentForCourse) {
+    return (
+      <DashboardLayout>
+        <CourseAssessment
+          courseId={assessmentForCourse.id}
+          courseName={assessmentForCourse.name}
+          isUnlocked={calculateCourseProgress(assessmentForCourse.id) >= 100}
+          onComplete={handleAssessmentComplete}
+          onClose={() => {
+            setShowCourseAssessment(false);
+            setAssessmentForCourse(null);
+          }}
+        />
+      </DashboardLayout>
+    );
+  }
+
   if (showAssessment) {
     return (
       <DashboardLayout>
@@ -184,7 +238,7 @@ const LearningPage: React.FC = () => {
             description="Take our comprehensive technical assessment and earn your professional certificate. This feature is available to Pro subscribers only."
           >
             <AssessmentQuiz
-              onComplete={handleAssessmentComplete}
+              onComplete={handleGlobalAssessmentComplete}
               onClose={() => setShowAssessment(false)}
             />
           </ProFeatureGuard>
@@ -268,34 +322,13 @@ const LearningPage: React.FC = () => {
                     const videoCount = getCourseVideoCount(course.id);
                     
                     return (
-                      <Card key={course.id} className="cursor-pointer hover:shadow-lg transition-shadow">
-                        <CardHeader>
-                          <CardTitle className="text-lg">{course.name}</CardTitle>
-                          <p className="text-sm text-gray-600">{course.description}</p>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            <div className="flex justify-between text-sm">
-                              <span>Videos: {videoCount}</span>
-                              <span>Progress: {courseProgress}%</span>
-                            </div>
-                            
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-in-out"
-                                style={{ width: `${courseProgress}%` }}
-                              ></div>
-                            </div>
-                            
-                            <Button 
-                              className="w-full"
-                              onClick={() => handleCourseSelect(course)}
-                            >
-                              {courseProgress > 0 ? 'Continue Learning' : 'Start Course'}
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <CourseCard
+                        key={course.id}
+                        course={course}
+                        progress={courseProgress}
+                        videoCount={videoCount}
+                        onStartCourse={handleStartCourse}
+                      />
                     );
                   })}
                 </div>
