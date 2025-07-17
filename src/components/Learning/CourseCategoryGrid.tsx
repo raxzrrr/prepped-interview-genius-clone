@@ -21,19 +21,26 @@ const CourseCategoryGrid: React.FC<CourseCategoryGridProps> = ({
 }) => {
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
-        <span className="ml-2 text-gray-600">Loading courses...</span>
+      <div className="flex justify-center items-center py-16">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-lg font-medium text-gray-700">Loading courses...</p>
+          <p className="text-sm text-gray-500 mt-1">Please wait while we prepare your learning content</p>
+        </div>
       </div>
     );
   }
 
   if (categories.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Grid3X3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-600 mb-2">No courses available</h3>
-        <p className="text-gray-500">Check back later for new course content.</p>
+      <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl border border-gray-200">
+        <div className="bg-gradient-to-br from-gray-400 to-gray-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <Grid3X3 className="h-8 w-8 text-white" />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-800 mb-3">No courses available</h3>
+        <p className="text-gray-600 max-w-md mx-auto">
+          Check back later for new course content, or contact your administrator to add courses.
+        </p>
       </div>
     );
   }
