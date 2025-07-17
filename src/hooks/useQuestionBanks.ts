@@ -33,7 +33,14 @@ export const useQuestionBanks = () => {
         if (error) {
           console.error('Error fetching question banks:', error);
         } else {
-          setQuestionBanks(data || []);
+          // Transform the data to match our interface
+          const transformedData = (data || []).map(item => ({
+            ...item,
+            questions: Array.isArray(item.questions) 
+              ? item.questions as Array<{question: string; answer: string}>
+              : []
+          }));
+          setQuestionBanks(transformedData);
         }
       } catch (error) {
         console.error('Error in fetchQuestionBanks:', error);

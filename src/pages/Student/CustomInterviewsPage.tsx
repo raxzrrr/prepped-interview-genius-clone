@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -53,12 +54,15 @@ const CustomInterviewsPage: React.FC = () => {
       const generatedQuestions = await generateInterviewQuestions(jobRole);
       
       if (generatedQuestions && generatedQuestions.length > 0) {
-        setQuestions(generatedQuestions.map(q => q.question));
+        const questionStrings = generatedQuestions.map(q => 
+          typeof q === 'string' ? q : q.question
+        );
+        setQuestions(questionStrings);
         setCurrentStep('interview');
         
         toast({
           title: "Questions Generated",
-          description: `Generated ${generatedQuestions.length} questions for ${jobRole}`,
+          description: `Generated ${questionStrings.length} questions for ${jobRole}`,
         });
       } else {
         throw new Error('No questions were generated');

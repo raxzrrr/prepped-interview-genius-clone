@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,11 +26,27 @@ import { useInterviewUsage } from '@/hooks/useInterviewUsage';
 import { useToast } from '@/hooks/use-toast';
 
 interface InterviewQuestion {
-  id: string;
+  id?: string;
   question: string;
 }
 
-const InterviewPrep: React.FC = () => {
+interface InterviewPrepProps {
+  questions?: string[];
+  onComplete?: (data: { 
+    questions: string[], 
+    answers: string[], 
+    evaluations: any[],
+    facialAnalysis: any[],
+    interviewId?: string 
+  }) => void;
+  resumeAnalysis?: any;
+}
+
+const InterviewPrep: React.FC<InterviewPrepProps> = ({ 
+  questions: propQuestions = [], 
+  onComplete,
+  resumeAnalysis 
+}) => {
   const [jobRole, setJobRole] = useState('');
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -39,6 +56,7 @@ const InterviewPrep: React.FC = () => {
   const [isInterviewStarted, setIsInterviewStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [answers, setAnswers] = useState<string[]>([]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -50,6 +68,19 @@ const InterviewPrep: React.FC = () => {
 
   const isPro = hasProPlan();
   const canStartInterview = isPro || canUseFreeInterview();
+
+  // Initialize with prop questions if provided
+  useEffect(() => {
+    if (propQuestions.length > 0) {
+      const formattedQuestions = propQuestions.map((q, index) => ({
+        id: `q-${index}`,
+        question: q
+      }));
+      setQuestions(formattedQuestions);
+      setIsInterviewStarted(true);
+      setSessionStartTime(new Date());
+    }
+  }, [propQuestions]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -111,7 +142,11 @@ const InterviewPrep: React.FC = () => {
       const generatedQuestions = await generateInterviewQuestions(jobRole);
       
       if (generatedQuestions.length > 0) {
-        setQuestions(generatedQuestions);
+        const formattedQuestions = generatedQuestions.map((q: any, index: number) => ({
+          id: `generated-${index}`,
+          question: typeof q === 'string' ? q : q.question
+        }));
+        setQuestions(formattedQuestions);
         setCurrentQuestionIndex(0);
         setIsInterviewStarted(true);
         setSessionStartTime(new Date());
@@ -123,17 +158,27 @@ const InterviewPrep: React.FC = () => {
 
         toast({
           title: "Interview Started",
-          description: `Generated ${generatedQuestions.length} questions for ${jobRole}`,
+          description: `Generated ${formattedQuestions.length} questions for ${jobRole}`,
         });
       }
     } catch (error) {
       console.error('Error starting interview:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start interview. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const nextQuestion = () => {
+    // Save current answer
+    const newAnswers = [...answers];
+    newAnswers[currentQuestionIndex] = currentAnswer;
+    setAnswers(newAnswers);
+
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setCurrentAnswer('');
@@ -143,16 +188,30 @@ const InterviewPrep: React.FC = () => {
   };
 
   const finishInterview = () => {
-    setIsInterviewStarted(false);
-    setQuestions([]);
-    setCurrentQuestionIndex(0);
-    setCurrentAnswer('');
-    setSessionStartTime(null);
+    const finalAnswers = [...answers];
+    finalAnswers[currentQuestionIndex] = currentAnswer;
     
-    toast({
-      title: "Interview Completed",
-      description: "Great job! Your interview session has been completed.",
-    });
+    if (onComplete) {
+      onComplete({
+        questions: questions.map(q => q.question),
+        answers: finalAnswers,
+        evaluations: [],
+        facialAnalysis: [],
+        interviewId: `interview-${Date.now()}`
+      });
+    } else {
+      setIsInterviewStarted(false);
+      setQuestions([]);
+      setCurrentQuestionIndex(0);
+      setCurrentAnswer('');
+      setAnswers([]);
+      setSessionStartTime(null);
+      
+      toast({
+        title: "Interview Completed",
+        description: "Great job! Your interview session has been completed.",
+      });
+    }
   };
 
   const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
