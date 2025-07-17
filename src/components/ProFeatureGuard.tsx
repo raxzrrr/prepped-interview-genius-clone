@@ -4,33 +4,28 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, Crown, ArrowRight } from 'lucide-react';
+import { Lock, Crown, ArrowRight, Gift } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useInterviewUsage } from '@/hooks/useInterviewUsage';
 
 interface ProFeatureGuardProps {
   children: React.ReactNode;
   featureName: string;
   description?: string;
+  allowFreeInterview?: boolean;
 }
 
 const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({ 
   children, 
   featureName, 
-  description = "This feature is available for Pro subscribers only." 
+  description = "This feature is available for Pro subscribers only.",
+  allowFreeInterview = false
 }) => {
-  const { hasProPlan, loading, subscription } = useSubscription();
+  const { hasProPlan, loading: subscriptionLoading } = useSubscription();
+  const { canUseFreeInterview, loading: usageLoading } = useInterviewUsage();
   const navigate = useNavigate();
 
-  console.log('ProFeatureGuard - Detailed Debug:', {
-    featureName,
-    loading,
-    subscription,
-    hasProAccess: hasProPlan(),
-    subscriptionStatus: subscription?.status,
-    planType: subscription?.plan_type,
-    currentPeriodEnd: subscription?.current_period_end,
-    isExpired: subscription ? new Date(subscription.current_period_end) <= new Date() : 'N/A'
-  });
+  const loading = subscriptionLoading || usageLoading;
 
   if (loading) {
     return (
@@ -40,37 +35,27 @@ const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({
     );
   }
 
-  // Debug the exact subscription check logic
-  if (subscription) {
-    const isActive = subscription.status === 'active';
-    const isNotExpired = new Date(subscription.current_period_end) > new Date();
-    const isProPlan = subscription.plan_type === 'pro' || subscription.plan_type === 'enterprise';
-    
-    console.log('ProFeatureGuard - Subscription Check Details:', {
-      isActive,
-      isNotExpired,
-      isProPlan,
-      currentDate: new Date().toISOString(),
-      periodEnd: subscription.current_period_end,
-      shouldShowContent: isActive && isNotExpired && isProPlan
-    });
-    
-    // If user has active Pro/Enterprise plan that hasn't expired, show content
-    if (isActive && isNotExpired && isProPlan) {
-      console.log('ProFeatureGuard: User has valid Pro access, showing content');
-      return <>{children}</>;
-    }
+  // If user has Pro plan, show content
+  if (hasProPlan()) {
+    return <>{children}</>;
   }
 
-  console.log('ProFeatureGuard: User does not have Pro access, showing upgrade prompt');
+  // If free interview is allowed and user can use it, show content
+  if (allowFreeInterview && canUseFreeInterview()) {
+    return <>{children}</>;
+  }
 
-  // If user doesn't have Pro plan, show the upgrade prompt
+  // Show upgrade prompt
   return (
     <Card className="border-2 border-dashed border-gray-300">
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4">
           <div className="relative">
-            <Lock className="h-12 w-12 text-gray-400" />
+            {allowFreeInterview && !canUseFreeInterview() ? (
+              <Gift className="h-12 w-12 text-gray-400" />
+            ) : (
+              <Lock className="h-12 w-12 text-gray-400" />
+            )}
             <Crown className="h-6 w-6 text-yellow-500 absolute -top-1 -right-1" />
           </div>
         </div>
@@ -81,7 +66,10 @@ const ProFeatureGuard: React.FC<ProFeatureGuardProps> = ({
           </Badge>
         </CardTitle>
         <CardDescription className="max-w-md mx-auto">
-          {description}
+          {allowFreeInterview && !canUseFreeInterview() 
+            ? "You've used your free interview. Upgrade to Pro for unlimited access!"
+            : description
+          }
         </CardDescription>
       </CardHeader>
       <CardContent className="text-center">

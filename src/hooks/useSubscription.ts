@@ -30,7 +30,6 @@ export const useSubscription = () => {
         userEmail: user?.primaryEmailAddress?.emailAddress
       });
       
-      // Check if we have user and supabaseUserId (isAuthenticated might still be false during setup)
       if (!user || !supabaseUserId) {
         console.log('useSubscription - Missing user or supabaseUserId:', { 
           user: !!user, 
@@ -90,13 +89,12 @@ export const useSubscription = () => {
       }
     };
 
-    // Add a small delay to ensure auth context is fully loaded
     const timer = setTimeout(() => {
       fetchSubscription();
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [user, getSupabaseUserId]); // Removed isAuthenticated dependency
+  }, [user, getSupabaseUserId]);
 
   const hasActivePlan = (planType: string) => {
     if (!subscription) return false;

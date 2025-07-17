@@ -38,6 +38,45 @@ export type Database = {
         }
         Relationships: []
       }
+      certificates: {
+        Row: {
+          auto_issue: boolean | null
+          certificate_type: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          requirements: Json | null
+          template_data: Json | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_issue?: boolean | null
+          certificate_type?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          requirements?: Json | null
+          template_data?: Json | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_issue?: boolean | null
+          certificate_type?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          requirements?: Json | null
+          template_data?: Json | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       course_videos: {
         Row: {
           content_type: string | null
@@ -230,6 +269,134 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      question_banks: {
+        Row: {
+          category: string
+          created_at: string | null
+          difficulty_level: string | null
+          id: string
+          is_active: boolean | null
+          questions: Json
+          technology: string
+          total_questions: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          difficulty_level?: string | null
+          id?: string
+          is_active?: boolean | null
+          questions?: Json
+          technology: string
+          total_questions?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          difficulty_level?: string | null
+          id?: string
+          is_active?: boolean | null
+          questions?: Json
+          technology?: string
+          total_questions?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_certificates: {
+        Row: {
+          certificate_id: string
+          certificate_url: string | null
+          completion_data: Json | null
+          created_at: string | null
+          id: string
+          issued_date: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          verification_code: string | null
+        }
+        Insert: {
+          certificate_id: string
+          certificate_url?: string | null
+          completion_data?: Json | null
+          created_at?: string | null
+          id?: string
+          issued_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          verification_code?: string | null
+        }
+        Update: {
+          certificate_id?: string
+          certificate_url?: string | null
+          completion_data?: Json | null
+          created_at?: string | null
+          id?: string
+          issued_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          verification_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_certificates_certificate_id_fkey"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_certificates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_interview_usage: {
+        Row: {
+          created_at: string | null
+          free_interview_used: boolean | null
+          id: string
+          last_interview_date: string | null
+          updated_at: string | null
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          free_interview_used?: boolean | null
+          id?: string
+          last_interview_date?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          free_interview_used?: boolean | null
+          id?: string
+          last_interview_date?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_interview_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_learning: {
         Row: {

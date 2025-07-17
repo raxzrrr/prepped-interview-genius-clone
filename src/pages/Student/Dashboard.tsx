@@ -1,189 +1,205 @@
 
-import React, { useState, useEffect } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import DashboardAnalytics from '@/components/Dashboard/DashboardAnalytics';
 import { 
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle 
-} from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
-import { Clock, Sparkles, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/ClerkAuthContext';
-import ApiKeySettings from '@/components/Settings/ApiKeySettings';
-import envService from '@/services/env';
+  Play, 
+  BookOpen, 
+  Award, 
+  FileText, 
+  TrendingUp,
+  Zap,
+  Clock,
+  BarChart3
+} from 'lucide-react';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useInterviewUsage } from '@/hooks/useInterviewUsage';
+import { useCertificates } from '@/hooks/useCertificates';
 
 const Dashboard: React.FC = () => {
-  const { user, isStudent } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [usageData, setUsageData] = useState<{ custom_interviews: number, resume_interviews: number }>({ 
-    custom_interviews: 0, 
-    resume_interviews: 0 
-  });
-
-  // Check if API key is configured when component mounts
-  useEffect(() => {
-    const geminiApiKey = envService.get('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!geminiApiKey) {
-      setShowApiSettings(true);
-    }
-  }, [user]);
-
-  // Redirect if not logged in or not a student
-  if (!user || !isStudent()) {
-    return <Navigate to="/login" />;
-  }
-
-  const handleApiSetupComplete = () => {
-    setShowApiSettings(false);
-    toast({
-      title: "API Key Configured",
-      description: "You can now use all AI-powered interview features.",
-    });
-  };
-
-  if (showApiSettings) {
-    return (
-      <DashboardLayout>
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <div className="flex items-center mb-2">
-              <AlertCircle className="h-5 w-5 text-amber-600 mr-2" />
-              <h2 className="text-lg font-semibold text-amber-800">API Configuration Required</h2>
-            </div>
-            <p className="text-amber-700">
-              The AI interview features require a Google Gemini API key to function properly. 
-              Without this configuration, the system cannot generate real interview questions or provide analysis.
-            </p>
-          </div>
-          <ApiKeySettings onComplete={handleApiSetupComplete} />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const totalUsage = usageData.custom_interviews + usageData.resume_interviews;
+  const { hasProPlan } = useSubscription();
+  const { canUseFreeInterview, usage } = useInterviewUsage();
+  const { userCertificates } = useCertificates();
+  
+  const isPro = hasProPlan();
+  const canStartInterview = isPro || canUseFreeInterview();
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-6">Dashboard</h1>
-          <p className="mt-2 text-gray-600">
-            Welcome back! Here's your interview preparation overview.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Monthly Limits */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center">
-                <Clock className="mr-2 h-5 w-5 text-gray-500" />
-                Monthly Limits
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-500">Total Interviews</span>
-                    <span className={`text-sm font-medium ${totalUsage >= 20 ? 'text-red-500' : 'text-green-500'}`}>
-                      {totalUsage}/20
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full ${totalUsage >= 20 ? 'bg-red-500' : 'bg-green-500'}`} 
-                      style={{ width: `${(totalUsage / 20) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-400">Resume-based</span>
-                    <span className="text-xs text-gray-500">{usageData.resume_interviews}/10</span>
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-400">Custom/Role-based</span>
-                    <span className="text-xs text-gray-500">{usageData.custom_interviews}/10</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 text-xs text-gray-500 pt-2 border-t border-gray-100">
-                <p>Limits reset every 30 days</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Getting Started */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center">
-                Getting Started
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Practice your interview skills with AI-powered mock interviews.
-                </p>
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-gray-500">Available Features:</p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Resume-based questions</li>
-                    <li>• Role-specific interviews</li>
-                    <li>• Real-time feedback</li>
-                    <li>• Downloadable reports</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Quick Tips */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Quick Tips</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">
-                  Prepare effectively for your next interview with our AI-powered practice sessions.
-                </p>
-                <ul className="text-xs text-gray-600 space-y-1 mt-2">
-                  <li>• Upload your resume for personalized questions</li>
-                  <li>• Choose specific job roles to practice for</li>
-                  <li>• Review your answers after each session</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Start Interview Button */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Start Interview Practice</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Practice your interview skills with AI-powered mock interviews. Choose between resume-based or role-specific questions.
+      <div className="space-y-8">
+        {/* Welcome Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Welcome back!</h1>
+            <p className="text-muted-foreground mt-1">
+              Ready to ace your next interview? Let's practice together.
             </p>
-            <Button 
-              className="w-full"
-              onClick={() => navigate('/custom-interviews')}
-              disabled={totalUsage >= 20}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {totalUsage >= 20 ? 'Monthly Limit Reached' : 'Start Interview Practice'}
-            </Button>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-center gap-3">
+            {!isPro && (
+              <Badge variant="outline" className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+                {canUseFreeInterview() ? '1 Free Interview Available' : 'Free Trial Used'}
+              </Badge>
+            )}
+            {isPro && (
+              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500">
+                <Zap className="w-3 h-3 mr-1" />
+                PRO Member
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/interviews')}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Play className="h-5 w-5 text-blue-600" />
+                </div>
+                {canStartInterview && (
+                  <Badge variant="outline" className="text-green-600 border-green-600">
+                    Available
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-lg mb-2">Start Interview</CardTitle>
+              <CardDescription>
+                {canStartInterview 
+                  ? "Practice with AI-powered mock interviews"
+                  : "Upgrade to Pro for unlimited interviews"
+                }
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/learning')}>
+            <CardHeader className="pb-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <BookOpen className="h-5 w-5 text-green-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-lg mb-2">Learning Hub</CardTitle>
+              <CardDescription>
+                Access courses and improve your skills
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/certificates')}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Award className="h-5 w-5 text-yellow-600" />
+                </div>
+                {userCertificates.length > 0 && (
+                  <Badge variant="outline">
+                    {userCertificates.length}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-lg mb-2">Certificates</CardTitle>
+              <CardDescription>
+                View your earned certificates and achievements
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/reports')}>
+            <CardHeader className="pb-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-purple-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-lg mb-2">Progress Reports</CardTitle>
+              <CardDescription>
+                Track your interview performance and growth
+              </CardDescription>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Analytics Dashboard */}
+        <div>
+          <div className="flex items-center gap-2 mb-6">
+            <BarChart3 className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-xl font-semibold">Your Progress</h2>
+          </div>
+          <DashboardAnalytics 
+            interviewCount={usage?.usage_count || 0}
+            certificateCount={userCertificates.length}
+          />
+        </div>
+
+        {/* Recent Activity & Quick Tips */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Recent Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {usage?.last_interview_date ? (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="font-medium">Last Interview Session</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(usage.last_interview_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline">Completed</Badge>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Play className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No interviews completed yet</p>
+                    <p className="text-sm">Start your first practice session!</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Quick Tips
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                  <p className="font-medium text-blue-900">Practice regularly</p>
+                  <p className="text-sm text-blue-700">Consistent practice leads to better performance</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                  <p className="font-medium text-green-900">Review feedback</p>
+                  <p className="text-sm text-green-700">Learn from AI suggestions to improve faster</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+                  <p className="font-medium text-purple-900">Stay confident</p>
+                  <p className="text-sm text-purple-700">Confidence is key to interview success</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DashboardLayout>
   );
