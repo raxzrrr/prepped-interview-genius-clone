@@ -31,7 +31,6 @@ export const useCourseManagement = () => {
     try {
       setLoading(true);
       const coursesData = await courseService.fetchCourses();
-      setCourses(coursesData);
 
       const videosData: Record<string, CourseVideo[]> = {};
       const questionsData: Record<string, CourseQuestion[]> = {};
@@ -45,6 +44,12 @@ export const useCourseManagement = () => {
         questionsData[course.id] = courseQuestions;
       }
       
+      // Filter courses to only include those with questions/assignments
+      const coursesWithQuestions = coursesData.filter(course => 
+        questionsData[course.id] && questionsData[course.id].length > 0
+      );
+      
+      setCourses(coursesWithQuestions);
       setVideos(videosData);
       setQuestions(questionsData);
     } catch (error: any) {
