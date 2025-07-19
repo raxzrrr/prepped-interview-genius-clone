@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
@@ -50,32 +49,24 @@ const CourseManagementPage: React.FC = () => {
   // Show loading while auth is being determined
   if (authLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading...</span>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
     );
   }
 
-  // Check for temporary admin access
-  const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
-
-  // Redirect if no admin access
-  if (!hasAdminAccess && !isTempAdmin) {
-    if (!user && !isTempAdmin) {
-      return <Navigate to="/login" replace />;
-    }
-    return <Navigate to="/dashboard" replace />;
+  // Check admin access - allow temporary admin or admin role
+  const tempAdminAccess = localStorage.getItem('tempAdminAccess') === 'true';
+  if (!hasAdminAccess && !tempAdminAccess) {
+    return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/auth/login" replace />;
   }
 
+  // Show loading while data is being fetched
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex justify-center items-center py-12">
+        <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading courses...</span>
         </div>
       </DashboardLayout>
     );
@@ -84,7 +75,9 @@ const CourseManagementPage: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <CourseManagementHeader onAddCourse={() => setShowAddCourse(true)} />
+        <CourseManagementHeader
+          onAddCourse={() => setShowAddCourse(true)}
+        />
 
         <CourseManagementForms
           showAddCourse={showAddCourse}
@@ -95,17 +88,11 @@ const CourseManagementPage: React.FC = () => {
           onAddCourse={handleAddCourse}
           onCancelAddCourse={() => setShowAddCourse(false)}
           onAddVideo={handleAddVideo}
-          onCancelAddVideo={() => {
-            setShowAddVideo(false);
-            setSelectedCourse(null);
-          }}
+          onCancelAddVideo={() => setShowAddVideo(false)}
           onAddQuestion={handleAddQuestion}
-          onCancelAddQuestion={() => {
-            setShowAddQuestion(false);
-            setSelectedCourse(null);
-          }}
+          onCancelAddQuestion={() => setShowAddQuestion(false)}
         />
-        
+
         <CourseManagementContent
           courses={courses}
           videos={videos}
@@ -113,17 +100,26 @@ const CourseManagementPage: React.FC = () => {
           editingCourse={editingCourse}
           editingVideo={editingVideo}
           editingQuestion={editingQuestion}
-          onEditCourse={setEditingCourse}
-          onSaveCourse={handleUpdateCourse}
+          onEditCourse={(course) => setEditingCourse(course)}
+          onSaveCourse={(course) => {
+            handleUpdateCourse(course);
+            setEditingCourse(null);
+          }}
           onCancelEditCourse={() => setEditingCourse(null)}
-          onEditVideo={setEditingVideo}
-          onSaveVideo={handleUpdateVideo}
-          onCancelEditVideo={() => setEditingVideo(null)}
-          onEditQuestion={setEditingQuestion}
-          onSaveQuestion={handleUpdateQuestion}
-          onCancelEditQuestion={() => setEditingQuestion(null)}
           onDeleteCourse={handleDeleteCourse}
+          onEditVideo={(video) => setEditingVideo(video)}
+          onSaveVideo={(video) => {
+            handleUpdateVideo(video);
+            setEditingVideo(null);
+          }}
+          onCancelEditVideo={() => setEditingVideo(null)}
           onDeleteVideo={handleDeleteVideo}
+          onEditQuestion={(question) => setEditingQuestion(question)}
+          onSaveQuestion={(question) => {
+            handleUpdateQuestion(question);
+            setEditingQuestion(null);
+          }}
+          onCancelEditQuestion={() => setEditingQuestion(null)}
           onDeleteQuestion={handleDeleteQuestion}
           onAddVideo={(course) => {
             setSelectedCourse(course);
