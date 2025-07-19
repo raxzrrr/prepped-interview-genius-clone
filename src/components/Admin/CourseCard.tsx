@@ -11,39 +11,55 @@ import VideoListItem from './VideoListItem';
 interface CourseCardProps {
   course: Course;
   videos: CourseVideo[];
+  questions: CourseQuestion[];
   isEditing: boolean;
   editingCourse: Course | null;
   editingVideo: CourseVideo | null;
+  editingQuestion: CourseQuestion | null;
   onEditCourse: (course: Course) => void;
   onSaveCourse: (course: Course) => void;
   onCancelEditCourse: () => void;
   onEditVideo: (video: CourseVideo) => void;
   onSaveVideo: (video: CourseVideo) => void;
   onCancelEditVideo: () => void;
+  onEditQuestion: (question: CourseQuestion) => void;
+  onSaveQuestion: (question: CourseQuestion) => void;
+  onCancelEditQuestion: () => void;
   onDeleteCourse: (courseId: string) => void;
   onDeleteVideo: (videoId: string, courseId: string) => void;
+  onDeleteQuestion: (questionId: string, courseId: string) => void;
   onAddVideo: (course: Course) => void;
+  onAddQuestion: (course: Course) => void;
   onEditingCourseChange: (course: Course | null) => void;
   onEditingVideoChange: (video: CourseVideo | null) => void;
+  onEditingQuestionChange: (question: CourseQuestion | null) => void;
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({
   course,
   videos,
+  questions,
   isEditing,
   editingCourse,
   editingVideo,
+  editingQuestion,
   onEditCourse,
   onSaveCourse,
   onCancelEditCourse,
   onEditVideo,
   onSaveVideo,
   onCancelEditVideo,
+  onEditQuestion,
+  onSaveQuestion,
+  onCancelEditQuestion,
   onDeleteCourse,
   onDeleteVideo,
+  onDeleteQuestion,
   onAddVideo,
+  onAddQuestion,
   onEditingCourseChange,
-  onEditingVideoChange
+  onEditingVideoChange,
+  onEditingQuestionChange
 }) => {
   return (
     <Card className="border-2 hover:border-brand-purple/20 transition-colors">

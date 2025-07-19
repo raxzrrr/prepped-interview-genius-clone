@@ -13,12 +13,15 @@ const CourseManagementPage: React.FC = () => {
     // State
     courses,
     videos,
+    questions,
     loading,
     selectedCourse,
     showAddCourse,
     showAddVideo,
+    showAddQuestion,
     editingCourse,
     editingVideo,
+    editingQuestion,
     hasAdminAccess,
     user,
     authLoading,
@@ -27,8 +30,10 @@ const CourseManagementPage: React.FC = () => {
     setSelectedCourse,
     setShowAddCourse,
     setShowAddVideo,
+    setShowAddQuestion,
     setEditingCourse,
     setEditingVideo,
+    setEditingQuestion,
     
     // Handlers
     handleAddCourse,
@@ -36,7 +41,10 @@ const CourseManagementPage: React.FC = () => {
     handleAddVideo,
     handleUpdateVideo,
     handleDeleteCourse,
-    handleDeleteVideo
+    handleDeleteVideo,
+    handleAddQuestion,
+    handleUpdateQuestion,
+    handleDeleteQuestion
   } = useCourseManagement();
 
   // Show loading while auth is being determined
@@ -81,7 +89,9 @@ const CourseManagementPage: React.FC = () => {
         <CourseManagementForms
           showAddCourse={showAddCourse}
           showAddVideo={showAddVideo}
+          showAddQuestion={showAddQuestion}
           selectedCourse={selectedCourse}
+          questions={questions}
           onAddCourse={handleAddCourse}
           onCancelAddCourse={() => setShowAddCourse(false)}
           onAddVideo={handleAddVideo}
@@ -89,24 +99,39 @@ const CourseManagementPage: React.FC = () => {
             setShowAddVideo(false);
             setSelectedCourse(null);
           }}
+          onAddQuestion={handleAddQuestion}
+          onCancelAddQuestion={() => {
+            setShowAddQuestion(false);
+            setSelectedCourse(null);
+          }}
         />
         
         <CourseManagementContent
           courses={courses}
           videos={videos}
+          questions={questions}
           editingCourse={editingCourse}
           editingVideo={editingVideo}
+          editingQuestion={editingQuestion}
           onEditCourse={setEditingCourse}
           onSaveCourse={handleUpdateCourse}
           onCancelEditCourse={() => setEditingCourse(null)}
           onEditVideo={setEditingVideo}
           onSaveVideo={handleUpdateVideo}
           onCancelEditVideo={() => setEditingVideo(null)}
+          onEditQuestion={setEditingQuestion}
+          onSaveQuestion={handleUpdateQuestion}
+          onCancelEditQuestion={() => setEditingQuestion(null)}
           onDeleteCourse={handleDeleteCourse}
           onDeleteVideo={handleDeleteVideo}
+          onDeleteQuestion={handleDeleteQuestion}
           onAddVideo={(course) => {
             setSelectedCourse(course);
             setShowAddVideo(true);
+          }}
+          onAddQuestion={(course) => {
+            setSelectedCourse(course);
+            setShowAddQuestion(true);
           }}
           onShowAddCourse={() => setShowAddCourse(true)}
         />

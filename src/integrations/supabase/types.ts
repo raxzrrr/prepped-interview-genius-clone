@@ -77,6 +77,57 @@ export type Database = {
         }
         Relationships: []
       }
+      course_questions: {
+        Row: {
+          correct_answer: number
+          course_id: string
+          created_at: string
+          difficulty_level: string
+          explanation: string | null
+          id: string
+          is_active: boolean
+          option_1: string
+          option_2: string
+          option_3: string
+          option_4: string
+          order_index: number
+          question_text: string
+          updated_at: string
+        }
+        Insert: {
+          correct_answer: number
+          course_id: string
+          created_at?: string
+          difficulty_level: string
+          explanation?: string | null
+          id?: string
+          is_active?: boolean
+          option_1: string
+          option_2: string
+          option_3: string
+          option_4: string
+          order_index?: number
+          question_text: string
+          updated_at?: string
+        }
+        Update: {
+          correct_answer?: number
+          course_id?: string
+          created_at?: string
+          difficulty_level?: string
+          explanation?: string | null
+          id?: string
+          is_active?: boolean
+          option_1?: string
+          option_2?: string
+          option_3?: string
+          option_4?: string
+          order_index?: number
+          question_text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       course_videos: {
         Row: {
           content_type: string | null

@@ -27,11 +27,15 @@ interface CourseManagementFormsProps {
 const CourseManagementForms: React.FC<CourseManagementFormsProps> = ({
   showAddCourse,
   showAddVideo,
+  showAddQuestion,
   selectedCourse,
+  questions,
   onAddCourse,
   onCancelAddCourse,
   onAddVideo,
-  onCancelAddVideo
+  onCancelAddVideo,
+  onAddQuestion,
+  onCancelAddQuestion
 }) => {
   return (
     <>

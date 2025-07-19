@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { courseService, Course, CourseVideo } from '@/services/courseService';
+import { questionService, CourseQuestion } from '@/services/questionService';
 
 export const useCourseManagement = () => {
   const { user, loading: authLoading } = useAuth();
@@ -10,12 +11,15 @@ export const useCourseManagement = () => {
   // State
   const [courses, setCourses] = useState<Course[]>([]);
   const [videos, setVideos] = useState<Record<string, CourseVideo[]>>({});
+  const [questions, setQuestions] = useState<Record<string, CourseQuestion[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showAddCourse, setShowAddCourse] = useState(false);
   const [showAddVideo, setShowAddVideo] = useState(false);
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingVideo, setEditingVideo] = useState<CourseVideo | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<CourseQuestion | null>(null);
 
   // Check admin access - including temporary admin
   const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
@@ -230,12 +234,15 @@ export const useCourseManagement = () => {
     // State
     courses,
     videos,
+    questions,
     loading,
     selectedCourse,
     showAddCourse,
     showAddVideo,
+    showAddQuestion,
     editingCourse,
     editingVideo,
+    editingQuestion,
     hasAdminAccess,
     user,
     authLoading,
@@ -244,8 +251,10 @@ export const useCourseManagement = () => {
     setSelectedCourse,
     setShowAddCourse,
     setShowAddVideo,
+    setShowAddQuestion,
     setEditingCourse,
     setEditingVideo,
+    setEditingQuestion,
     
     // Handlers
     handleAddCourse,
@@ -253,6 +262,9 @@ export const useCourseManagement = () => {
     handleAddVideo,
     handleUpdateVideo,
     handleDeleteCourse,
-    handleDeleteVideo
+    handleDeleteVideo,
+    handleAddQuestion,
+    handleUpdateQuestion,
+    handleDeleteQuestion
   };
 };
