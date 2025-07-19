@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { courseService, Course, CourseVideo } from '@/services/courseService';
+import { questionService, CourseQuestion } from '@/services/questionService';
 import { learningService, UserLearningData } from '@/services/learningService';
 
 export const useCourseData = () => {
@@ -9,6 +10,7 @@ export const useCourseData = () => {
   const { toast } = useToast();
   const [courses, setCourses] = useState<Course[]>([]);
   const [videos, setVideos] = useState<Record<string, CourseVideo[]>>({});
+  const [questions, setQuestions] = useState<Record<string, CourseQuestion[]>>({});
   const [userLearningData, setUserLearningData] = useState<UserLearningData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,20 +41,34 @@ export const useCourseData = () => {
       
       // Fetch courses
       const coursesData = await courseService.fetchCourses();
-      setCourses(coursesData);
       
-      // Fetch videos for each course
+      // Fetch videos and questions for each course
       const videosData: Record<string, CourseVideo[]> = {};
+      const questionsData: Record<string, CourseQuestion[]> = {};
+      
       for (const course of coursesData) {
         try {
-          const courseVideos = await courseService.fetchVideosByCourse(course.id);
+          const [courseVideos, courseQuestions] = await Promise.all([
+            courseService.fetchVideosByCourse(course.id),
+            questionService.fetchQuestionsByCourse(course.id)
+          ]);
           videosData[course.id] = courseVideos;
+          questionsData[course.id] = courseQuestions;
         } catch (err) {
-          console.error(`Error fetching videos for course ${course.name}:`, err);
+          console.error(`Error fetching data for course ${course.name}:`, err);
           videosData[course.id] = []; // Fallback to empty array
+          questionsData[course.id] = []; // Fallback to empty array
         }
       }
+      
+      // Filter courses to only include those with questions/assignments
+      const coursesWithQuestions = coursesData.filter(course => 
+        questionsData[course.id] && questionsData[course.id].length > 0
+      );
+      
+      setCourses(coursesWithQuestions);
       setVideos(videosData);
+      setQuestions(questionsData);
       
       // Fetch user learning data if user is logged in
       if (user?.id) {
@@ -207,6 +223,7 @@ export const useCourseData = () => {
   return {
     courses,
     videos,
+    questions,
     userLearningData,
     loading,
     error,
