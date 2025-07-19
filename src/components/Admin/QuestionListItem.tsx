@@ -12,19 +12,23 @@ import { CourseQuestion } from '@/services/questionService';
 interface QuestionListItemProps {
   question: CourseQuestion;
   isEditing: boolean;
+  editingQuestion?: CourseQuestion | null;
   onEdit: (question: CourseQuestion) => void;
   onSave: (question: CourseQuestion) => void;
-  onCancelEdit: () => void;
-  onDelete: (questionId: string) => void;
+  onCancel: () => void;
+  onDelete: (questionId: string, courseId: string) => void;
+  onEditingChange: (question: CourseQuestion | null) => void;
 }
 
 const QuestionListItem: React.FC<QuestionListItemProps> = ({
   question,
   isEditing,
+  editingQuestion,
   onEdit,
   onSave,
-  onCancelEdit,
-  onDelete
+  onCancel,
+  onDelete,
+  onEditingChange
 }) => {
   const [editData, setEditData] = useState(question);
 
@@ -147,7 +151,7 @@ const QuestionListItem: React.FC<QuestionListItemProps> = ({
                 <Save className="w-4 h-4 mr-1" />
                 Save
               </Button>
-              <Button size="sm" variant="outline" onClick={onCancelEdit}>
+              <Button size="sm" variant="outline" onClick={onCancel}>
                 <X className="w-4 h-4 mr-1" />
                 Cancel
               </Button>
@@ -209,7 +213,7 @@ const QuestionListItem: React.FC<QuestionListItemProps> = ({
             <Button 
               size="sm" 
               variant="outline" 
-              onClick={() => onDelete(question.id)}
+              onClick={() => onDelete(question.id, question.course_id)}
               className="text-red-600 hover:text-red-800"
             >
               <Trash2 className="w-4 h-4" />

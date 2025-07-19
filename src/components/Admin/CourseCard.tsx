@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Video, Edit, Trash2, Save, X } from 'lucide-react';
+import { Plus, Video, Edit, Trash2, Save, X, HelpCircle } from 'lucide-react';
 import { Course, CourseVideo } from '@/services/courseService';
 import { CourseQuestion } from '@/services/questionService';
 import VideoListItem from './VideoListItem';
@@ -111,6 +111,10 @@ const CourseCard: React.FC<CourseCardProps> = ({
               <Video className="w-3 h-3 mr-1" />
               {videos?.length || 0} videos
             </span>
+            <span className="flex items-center bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+              <HelpCircle className="w-3 h-3 mr-1" />
+              {questions?.length || 0} questions
+            </span>
             <span className="text-xs text-gray-500">Order: {course.order_index}</span>
           </div>
         </div>
@@ -137,6 +141,29 @@ const CourseCard: React.FC<CourseCardProps> = ({
             )}
           </div>
         )}
+
+        {questions?.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <h4 className="font-medium text-sm text-gray-700">Recent Questions:</h4>
+            {questions.slice(0, 2).map((question) => (
+              <div key={question.id} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded border">
+                <QuestionListItem
+                  question={question}
+                  isEditing={editingQuestion?.id === question.id}
+                  editingQuestion={editingQuestion}
+                  onEdit={onEditQuestion}
+                  onSave={onSaveQuestion}
+                  onCancel={onCancelEditQuestion}
+                  onDelete={onDeleteQuestion}
+                  onEditingChange={onEditingQuestionChange}
+                />
+              </div>
+            ))}
+            {questions.length > 2 && (
+              <p className="text-xs text-gray-500 pl-2">+ {questions.length - 2} more questions</p>
+            )}
+          </div>
+        )}
         
         <div className="flex flex-wrap gap-2">
           <Button 
@@ -147,6 +174,15 @@ const CourseCard: React.FC<CourseCardProps> = ({
           >
             <Plus className="w-4 h-4 mr-1" />
             Add Video
+          </Button>
+          <Button 
+            size="sm" 
+            variant="default"
+            onClick={() => onAddQuestion(course)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add Question
           </Button>
           <Button 
             size="sm" 
