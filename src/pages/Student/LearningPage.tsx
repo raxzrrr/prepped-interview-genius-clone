@@ -27,7 +27,8 @@ const LearningPage: React.FC = () => {
   const [showAssessment, setShowAssessment] = useState(false);
   
   const {
-    courses,
+    coursesWithVideos,
+    coursesWithQuestions,
     videos,
     userLearningData,
     loading: courseLoading,
@@ -72,7 +73,7 @@ const LearningPage: React.FC = () => {
   };
 
   const handleStartCourse = (courseId: string) => {
-    const course = courses.find(c => c.id === courseId);
+    const course = coursesWithVideos.find(c => c.id === courseId);
     if (course) {
       handleCourseSelect(course);
     }
@@ -272,7 +273,7 @@ const LearningPage: React.FC = () => {
               
               <TabsContent value="courses">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {courses.map((course) => {
+                  {coursesWithVideos.map((course) => {
                     const courseProgress = calculateCourseProgress(course.id);
                     const videoCount = getCourseVideoCount(course.id);
                     
@@ -292,7 +293,7 @@ const LearningPage: React.FC = () => {
               
               <TabsContent value="assessment">
                 <CourseAssessmentTab
-                  courses={courses}
+                  courses={coursesWithQuestions}
                   calculateCourseProgress={calculateCourseProgress}
                   userLearningData={userLearningData}
                 />

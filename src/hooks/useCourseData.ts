@@ -9,6 +9,8 @@ export const useCourseData = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [coursesWithVideos, setCoursesWithVideos] = useState<Course[]>([]);
+  const [coursesWithQuestions, setCoursesWithQuestions] = useState<Course[]>([]);
   const [videos, setVideos] = useState<Record<string, CourseVideo[]>>({});
   const [questions, setQuestions] = useState<Record<string, CourseQuestion[]>>({});
   const [userLearningData, setUserLearningData] = useState<UserLearningData | null>(null);
@@ -61,12 +63,18 @@ export const useCourseData = () => {
         }
       }
       
-      // Filter courses to only include those with questions/assignments
+      // Filter courses for different purposes
+      const coursesWithVideos = coursesData.filter(course => 
+        videosData[course.id] && videosData[course.id].length > 0
+      );
+      
       const coursesWithQuestions = coursesData.filter(course => 
         questionsData[course.id] && questionsData[course.id].length > 0
       );
       
-      setCourses(coursesWithQuestions);
+      setCourses(coursesData); // All courses
+      setCoursesWithVideos(coursesWithVideos); // Courses with videos (for courses tab)
+      setCoursesWithQuestions(coursesWithQuestions); // Courses with questions (for assessment tab)
       setVideos(videosData);
       setQuestions(questionsData);
       
@@ -221,7 +229,10 @@ export const useCourseData = () => {
   }, [fetchData]);
 
   return {
-    courses,
+    courses: coursesWithVideos, // Default to courses with videos for backward compatibility
+    coursesWithVideos, // Explicitly available for courses tab
+    coursesWithQuestions, // Explicitly available for assessment tab
+    allCourses: courses, // All courses if needed
     videos,
     questions,
     userLearningData,
