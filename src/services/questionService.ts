@@ -59,7 +59,7 @@ export const questionService = {
       throw error;
     }
 
-    return data;
+    return data as CourseQuestion;
   },
 
   async updateQuestion(questionId: string, updates: Partial<CourseQuestion>): Promise<CourseQuestion> {
@@ -75,7 +75,7 @@ export const questionService = {
       throw error;
     }
 
-    return data;
+    return data as CourseQuestion;
   },
 
   async deleteQuestion(questionId: string): Promise<void> {

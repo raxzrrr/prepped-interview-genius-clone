@@ -34,11 +34,19 @@ export const useCourseManagement = () => {
       setCourses(coursesData);
 
       const videosData: Record<string, CourseVideo[]> = {};
+      const questionsData: Record<string, CourseQuestion[]> = {};
+      
       for (const course of coursesData) {
-        const courseVideos = await courseService.fetchVideosByCourse(course.id);
+        const [courseVideos, courseQuestions] = await Promise.all([
+          courseService.fetchVideosByCourse(course.id),
+          questionService.fetchQuestionsByCourse(course.id)
+        ]);
         videosData[course.id] = courseVideos;
+        questionsData[course.id] = courseQuestions;
       }
+      
       setVideos(videosData);
+      setQuestions(questionsData);
     } catch (error: any) {
       console.error('Error fetching courses:', error);
       toast({
@@ -53,19 +61,15 @@ export const useCourseManagement = () => {
 
   const handleAddCourse = useCallback(async (courseData: { name: string; description: string; order_index: number }) => {
     try {
-      const course: Omit<Course, 'id' | 'created_at' | 'updated_at'> = {
-        name: courseData.name,
-        description: courseData.description,
-        order_index: courseData.order_index,
-        is_active: true,
-        thumbnail_url: null
-      };
-      const newCourse = await courseService.addCourse(course);
-      setCourses(prevCourses => [...prevCourses, newCourse]);
+      const newCourse = await courseService.addCourse({ ...courseData, is_active: true });
+      setCourses(prev => [...prev, newCourse]);
+      setVideos(prev => ({ ...prev, [newCourse.id]: [] }));
+      setQuestions(prev => ({ ...prev, [newCourse.id]: [] }));
       setShowAddCourse(false);
+      
       toast({
-        title: "Course Added",
-        description: "New course has been successfully added.",
+        title: "Success",
+        description: "Course added successfully",
       });
     } catch (error: any) {
       console.error('Error adding course:', error);
@@ -80,13 +84,12 @@ export const useCourseManagement = () => {
   const handleUpdateCourse = useCallback(async (course: Course) => {
     try {
       const updatedCourse = await courseService.updateCourse(course.id, course);
-      setCourses(prevCourses =>
-        prevCourses.map(c => (c.id === course.id ? updatedCourse : c))
-      );
+      setCourses(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
       setEditingCourse(null);
+      
       toast({
-        title: "Course Updated",
-        description: "Course has been successfully updated.",
+        title: "Success",
+        description: "Course updated successfully",
       });
     } catch (error: any) {
       console.error('Error updating course:', error);
@@ -103,36 +106,30 @@ export const useCourseManagement = () => {
     description: string; 
     video_url: string; 
     duration: string; 
-    order_index: number;
-    content_type: string;
-    file_path?: string;
-    file_size?: number;
-    thumbnail_url?: string;
+    order_index: number; 
+    content_type: string; 
+    file_path?: string; 
+    file_size?: number; 
+    thumbnail_url?: string; 
   }) => {
     if (!selectedCourse) return;
+
     try {
-      const video: Omit<CourseVideo, 'id' | 'created_at' | 'updated_at'> = {
+      const newVideo = await courseService.addVideo({
         course_id: selectedCourse.id,
-        title: videoData.title,
-        description: videoData.description,
-        video_url: videoData.video_url,
-        duration: videoData.duration,
-        order_index: videoData.order_index,
-        content_type: videoData.content_type,
-        file_path: videoData.file_path,
-        file_size: videoData.file_size,
-        thumbnail_url: videoData.thumbnail_url,
-        is_active: true
-      };
-      const newVideo = await courseService.addVideo(video);
-      setVideos(prevVideos => ({
-        ...prevVideos,
-        [selectedCourse.id]: [...(prevVideos[selectedCourse.id] || []), newVideo]
+        is_active: true,
+        ...videoData
+      });
+
+      setVideos(prev => ({
+        ...prev,
+        [selectedCourse.id]: [...(prev[selectedCourse.id] || []), newVideo]
       }));
+
       setShowAddVideo(false);
       toast({
-        title: "Video Added",
-        description: "New video has been successfully added.",
+        title: "Success",
+        description: "Video added successfully",
       });
     } catch (error: any) {
       console.error('Error adding video:', error);
@@ -147,19 +144,18 @@ export const useCourseManagement = () => {
   const handleUpdateVideo = useCallback(async (video: CourseVideo) => {
     try {
       const updatedVideo = await courseService.updateVideo(video.id, video);
-      setVideos(prevVideos => {
-        const updatedVideos = { ...prevVideos };
-        if (updatedVideos[video.course_id]) {
-          updatedVideos[video.course_id] = updatedVideos[video.course_id].map(v =>
-            v.id === video.id ? updatedVideo : v
-          );
-        }
-        return updatedVideos;
-      });
+      
+      setVideos(prev => ({
+        ...prev,
+        [video.course_id]: prev[video.course_id]?.map(v => 
+          v.id === video.id ? updatedVideo : v
+        ) || []
+      }));
+      
       setEditingVideo(null);
       toast({
-        title: "Video Updated",
-        description: "Video has been successfully updated.",
+        title: "Success",
+        description: "Video updated successfully",
       });
     } catch (error: any) {
       console.error('Error updating video:', error);
@@ -174,15 +170,21 @@ export const useCourseManagement = () => {
   const handleDeleteCourse = useCallback(async (courseId: string) => {
     try {
       await courseService.deleteCourse(courseId);
-      setCourses(prevCourses => prevCourses.filter(course => course.id !== courseId));
-      setVideos(prevVideos => {
-        const updatedVideos = { ...prevVideos };
-        delete updatedVideos[courseId];
-        return updatedVideos;
+      setCourses(prev => prev.filter(course => course.id !== courseId));
+      setVideos(prev => {
+        const newVideos = { ...prev };
+        delete newVideos[courseId];
+        return newVideos;
       });
+      setQuestions(prev => {
+        const newQuestions = { ...prev };
+        delete newQuestions[courseId];
+        return newQuestions;
+      });
+      
       toast({
-        title: "Course Deleted",
-        description: "Course has been successfully deleted.",
+        title: "Success",
+        description: "Course deleted successfully",
       });
     } catch (error: any) {
       console.error('Error deleting course:', error);
@@ -196,22 +198,16 @@ export const useCourseManagement = () => {
 
   const handleDeleteVideo = useCallback(async (videoId: string, courseId: string) => {
     try {
-      console.log('Deleting video:', videoId, 'from course:', courseId);
-      
       await courseService.deleteVideo(videoId);
       
-      // Update local state by removing the video from the videos array
-      setVideos(prevVideos => {
-        const updatedVideos = { ...prevVideos };
-        if (updatedVideos[courseId]) {
-          updatedVideos[courseId] = updatedVideos[courseId].filter(video => video.id !== videoId);
-        }
-        return updatedVideos;
-      });
+      setVideos(prev => ({
+        ...prev,
+        [courseId]: prev[courseId]?.filter(video => video.id !== videoId) || []
+      }));
       
       toast({
-        title: "Video Deleted",
-        description: "Video has been successfully deleted from the database and storage.",
+        title: "Success",
+        description: "Video deleted successfully",
       });
     } catch (error: any) {
       console.error('Error deleting video:', error);
@@ -223,12 +219,99 @@ export const useCourseManagement = () => {
     }
   }, [toast]);
 
+  const handleAddQuestion = useCallback(async (questionData: {
+    question_text: string;
+    difficulty_level: 'easy' | 'intermediate' | 'hard';
+    option_1: string;
+    option_2: string;
+    option_3: string;
+    option_4: string;
+    correct_answer: number;
+    explanation?: string;
+    order_index: number;
+  }) => {
+    if (!selectedCourse) return;
+
+    try {
+      const newQuestion = await questionService.addQuestion({
+        course_id: selectedCourse.id,
+        ...questionData
+      });
+
+      setQuestions(prev => ({
+        ...prev,
+        [selectedCourse.id]: [...(prev[selectedCourse.id] || []), newQuestion]
+      }));
+
+      setShowAddQuestion(false);
+      toast({
+        title: "Success",
+        description: "Question added successfully",
+      });
+    } catch (error: any) {
+      console.error('Error adding question:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add question. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [selectedCourse, toast]);
+
+  const handleUpdateQuestion = useCallback(async (question: CourseQuestion) => {
+    try {
+      const updatedQuestion = await questionService.updateQuestion(question.id, question);
+      
+      setQuestions(prev => ({
+        ...prev,
+        [question.course_id]: prev[question.course_id]?.map(q => 
+          q.id === question.id ? updatedQuestion : q
+        ) || []
+      }));
+      
+      setEditingQuestion(null);
+      toast({
+        title: "Success",
+        description: "Question updated successfully",
+      });
+    } catch (error: any) {
+      console.error('Error updating question:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update question. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
+  const handleDeleteQuestion = useCallback(async (questionId: string, courseId: string) => {
+    try {
+      await questionService.deleteQuestion(questionId);
+      
+      setQuestions(prev => ({
+        ...prev,
+        [courseId]: prev[courseId]?.filter(question => question.id !== questionId) || []
+      }));
+      
+      toast({
+        title: "Success",
+        description: "Question deleted successfully",
+      });
+    } catch (error: any) {
+      console.error('Error deleting question:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete question. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
-    // Only fetch data if we have admin access or are still loading auth
-    if (hasAdminAccess || authLoading) {
+    if (hasAdminAccess && !authLoading) {
       fetchData();
     }
-  }, [fetchData, hasAdminAccess, authLoading]);
+  }, [hasAdminAccess, authLoading, fetchData]);
 
   return {
     // State

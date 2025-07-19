@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Video, Edit, Trash2, Save, X } from 'lucide-react';
 import { Course, CourseVideo } from '@/services/courseService';
+import { CourseQuestion } from '@/services/questionService';
 import VideoListItem from './VideoListItem';
+import QuestionListItem from './QuestionListItem';
 
 interface CourseCardProps {
   course: Course;
