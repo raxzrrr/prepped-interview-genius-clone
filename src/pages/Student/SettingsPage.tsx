@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ApiKeySettings from '@/components/Settings/ApiKeySettings';
+
 import BillingSection from '@/components/Settings/BillingSection';
 import { User, Key, Bell, Shield, CreditCard } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -84,14 +84,10 @@ const SettingsPage: React.FC = () => {
         </div>
         
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" className="flex items-center">
               <User className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Profile</span>
-            </TabsTrigger>
-            <TabsTrigger value="api" className="flex items-center">
-              <Key className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">API Keys</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center">
               <Bell className="w-4 h-4 mr-2" />
@@ -136,9 +132,6 @@ const SettingsPage: React.FC = () => {
             </Card>
           </TabsContent>
           
-          <TabsContent value="api">
-            <ApiKeySettings />
-          </TabsContent>
           
           <TabsContent value="notifications">
             <Card>

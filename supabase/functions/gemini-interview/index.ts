@@ -18,39 +18,17 @@ serve(async (req) => {
     const requestData = await req.json()
     console.log('Request data:', requestData)
     
-    const { type, prompt, userId } = requestData
+    const { type, prompt } = requestData
     
-    if (!userId) {
-      console.error('No userId provided in request')
-      throw new Error('User ID is required')
-    }
+    // Get API key from environment variables
+    const apiKey = Deno.env.get('GEMINI_API_KEY')
     
-    console.log('Processing request for user:', userId)
-
-    // Create Supabase client with service role key for admin access
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Get the user's API key from their profile using the provided userId
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('gemini_api_key')
-      .eq('id', userId)
-      .single()
-
-    console.log('Profile lookup result:', { profile: !!profile, error: profileError })
-
-    if (profileError || !profile?.gemini_api_key) {
-      console.error('Gemini API key not found in user profile:', profileError)
-      throw new Error('Gemini API key not found in user profile. Please set up your API key in Settings.')
+    if (!apiKey) {
+      console.error('GEMINI_API_KEY not found in environment variables')
+      throw new Error('Gemini API key not configured. Please contact administrator.')
     }
 
     console.log('Request type:', type)
-
-    // Use the user's API key
-    const apiKey = profile.gemini_api_key
     
     let response: Response
     
