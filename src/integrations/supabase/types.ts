@@ -278,8 +278,6 @@ export type Database = {
           email: string | null
           email_verified: boolean | null
           full_name: string
-          gemini_api_key: string | null
-          google_tts_api_key: string | null
           id: string
           last_active: string | null
           password_hash: string | null
@@ -294,8 +292,6 @@ export type Database = {
           email?: string | null
           email_verified?: boolean | null
           full_name: string
-          gemini_api_key?: string | null
-          google_tts_api_key?: string | null
           id: string
           last_active?: string | null
           password_hash?: string | null
@@ -310,8 +306,6 @@ export type Database = {
           email?: string | null
           email_verified?: boolean | null
           full_name?: string
-          gemini_api_key?: string | null
-          google_tts_api_key?: string | null
           id?: string
           last_active?: string | null
           password_hash?: string | null
