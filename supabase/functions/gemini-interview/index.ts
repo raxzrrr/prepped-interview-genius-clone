@@ -33,9 +33,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
     const { data: adminData, error: adminError } = await supabase
-      .from('profiles')
+      .from('admin_credentials')
       .select('gemini_api_key')
-      .eq('role', 'admin')
       .single()
     
     if (adminError || !adminData?.gemini_api_key) {

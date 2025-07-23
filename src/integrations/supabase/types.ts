@@ -16,21 +16,30 @@ export type Database = {
     Tables: {
       admin_credentials: {
         Row: {
+          clerk_publishable_key: string | null
           created_at: string
+          gemini_api_key: string | null
+          google_tts_api_key: string | null
           id: string
           password_hash: string
           updated_at: string
           username: string
         }
         Insert: {
+          clerk_publishable_key?: string | null
           created_at?: string
+          gemini_api_key?: string | null
+          google_tts_api_key?: string | null
           id?: string
           password_hash: string
           updated_at?: string
           username: string
         }
         Update: {
+          clerk_publishable_key?: string | null
           created_at?: string
+          gemini_api_key?: string | null
+          google_tts_api_key?: string | null
           id?: string
           password_hash?: string
           updated_at?: string

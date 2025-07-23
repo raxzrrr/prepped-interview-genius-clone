@@ -32,9 +32,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
     const { data: adminData, error: adminError } = await supabase
-      .from('profiles')
+      .from('admin_credentials')
       .select('google_tts_api_key')
-      .eq('role', 'admin')
       .single()
     
     if (adminError || !adminData?.google_tts_api_key) {
