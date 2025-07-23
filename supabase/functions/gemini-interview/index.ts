@@ -139,16 +139,25 @@ async function generateInterviewQuestions(jobRole: string, apiKey: string) {
   console.log('Generated content:', content)
 
   try {
+    // Clean the content - remove markdown code blocks if present
+    let cleanContent = content.trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\s*/, '').replace(/```\s*$/, '');
+    }
+    
     // Try to parse as JSON object with questions and expected answers
-    const data = JSON.parse(content)
+    const data = JSON.parse(cleanContent);
     if (data.questions && data.expectedAnswers && Array.isArray(data.questions) && Array.isArray(data.expectedAnswers)) {
+      console.log('Successfully parsed professional questions and answers');
       return new Response(JSON.stringify(data), {
         headers: { 'Content-Type': 'application/json' }
       })
     }
-    throw new Error('Invalid JSON format')
-  } catch {
-    console.log('Fallback: generating standard questions')
+    throw new Error('Invalid JSON format - missing questions or expectedAnswers arrays')
+  } catch (parseError) {
+    console.log('JSON parsing failed, using fallback questions:', parseError)
     
     // Professional fallback questions with expected answers
     const fallbackData = {
