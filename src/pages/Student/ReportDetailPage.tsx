@@ -1,59 +1,90 @@
-
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/contexts/ClerkAuthContext';
+import { ArrowLeft, Download } from 'lucide-react';
+import { useInterviewReports } from '@/hooks/useInterviewReports';
+import InterviewReport from '@/components/Dashboard/InterviewReport';
+import { useToast } from '@/components/ui/use-toast';
+import { downloadCertificate } from '@/services/certificateService';
 
 const ReportDetailPage: React.FC = () => {
-  const { user, isStudent } = useAuth();
+  const { reportId } = useParams<{ reportId: string }>();
+  const navigate = useNavigate();
+  const { getReportById } = useInterviewReports();
+  const { toast } = useToast();
 
-  // Redirect if not logged in or not a student
-  if (!user || !isStudent()) {
-    return <Navigate to="/login" />;
+  const report = reportId ? getReportById(reportId) : null;
+
+  const handleDownloadPDF = async () => {
+    if (!report) return;
+    
+    try {
+      const reportData = {
+        userName: 'Interview Candidate',
+        certificateTitle: `Interview Report - ${report.overallGrade}`,
+        completionDate: new Date(report.timestamp).toLocaleDateString(),
+        score: report.overallScore || 0,
+        verificationCode: report.id.slice(-8).toUpperCase()
+      };
+
+      await downloadCertificate(reportData);
+      
+      toast({
+        title: "Report Downloaded",
+        description: "Your interview report has been downloaded as PDF.",
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (!report) {
+    return (
+      <DashboardLayout>
+        <div className="text-center py-12">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Report Not Found</h1>
+          <p className="text-gray-600 mb-6">The requested interview report could not be found.</p>
+          <Button onClick={() => navigate('/reports')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Reports
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => window.history.back()}
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/reports')}
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Go Back
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Reports
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Interview Reports</h1>
-            <p className="mt-2 text-gray-600">
-              Reports are available after completing interviews
-            </p>
-          </div>
+          <Button onClick={handleDownloadPDF}>
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
+          </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="mr-2 h-5 w-5" />
-              Report Not Available
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center py-8">
-            <div className="max-w-md mx-auto">
-              <p className="text-gray-600 mb-6">
-                Interview reports are generated after completing an interview session. 
-                Reports are provided as downloadable PDFs and are not stored permanently.
-              </p>
-              <Button onClick={() => window.location.href = '/custom-interviews'}>
-                Start New Interview
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Report Content */}
+        <InterviewReport
+          questions={report.questions}
+          answers={report.answers}
+          evaluations={report.evaluations}
+          facialAnalysis={[]}
+          resumeAnalysis={report.reportData?.resumeAnalysis}
+          onDone={() => navigate('/reports')}
+        />
       </div>
     </DashboardLayout>
   );

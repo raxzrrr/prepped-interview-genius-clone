@@ -123,9 +123,9 @@ const Dashboard: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <CardTitle className="text-lg mb-2">Progress Reports</CardTitle>
+              <CardTitle className="text-lg mb-2">Interview Reports</CardTitle>
               <CardDescription>
-                Track your interview performance and growth
+                View detailed reports and track your progress
               </CardDescription>
             </CardContent>
           </Card>
