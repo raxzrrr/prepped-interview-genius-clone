@@ -45,59 +45,50 @@ const LoginPage: React.FC = () => {
   
   return (
     <MainLayout>
-      <div className="py-16 bg-gradient-to-b from-gray-50 to-white min-h-screen flex items-center justify-center">
+      <div className="py-16 bg-gray-50">
         <div className="container px-4 mx-auto">
           <div className="max-w-md mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-              <p className="text-gray-600">
-                Sign in to continue your interview preparation
-              </p>
-            </div>
+            <h1 className="text-3xl font-bold mb-6 text-center">Sign In</h1>
+            <p className="text-gray-600 mb-8 text-center">
+              Welcome back! Sign in to your account to continue
+            </p>
             
-            <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader className="text-center pb-6">
-                <CardTitle className="text-xl font-bold text-gray-900">Sign In</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Access your account and continue learning
+            <Card>
+              <CardHeader>
+                <CardTitle>Sign In Options</CardTitle>
+                <CardDescription>
+                  Sign in with Google using Clerk or use admin access
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-8 pb-8">
-                <div className="clerk-signin-wrapper">
+              <CardContent className="space-y-6">
+                <div>
+                  <p className="text-sm text-gray-600 text-center mb-4">
+                    Sign in with Google or create a new account using Clerk
+                  </p>
                   <SignIn 
                     signUpUrl="/register"
-                    redirectUrl="/dashboard"
+                    afterSignInUrl="/dashboard"
                     appearance={{
                       elements: {
-                        formButtonPrimary: 
-                          "bg-brand-purple hover:bg-brand-lightPurple text-white border-0 rounded-lg font-medium transition-colors",
-                        card: "shadow-none border-0 bg-transparent",
+                        rootBox: "mx-auto w-full",
+                        card: "shadow-none border-0 p-0",
                         headerTitle: "text-xl font-bold text-gray-900",
-                        headerSubtitle: "text-gray-600",
-                        socialButtonsBlockButton: 
-                          "border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors",
-                        socialButtonsBlockButtonText: "font-medium",
-                        formFieldInput: 
-                          "border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-purple/50 focus:border-brand-purple",
-                        formFieldLabel: "text-gray-700 font-medium",
-                        dividerLine: "bg-gray-200",
-                        dividerText: "text-gray-500",
-                        footer: "hidden",
-                        identityPreviewText: "text-gray-600",
-                        identityPreviewEditButton: "text-brand-purple hover:text-brand-lightPurple"
-                      },
-                      layout: {
-                        socialButtonsPlacement: "top"
+                        headerSubtitle: "text-gray-600 text-sm",
+                        formButtonPrimary: "bg-brand-purple hover:bg-brand-purple-dark text-white",
+                        footerAction: "text-brand-purple hover:text-brand-purple-dark",
+                        formField: "mb-4",
+                        formFieldInput: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent",
+                        formFieldLabel: "text-gray-700 block mb-1",
                       }
                     }}
                   />
                 </div>
                 
-                <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="border-t pt-4">
                   <Button 
                     variant="outline" 
                     onClick={() => setShowAdminLogin(true)}
-                    className="w-full text-gray-600 border-gray-300 hover:bg-gray-50"
+                    className="w-full text-sm"
                   >
                     Admin Access
                   </Button>

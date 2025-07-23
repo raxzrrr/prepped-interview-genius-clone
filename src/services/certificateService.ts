@@ -1,7 +1,7 @@
 
 import jsPDF from 'jspdf';
 
-export interface CertificateData {
+interface CertificateData {
   userName: string;
   certificateTitle: string;
   completionDate: string;

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,9 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, XCircle, Download, Home, RotateCcw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { downloadCertificate } from '@/services/certificateService';
-import { useInterviewReports } from '@/hooks/useInterviewReports';
-import { generateAndStorePDF, ReportPDFData } from '@/services/pdfReportService';
-import { useAuth } from '@/contexts/ClerkAuthContext';
 
 interface InterviewReportProps {
   questions: string[];
@@ -19,9 +16,6 @@ interface InterviewReportProps {
   facialAnalysis?: any[];
   resumeAnalysis?: any;
   onDone: () => void;
-  onComplete?: () => void;
-  interviewType?: string;
-  jobRole?: string;
 }
 
 const InterviewReport: React.FC<InterviewReportProps> = ({
@@ -30,75 +24,16 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   evaluations,
   facialAnalysis = [],
   resumeAnalysis,
-  onDone,
-  onComplete,
-  interviewType = 'custom',
-  jobRole
+  onDone
 }) => {
   const { toast } = useToast();
-  const { saveReport } = useInterviewReports();
-  const { getSupabaseUserId } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Calculate overall performance - handle both old and new evaluation formats
-  const batchEvaluation = evaluations[0];
-  const isBatchEvaluation = batchEvaluation && batchEvaluation.overallScore !== undefined;
-  
-  const averageScore = isBatchEvaluation 
-    ? batchEvaluation.overallScore / 100  // Convert percentage to 0-1 scale
-    : evaluations.filter(evaluation => evaluation && evaluation.score_breakdown).length > 0 
-      ? evaluations.filter(evaluation => evaluation && evaluation.score_breakdown)
-          .reduce((sum, evaluation) => sum + (evaluation.score_breakdown.overall || 0), 0) / 
-          evaluations.filter(evaluation => evaluation && evaluation.score_breakdown).length
-      : 0;
-
-  // Auto-save report when component mounts with interview data
-  useEffect(() => {
-    if (questions.length > 0 && answers.length > 0 && evaluations.length > 0) {
-      const autoSaveReport = async () => {
-        try {
-          const reportData = {
-            questions,
-            answers,
-            evaluations,
-            overallScore: Math.round(averageScore * 10),
-            overallGrade: averageScore >= 8 ? 'A' : averageScore >= 6 ? 'B' : averageScore >= 4 ? 'C' : 'D',
-            recommendation: averageScore >= 8 ? 'HIRE' : averageScore >= 6 ? 'MAYBE' : 'NO HIRE',
-            reportData: { facialAnalysis, resumeAnalysis },
-            interviewType,
-            jobRole
-          };
-          
-          const reportId = await saveReport(reportData);
-          
-          // Generate and store PDF if report was saved successfully
-          if (reportId) {
-            const userId = getSupabaseUserId();
-            if (userId) {
-              const pdfReportData: ReportPDFData = {
-                reportId,
-                userName: 'Interview Candidate',
-                interviewType: interviewType || 'Custom Interview',
-                jobRole,
-                overallScore: Math.round(averageScore * 10),
-                overallGrade: reportData.overallGrade,
-                timestamp: new Date().toISOString(),
-                questions,
-                answers,
-                evaluations
-              };
-              
-              await generateAndStorePDF(pdfReportData, userId);
-            }
-          }
-        } catch (error) {
-          console.error('Error auto-saving report:', error);
-        }
-      };
-
-      autoSaveReport();
-    }
-  }, [questions, answers, evaluations, facialAnalysis, resumeAnalysis, interviewType, jobRole, saveReport, averageScore, getSupabaseUserId]);
+  // Calculate overall performance
+  const validEvaluations = evaluations.filter(evaluation => evaluation && evaluation.score_breakdown);
+  const averageScore = validEvaluations.length > 0 
+    ? validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown.overall || 0), 0) / validEvaluations.length
+    : 0;
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-green-600';
@@ -165,53 +100,55 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          {isBatchEvaluation ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center space-y-2">
-                    <div className={`text-3xl font-bold ${batchEvaluation.overallScore >= 80 ? 'text-green-600' : batchEvaluation.overallScore >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {batchEvaluation.overallGrade}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {validEvaluations.length > 0 && (
+              <>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.clarity || 0), 0) / validEvaluations.length).toFixed(1)}
+                      </div>
+                      <p className="text-sm text-gray-600">Clarity</p>
                     </div>
-                    <p className="text-sm text-gray-600">Overall Grade</p>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center space-y-2">
-                    <div className={`text-2xl font-bold ${batchEvaluation.recommendation === 'HIRE' ? 'text-green-600' : batchEvaluation.recommendation === 'MAYBE' ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {batchEvaluation.recommendation}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-green-600">
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.relevance || 0), 0) / validEvaluations.length).toFixed(1)}
+                      </div>
+                      <p className="text-sm text-gray-600">Relevance</p>
                     </div>
-                    <p className="text-sm text-gray-600">Recommendation</p>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center space-y-2">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {batchEvaluation.questionEvaluations?.filter(q => q.result === 'PASS').length || 0}/{questions.length}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.depth || 0), 0) / validEvaluations.length).toFixed(1)}
+                      </div>
+                      <p className="text-sm text-gray-600">Depth</p>
                     </div>
-                    <p className="text-sm text-gray-600">Questions Passed</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center space-y-2">
-                    <div className="text-2xl font-bold text-gray-500">N/A</div>
-                    <p className="text-sm text-gray-600">Individual Scoring</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {(validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score_breakdown?.examples || 0), 0) / validEvaluations.length).toFixed(1)}
+                      </div>
+                      <p className="text-sm text-gray-600">Examples</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
 
           <Card>
             <CardHeader>
@@ -236,11 +173,11 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                   <div>
                     <h4 className="font-medium text-green-700 mb-2">Strengths</h4>
                     <ul className="space-y-1 text-sm">
-                      {isBatchEvaluation && batchEvaluation.strengths ? (
-                        batchEvaluation.strengths.map((strength, index) => (
+                      {validEvaluations.length > 0 ? (
+                        validEvaluations.slice(0, 3).map((evaluation, index) => (
                           <li key={index} className="flex items-start space-x-2">
                             <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                            <span>{strength}</span>
+                            <span>Good response structure and clarity</span>
                           </li>
                         ))
                       ) : (
@@ -250,13 +187,13 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                   </div>
                   
                   <div>
-                    <h4 className="font-medium text-red-700 mb-2">Critical Weaknesses</h4>
+                    <h4 className="font-medium text-red-700 mb-2">Areas for Improvement</h4>
                     <ul className="space-y-1 text-sm">
-                      {isBatchEvaluation && batchEvaluation.criticalWeaknesses ? (
-                        batchEvaluation.criticalWeaknesses.map((weakness, index) => (
+                      {validEvaluations.length > 0 ? (
+                        validEvaluations.slice(0, 3).map((evaluation, index) => (
                           <li key={index} className="flex items-start space-x-2">
                             <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                            <span>{weakness}</span>
+                            <span>Add more specific examples</span>
                           </li>
                         ))
                       ) : (
@@ -272,25 +209,14 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
 
         <TabsContent value="detailed" className="space-y-4">
           {questions.map((question, index) => {
+            const evaluation = evaluations[index];
             const answer = answers[index] || 'No answer provided';
-            const questionEval = isBatchEvaluation 
-              ? batchEvaluation.questionEvaluations?.find(q => q.questionNumber === index + 1)
-              : evaluations[index];
             
             return (
               <Card key={index}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg">Question {index + 1}</CardTitle>
-                      <CardDescription>{question}</CardDescription>
-                    </div>
-                    {questionEval && questionEval.result && (
-                      <Badge className={questionEval.result === 'PASS' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                        {questionEval.result}
-                      </Badge>
-                    )}
-                  </div>
+                  <CardTitle className="text-lg">Question {index + 1}</CardTitle>
+                  <CardDescription>{question}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -300,37 +226,39 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                     </p>
                   </div>
                   
-                  {questionEval && questionEval.expectedAnswer && (
-                    <div>
-                      <h4 className="font-medium mb-2">Expected Answer:</h4>
-                      <p className="text-sm text-blue-700 bg-blue-50 p-3 rounded">
-                        {questionEval.expectedAnswer}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {questionEval && (questionEval.score || questionEval.feedback) && (
+                  {evaluation && evaluation.score_breakdown && (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Professional Evaluation:</h4>
-                        {questionEval.score && (
-                          <div className={`text-lg font-bold ${getScoreColor(questionEval.score)}`}>
-                            {questionEval.score}/10
+                      <h4 className="font-medium">AI Evaluation:</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="text-center">
+                          <div className={`text-lg font-bold ${getScoreColor(evaluation.score_breakdown.clarity || 0)}`}>
+                            {evaluation.score_breakdown.clarity || 0}/10
                           </div>
-                        )}
+                          <p className="text-xs text-gray-500">Clarity</p>
+                        </div>
+                        <div className="text-center">
+                          <div className={`text-lg font-bold ${getScoreColor(evaluation.score_breakdown.relevance || 0)}`}>
+                            {evaluation.score_breakdown.relevance || 0}/10
+                          </div>
+                          <p className="text-xs text-gray-500">Relevance</p>
+                        </div>
+                        <div className="text-center">
+                          <div className={`text-lg font-bold ${getScoreColor(evaluation.score_breakdown.depth || 0)}`}>
+                            {evaluation.score_breakdown.depth || 0}/10
+                          </div>
+                          <p className="text-xs text-gray-500">Depth</p>
+                        </div>
+                        <div className="text-center">
+                          <div className={`text-lg font-bold ${getScoreColor(evaluation.score_breakdown.examples || 0)}`}>
+                            {evaluation.score_breakdown.examples || 0}/10
+                          </div>
+                          <p className="text-xs text-gray-500">Examples</p>
+                        </div>
                       </div>
                       
-                      {questionEval.feedback && (
-                        <div className={`p-3 rounded ${questionEval.result === 'FAIL' ? 'bg-red-50 border border-red-200' : 'bg-blue-50'}`}>
-                          <p className="text-sm font-medium mb-1">Feedback:</p>
-                          <p className="text-sm">{questionEval.feedback}</p>
-                        </div>
-                      )}
-                      
-                      {questionEval.improvements && (
-                        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded">
-                          <p className="text-sm font-medium mb-1">How to Improve:</p>
-                          <p className="text-sm">{questionEval.improvements}</p>
+                      {evaluation.feedback && (
+                        <div className="bg-blue-50 p-3 rounded">
+                          <p className="text-sm">{evaluation.feedback}</p>
                         </div>
                       )}
                     </div>
@@ -342,62 +270,54 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         </TabsContent>
 
         <TabsContent value="recommendations" className="space-y-4">
-          {isBatchEvaluation && (
-            <>
-              <Card className="border-red-200 bg-red-50">
-                <CardHeader>
-                  <CardTitle className="text-red-700">Industry Comparison</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-red-700">{batchEvaluation.industryComparison}</p>
-                </CardContent>
-              </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Personalized Recommendations</CardTitle>
+              <CardDescription>
+                Based on your performance and resume analysis
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium text-green-700 mb-3">Keep Doing</h4>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-start space-x-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span>Your communication style is clear and professional</span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span>Good job structuring your responses</span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span>You demonstrate good understanding of concepts</span>
+                    </li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium text-blue-700 mb-3">Areas to Focus On</h4>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-start space-x-2">
+                      <div className="h-4 w-4 bg-blue-500 rounded-full flex-shrink-0 mt-0.5"></div>
+                      <span>Include more specific examples from your experience</span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <div className="h-4 w-4 bg-blue-500 rounded-full flex-shrink-0 mt-0.5"></div>
+                      <span>Quantify your achievements when possible</span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <div className="h-4 w-4 bg-blue-500 rounded-full flex-shrink-0 mt-0.5"></div>
+                      <span>Practice the STAR method for behavioral questions</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
               
-              <Card>
-                <CardHeader>
-                  <CardTitle>Action Plan</CardTitle>
-                  <CardDescription>Specific steps to improve your interview performance</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-700 mb-4">{batchEvaluation.actionPlan}</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-medium text-green-700 mb-3">Your Strengths</h4>
-                      <ul className="space-y-2 text-sm">
-                        {batchEvaluation.strengths?.map((strength, index) => (
-                          <li key={index} className="flex items-start space-x-2">
-                            <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                            <span>{strength}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-red-700 mb-3">Critical Areas to Fix</h4>
-                      <ul className="space-y-2 text-sm">
-                        {batchEvaluation.criticalWeaknesses?.map((weakness, index) => (
-                          <li key={index} className="flex items-start space-x-2">
-                            <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                            <span>{weakness}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-          
-          {resumeAnalysis && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Resume-Based Recommendations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 bg-purple-50 rounded-lg">
+              {resumeAnalysis && (
+                <div className="mt-6 p-4 bg-purple-50 rounded-lg">
                   <h4 className="font-medium text-purple-700 mb-2">Based on Your Resume</h4>
                   <p className="text-sm text-purple-600">
                     Your background in <strong>{resumeAnalysis.suggested_role}</strong> is strong. 
@@ -405,9 +325,9 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                     in future interviews.
                   </p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

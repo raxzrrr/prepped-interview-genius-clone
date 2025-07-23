@@ -91,17 +91,17 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       const generationPrompt = `${suggestedRole} with skills in ${skills}`;
       
       console.log("Generating interview questions with prompt:", generationPrompt);
-      const questionData = await generateInterviewQuestions(generationPrompt);
+      const questions = await generateInterviewQuestions(generationPrompt);
       
-      if (!questionData || !questionData.questions || questionData.questions.length === 0) {
+      if (!questions || questions.length === 0) {
         throw new Error('Failed to generate interview questions');
       }
       
-      console.log("Generated questions:", questionData.questions);
+      console.log("Generated questions:", questions);
 
       setProgress('Complete!');
       setSuccess(true);
-      onAnalysisComplete?.(questionData.questions);
+      onAnalysisComplete?.(questions.map(q => q.question));
       
       toast({
         title: "Resume Analysis Complete",
