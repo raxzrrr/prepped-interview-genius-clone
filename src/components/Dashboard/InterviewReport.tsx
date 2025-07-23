@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, XCircle, Download, Home, RotateCcw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { downloadCertificate } from '@/services/certificateService';
+import { useInterviewReports } from '@/hooks/useInterviewReports';
 
 interface InterviewReportProps {
   questions: string[];
@@ -16,6 +17,9 @@ interface InterviewReportProps {
   facialAnalysis?: any[];
   resumeAnalysis?: any;
   onDone: () => void;
+  onComplete?: () => void;
+  interviewType?: string;
+  jobRole?: string;
 }
 
 const InterviewReport: React.FC<InterviewReportProps> = ({
@@ -24,9 +28,13 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   evaluations,
   facialAnalysis = [],
   resumeAnalysis,
-  onDone
+  onDone,
+  onComplete,
+  interviewType = 'custom',
+  jobRole
 }) => {
   const { toast } = useToast();
+  const { saveReport } = useInterviewReports();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Calculate overall performance - handle both old and new evaluation formats
@@ -40,6 +48,33 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
           .reduce((sum, evaluation) => sum + (evaluation.score_breakdown.overall || 0), 0) / 
           evaluations.filter(evaluation => evaluation && evaluation.score_breakdown).length
       : 0;
+
+  // Auto-save report when component mounts with interview data
+  useEffect(() => {
+    if (questions.length > 0 && answers.length > 0 && evaluations.length > 0) {
+      const autoSaveReport = async () => {
+        try {
+          const reportData = {
+            questions,
+            answers,
+            evaluations,
+            overallScore: Math.round(averageScore * 10),
+            overallGrade: averageScore >= 8 ? 'A' : averageScore >= 6 ? 'B' : averageScore >= 4 ? 'C' : 'D',
+            recommendation: averageScore >= 8 ? 'HIRE' : averageScore >= 6 ? 'MAYBE' : 'NO HIRE',
+            reportData: { facialAnalysis, resumeAnalysis },
+            interviewType,
+            jobRole
+          };
+          
+          await saveReport(reportData);
+        } catch (error) {
+          console.error('Error auto-saving report:', error);
+        }
+      };
+
+      autoSaveReport();
+    }
+  }, [questions, answers, evaluations, facialAnalysis, resumeAnalysis, interviewType, jobRole, saveReport, averageScore]);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-green-600';

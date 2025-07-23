@@ -90,33 +90,6 @@ const CustomInterviewsPage: React.FC = () => {
   }) => {
     console.log('Interview completed with data:', data);
     
-    // Save report to localStorage for reports page
-    try {
-      const reportData = {
-        questions: data.questions,
-        answers: data.answers,
-        evaluations: data.evaluations,
-        overallScore: data.evaluations[0]?.overallScore || 0,
-        overallGrade: data.evaluations[0]?.overallGrade || 'N/A',
-        recommendation: data.evaluations[0]?.recommendation || 'NO HIRE',
-        reportData: { resumeAnalysis }
-      };
-      
-      // Use localStorage directly since hook may not be available here
-      const userId = 'current_user'; // You can get this from auth context
-      const existingReports = JSON.parse(localStorage.getItem(`interview_reports_${userId}`) || '[]');
-      const newReport = {
-        id: `report_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        ...reportData
-      };
-      
-      const updatedReports = [newReport, ...existingReports];
-      localStorage.setItem(`interview_reports_${userId}`, JSON.stringify(updatedReports));
-    } catch (error) {
-      console.error('Error saving report:', error);
-    }
-    
     setQuestions(data.questions);
     setAnswers(data.answers);
     setEvaluations(data.evaluations || []);
@@ -157,6 +130,7 @@ const CustomInterviewsPage: React.FC = () => {
           facialAnalysis={facialAnalysis}
           resumeAnalysis={resumeAnalysis}
           onDone={resetInterview}
+          interviewType="custom"
         />
       </DashboardLayout>
     );

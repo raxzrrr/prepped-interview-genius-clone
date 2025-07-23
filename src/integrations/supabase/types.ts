@@ -229,6 +229,62 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_reports: {
+        Row: {
+          answers: Json
+          created_at: string
+          evaluations: Json
+          id: string
+          interview_type: string
+          job_role: string | null
+          overall_grade: string
+          overall_score: number
+          questions: Json
+          recommendation: string
+          report_data: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          evaluations?: Json
+          id?: string
+          interview_type?: string
+          job_role?: string | null
+          overall_grade?: string
+          overall_score?: number
+          questions?: Json
+          recommendation?: string
+          report_data?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          evaluations?: Json
+          id?: string
+          interview_type?: string
+          job_role?: string | null
+          overall_grade?: string
+          overall_score?: number
+          questions?: Json
+          recommendation?: string
+          report_data?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_interview_reports_user_id"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -283,13 +339,10 @@ export type Database = {
         Row: {
           auth_provider: string | null
           avatar_url: string | null
-          clerk_publishable_key: string | null
           created_at: string
           email: string | null
           email_verified: boolean | null
           full_name: string
-          gemini_api_key: string | null
-          google_tts_api_key: string | null
           id: string
           last_active: string | null
           password_hash: string | null
@@ -300,13 +353,10 @@ export type Database = {
         Insert: {
           auth_provider?: string | null
           avatar_url?: string | null
-          clerk_publishable_key?: string | null
           created_at?: string
           email?: string | null
           email_verified?: boolean | null
           full_name: string
-          gemini_api_key?: string | null
-          google_tts_api_key?: string | null
           id: string
           last_active?: string | null
           password_hash?: string | null
@@ -317,13 +367,10 @@ export type Database = {
         Update: {
           auth_provider?: string | null
           avatar_url?: string | null
-          clerk_publishable_key?: string | null
           created_at?: string
           email?: string | null
           email_verified?: boolean | null
           full_name?: string
-          gemini_api_key?: string | null
-          google_tts_api_key?: string | null
           id?: string
           last_active?: string | null
           password_hash?: string | null

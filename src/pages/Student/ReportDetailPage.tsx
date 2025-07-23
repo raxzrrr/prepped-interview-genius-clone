@@ -82,6 +82,8 @@ const ReportDetailPage: React.FC = () => {
           answers={report.answers}
           evaluations={report.evaluations}
           facialAnalysis={[]}
+          interviewType={report.interviewType}
+          jobRole={report.jobRole}
           resumeAnalysis={report.reportData?.resumeAnalysis}
           onDone={() => navigate('/reports')}
         />
