@@ -36,11 +36,12 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
+  const [expectedAnswers, setExpectedAnswers] = useState<string[]>([]);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   
   const { toast } = useToast();
-  const { generateInterviewQuestions, evaluateAnswer } = useInterviewApi();
+  const { generateInterviewQuestions, evaluateInterviewSession } = useInterviewApi();
 
   useEffect(() => {
     if (initialQuestions.length > 0) {
@@ -54,16 +55,14 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     setIsGeneratingQuestions(true);
     try {
       const role = resumeAnalysis?.suggested_role || 'Software Developer';
-      const generatedQuestions = await generateInterviewQuestions(role);
+      const questionData = await generateInterviewQuestions(role);
       
-      if (generatedQuestions && generatedQuestions.length > 0) {
-        const questions = generatedQuestions.map(q => 
-          typeof q === 'string' ? q : q.question
-        );
-        setInterviewQuestions(questions);
+      if (questionData && questionData.questions && questionData.expectedAnswers) {
+        setInterviewQuestions(questionData.questions);
+        setExpectedAnswers(questionData.expectedAnswers);
         toast({
-          title: "Questions Generated",
-          description: `Generated ${questions.length} interview questions`,
+          title: "Professional Questions Generated",
+          description: `Generated ${questionData.questions.length} industry-standard interview questions`,
         });
       }
     } catch (error) {
@@ -74,14 +73,35 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
         variant: "destructive"
       });
       
-      // Fallback questions
-      setInterviewQuestions([
-        "Tell me about yourself and your background.",
-        "What are your greatest strengths?",
-        "Describe a challenging project you worked on.",
-        "Where do you see yourself in 5 years?",
-        "Why are you interested in this role?"
-      ]);
+      // Professional fallback questions
+      const fallbackQuestions = [
+        "Describe a time you had to debug a complex technical issue in a large codebase. Walk me through your process.",
+        "Tell me about a project where you had to collaborate with difficult stakeholders. How did you handle conflicts?",
+        "Explain how you would design a scalable system to handle 1 million users.",
+        "Describe a situation where you had to learn a new technology quickly for a project.",
+        "Walk me through how you would optimize the performance of a slow-loading web application.",
+        "Tell me about a time you made a significant mistake in your work. How did you handle it?",
+        "How do you stay current with new technologies and industry trends in your field?",
+        "Describe your experience with code reviews. How do you give and receive feedback effectively?",
+        "Explain a complex technical concept to me as if I were a non-technical stakeholder.",
+        "What motivates you in your work, and how do you handle challenging or repetitive tasks?"
+      ];
+      
+      const fallbackExpected = [
+        "Should include systematic debugging approach, use of tools, understanding of architecture, and preventive measures.",
+        "Should demonstrate conflict resolution, clear communication, empathy, and measurable outcomes.",
+        "Must cover database scaling, load balancing, caching, CDN, microservices, and monitoring.",
+        "Should include structured learning approach, resource identification, practice methodology, and examples.",
+        "Must demonstrate monitoring tools, bottleneck identification, optimization techniques, and results.",
+        "Should show responsibility, damage control, transparent communication, and learning from mistakes.",
+        "Must include industry engagement, continuous learning, and professional development commitment.",
+        "Should demonstrate constructive feedback, professional growth mindset, and collaborative improvement.",
+        "Must show clear communication, audience understanding, analogies, and business value focus.",
+        "Should include specific motivation factors, engagement strategies, and professional alignment."
+      ];
+      
+      setInterviewQuestions(fallbackQuestions);
+      setExpectedAnswers(fallbackExpected);
     } finally {
       setIsGeneratingQuestions(false);
     }
@@ -105,43 +125,59 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
 
-    // Get AI evaluation for the current answer
-    setIsEvaluating(true);
-    try {
-      const evaluation = await evaluateAnswer(
-        interviewQuestions[currentQuestionIndex], 
-        answer
-      );
-      
-      const newEvaluations = [...evaluations, evaluation];
-      setEvaluations(newEvaluations);
-      
-      if (evaluation) {
-        toast({
-          title: "Answer Evaluated",
-          description: `Score: ${evaluation.score_breakdown?.overall || 'N/A'}/10`,
-        });
-      }
-    } catch (error) {
-      console.error('Error evaluating answer:', error);
-      // Continue without evaluation
-      setEvaluations([...evaluations, null]);
-    } finally {
-      setIsEvaluating(false);
-    }
-
     if (currentQuestionIndex < interviewQuestions.length - 1) {
+      // Move to next question without evaluation
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setCurrentAnswer('');
-    } else {
-      // Interview completed
-      onComplete({
-        questions: interviewQuestions,
-        answers: newAnswers,
-        evaluations: [...evaluations, evaluations[evaluations.length - 1]],
-        facialAnalysis: [], // Placeholder for future facial analysis
-        interviewId: `interview_${Date.now()}`
+      
+      toast({
+        title: "Answer Saved",
+        description: `Question ${currentQuestionIndex + 1} answered. ${interviewQuestions.length - currentQuestionIndex - 1} questions remaining.`,
       });
+    } else {
+      // All questions answered - now perform batch evaluation
+      setIsEvaluating(true);
+      
+      try {
+        toast({
+          title: "Interview Complete",
+          description: "Performing professional evaluation of all answers...",
+        });
+        
+        const batchEvaluation = await evaluateInterviewSession(
+          interviewQuestions,
+          newAnswers,
+          expectedAnswers
+        );
+        
+        // Complete the interview with batch evaluation
+        onComplete({
+          questions: interviewQuestions,
+          answers: newAnswers,
+          evaluations: [batchEvaluation], // Single comprehensive evaluation
+          facialAnalysis: [], // Placeholder for future facial analysis
+          interviewId: `interview_${Date.now()}`
+        });
+        
+      } catch (error) {
+        console.error('Error evaluating interview session:', error);
+        toast({
+          title: "Evaluation Error",
+          description: "Completing interview without AI evaluation",
+          variant: "destructive"
+        });
+        
+        // Complete without evaluation
+        onComplete({
+          questions: interviewQuestions,
+          answers: newAnswers,
+          evaluations: [],
+          facialAnalysis: [],
+          interviewId: `interview_${Date.now()}`
+        });
+      } finally {
+        setIsEvaluating(false);
+      }
     }
   };
 
@@ -156,8 +192,8 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-purple mx-auto mb-4"></div>
-          <p className="text-lg font-medium">Generating personalized interview questions...</p>
-          <p className="text-sm text-gray-500 mt-2">This may take a moment</p>
+          <p className="text-lg font-medium">Generating 10 professional interview questions...</p>
+          <p className="text-sm text-gray-500 mt-2">Creating industry-standard questions with expected answers</p>
         </div>
       </div>
     );
@@ -178,13 +214,13 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Interview Practice</h1>
+          <h1 className="text-2xl font-bold">Professional Interview Practice</h1>
           <p className="text-gray-600">
-            Question {currentQuestionIndex + 1} of {interviewQuestions.length}
+            Question {currentQuestionIndex + 1} of {interviewQuestions.length} • Industry Standard Questions
           </p>
         </div>
-        <Badge variant="outline">
-          AI-Generated Questions
+        <Badge variant="outline" className="bg-red-50 border-red-200 text-red-700">
+          Strict Evaluation Mode
         </Badge>
       </div>
 
@@ -202,7 +238,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
             {interviewQuestions[currentQuestionIndex]}
           </CardTitle>
           <CardDescription>
-            Take your time to think about your response. You can record your answer or type it below.
+            This is a professional-level question. Answer thoroughly with specific examples. All answers will be evaluated strictly against industry standards.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -271,9 +307,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               )}
               <span>
                 {isEvaluating 
-                  ? 'Evaluating...' 
+                  ? 'Performing Strict Evaluation...' 
                   : currentQuestionIndex === interviewQuestions.length - 1 
-                    ? 'Complete Interview' 
+                    ? 'Complete & Evaluate Interview' 
                     : 'Next Question'
                 }
               </span>

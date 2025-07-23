@@ -8,6 +8,31 @@ interface InterviewQuestion {
   question: string;
 }
 
+interface InterviewQuestionData {
+  questions: string[];
+  expectedAnswers: string[];
+}
+
+interface InterviewSessionEvaluation {
+  overallScore: number;
+  overallGrade: string;
+  recommendation: string;
+  questionEvaluations: {
+    questionNumber: number;
+    question: string;
+    candidateAnswer: string;
+    expectedAnswer: string;
+    result: string;
+    score: number;
+    feedback: string;
+    improvements: string;
+  }[];
+  strengths: string[];
+  criticalWeaknesses: string[];
+  industryComparison: string;
+  actionPlan: string;
+}
+
 interface AnswerFeedback {
   score: number;
   strengths: string[];
@@ -41,7 +66,7 @@ export const useInterviewApi = () => {
   const { getSupabaseUserId, isAuthenticated, user } = useAuth();
 
 
-  const generateInterviewQuestions = async (jobRole: string): Promise<InterviewQuestion[]> => {
+  const generateInterviewQuestions = async (jobRole: string): Promise<InterviewQuestionData> => {
     if (!isAuthenticated || !user) {
       console.error('User not authenticated');
       toast({
@@ -49,7 +74,7 @@ export const useInterviewApi = () => {
         description: "Please log in to use this feature.",
         variant: "destructive"
       });
-      return [];
+      return { questions: [], expectedAnswers: [] };
     }
     
     try {
@@ -73,14 +98,19 @@ export const useInterviewApi = () => {
         throw new Error('No data received from API');
       }
       
+      // Check if data has questions and expectedAnswers
+      if (data.questions && data.expectedAnswers && Array.isArray(data.questions) && Array.isArray(data.expectedAnswers)) {
+        console.log('Successfully generated professional questions:', data.questions.length);
+        return data;
+      }
+      
+      // Fallback for old array format
       if (Array.isArray(data)) {
-        const questions = data.map((question, index) => ({
-          id: `q-${index + 1}`,
-          question: typeof question === 'string' ? question : question.question || 'Question unavailable'
-        }));
-        
-        console.log('Successfully generated questions:', questions.length);
-        return questions;
+        console.log('Received old format, converting...');
+        return {
+          questions: data.map(q => typeof q === 'string' ? q : q.question || 'Question unavailable'),
+          expectedAnswers: data.map(() => 'No expected answer available')
+        };
       }
       
       throw new Error('Invalid response format from API');
@@ -219,10 +249,49 @@ export const useInterviewApi = () => {
     }
   };
 
+  const evaluateInterviewSession = async (questions: string[], answers: string[], expectedAnswers: string[]): Promise<InterviewSessionEvaluation | null> => {
+    if (!isAuthenticated || !user) {
+      console.error('User not authenticated');
+      return null;
+    }
+    
+    try {
+      console.log('Performing batch evaluation of interview session');
+      
+      const { data, error } = await supabase.functions.invoke('gemini-interview', {
+        body: { 
+          type: 'batch-evaluation', 
+          prompt: { questions, answers, expectedAnswers }
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error for batch evaluation:', error);
+        throw new Error(error.message);
+      }
+      
+      if (!data) {
+        throw new Error('No evaluation data received');
+      }
+      
+      console.log('Successfully received batch evaluation');
+      return data;
+    } catch (error: any) {
+      console.error('Error evaluating interview session:', error);
+      toast({
+        title: "Evaluation Error",
+        description: `Failed to evaluate interview: ${error.message}`,
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
   return {
     generateInterviewQuestions,
     getAnswerFeedback,
     evaluateAnswer,
+    evaluateInterviewSession,
     analyzeResume
   };
 };

@@ -51,18 +51,15 @@ const CustomInterviewsPage: React.FC = () => {
       setIsGenerating(true);
       
       console.log("Generating questions for role:", jobRole);
-      const generatedQuestions = await generateInterviewQuestions(jobRole);
+      const questionData = await generateInterviewQuestions(jobRole);
       
-      if (generatedQuestions && generatedQuestions.length > 0) {
-        const questionStrings = generatedQuestions.map(q => 
-          typeof q === 'string' ? q : q.question
-        );
-        setQuestions(questionStrings);
+      if (questionData && questionData.questions && questionData.questions.length > 0) {
+        setQuestions(questionData.questions);
         setCurrentStep('interview');
         
         toast({
-          title: "Questions Generated",
-          description: `Generated ${questionStrings.length} questions for ${jobRole}`,
+          title: "Professional Questions Generated",
+          description: `Generated ${questionData.questions.length} industry-standard questions for ${jobRole}`,
         });
       } else {
         throw new Error('No questions were generated');

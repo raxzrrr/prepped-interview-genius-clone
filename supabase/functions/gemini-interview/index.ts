@@ -53,6 +53,9 @@ serve(async (req) => {
       case 'interview-questions':
         response = await generateInterviewQuestions(prompt, apiKey)
         break
+      case 'batch-evaluation':
+        response = await evaluateInterviewSession(prompt.questions, prompt.answers, prompt.expectedAnswers, apiKey)
+        break
       case 'feedback':
         response = await getAnswerFeedback(prompt.question, prompt.answer, apiKey)
         break
@@ -85,9 +88,8 @@ serve(async (req) => {
 })
 
 async function generateInterviewQuestions(jobRole: string, apiKey: string) {
-  console.log('Generating interview questions for role:', jobRole)
+  console.log('Generating professional interview questions for role:', jobRole)
   
-  // Updated to use the correct model name
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -96,15 +98,27 @@ async function generateInterviewQuestions(jobRole: string, apiKey: string) {
     body: JSON.stringify({
       contents: [{
         parts: [{
-          text: `Generate 5 technical and behavioral interview questions for a ${jobRole} position. 
-                 Focus on practical scenarios and skills assessment.
-                 Return only the questions as a JSON array of strings.
-                 Example format: ["Question 1", "Question 2", "Question 3", "Question 4", "Question 5"]`
+          text: `Generate 10 professional-level interview questions for a ${jobRole} position that a hiring manager at a top-tier company would ask. Include:
+                 - 3 technical deep-dive questions that test core competencies
+                 - 3 behavioral STAR-method questions for leadership and problem-solving
+                 - 2 scenario-based problem-solving questions
+                 - 1 system design or architecture question
+                 - 1 role-specific challenge question
+
+                 For each question, also provide the expected high-quality answer that would impress an experienced interviewer.
+
+                 Return as JSON with this exact format:
+                 {
+                   "questions": ["Question 1", "Question 2", ...],
+                   "expectedAnswers": ["Expected answer 1", "Expected answer 2", ...]
+                 }
+
+                 Make sure questions are challenging and reflect real interview standards for professional-level candidates.`
         }]
       }],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 4096,
       }
     }),
   })
@@ -125,26 +139,46 @@ async function generateInterviewQuestions(jobRole: string, apiKey: string) {
   console.log('Generated content:', content)
 
   try {
-    // Try to parse as JSON array
-    const questions = JSON.parse(content)
-    if (Array.isArray(questions)) {
-      return new Response(JSON.stringify(questions), {
+    // Try to parse as JSON object with questions and expected answers
+    const data = JSON.parse(content)
+    if (data.questions && data.expectedAnswers && Array.isArray(data.questions) && Array.isArray(data.expectedAnswers)) {
+      return new Response(JSON.stringify(data), {
         headers: { 'Content-Type': 'application/json' }
       })
     }
     throw new Error('Invalid JSON format')
   } catch {
-    // Fallback: split by lines and clean up
-    const questions = content
-      .split('\n')
-      .filter((line: string) => line.trim().length > 0)
-      .map((line: string) => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, '').trim())
-      .filter((q: string) => q.length > 10)
-      .slice(0, 5) // Ensure we only return 5 questions
+    console.log('Fallback: generating standard questions')
     
-    console.log('Fallback questions:', questions)
+    // Professional fallback questions with expected answers
+    const fallbackData = {
+      questions: [
+        "Describe a time you had to debug a complex technical issue in a large codebase. Walk me through your process, including the tools and techniques you used.",
+        "Tell me about a project where you had to collaborate with difficult stakeholders. How did you handle conflicts and ensure project success?",
+        "Explain how you would design a scalable system to handle 1 million users. Consider database architecture, caching, and load balancing.",
+        "Describe a situation where you had to learn a new technology quickly for a project. What was your approach and what challenges did you face?",
+        "Walk me through how you would optimize the performance of a slow-loading web application. What steps would you take to identify and resolve bottlenecks?",
+        "Tell me about a time you made a significant mistake in your work. How did you handle it and what did you learn?",
+        "How do you stay current with new technologies and industry trends in your field?",
+        "Describe your experience with code reviews. How do you give and receive feedback effectively?",
+        "Explain a complex technical concept to me as if I were a non-technical stakeholder.",
+        "What motivates you in your work, and how do you handle challenging or repetitive tasks?"
+      ],
+      expectedAnswers: [
+        "A strong answer should include: systematic debugging approach, use of debugging tools (logs, profilers, debuggers), understanding of code architecture, collaboration with team members, documentation of findings, and implementation of preventive measures.",
+        "Should demonstrate: active listening skills, empathy and understanding of stakeholder perspectives, clear communication strategies, conflict resolution techniques, finding common ground, and measurable project outcomes despite challenges.",
+        "Must cover: database sharding/partitioning, load balancer strategies, caching layers (Redis/Memcached), CDN usage, microservices architecture, monitoring and alerting, auto-scaling strategies, and consideration of data consistency.",
+        "Should include: structured learning approach, identification of reliable resources, hands-on practice methodology, time management strategies, asking for help when needed, and specific examples of successful rapid learning.",
+        "Must demonstrate: performance monitoring tools usage, identifying bottlenecks (database, network, frontend), optimization techniques (code, queries, assets), testing methodologies, and measuring improvement results.",
+        "Should show: taking responsibility, immediate damage control, transparent communication, root cause analysis, learning from the mistake, implementing preventive measures, and professional growth mindset.",
+        "Must include: following industry blogs/newsletters, attending conferences/webinars, participating in online communities, hands-on experimentation, networking with peers, and continuous learning commitment.",
+        "Should demonstrate: constructive feedback delivery, receiving criticism professionally, focus on code quality over personal preferences, mentoring others, understanding of code standards, and collaborative improvement mindset.",
+        "Must show: clear communication skills, ability to use analogies, understanding audience needs, avoiding technical jargon, providing context and business value, and checking for understanding.",
+        "Should include: specific examples of motivation factors, strategies for maintaining engagement, approaches to challenging tasks, professional development goals, and alignment with company values."
+      ]
+    }
     
-    return new Response(JSON.stringify(questions), {
+    return new Response(JSON.stringify(fallbackData), {
       headers: { 'Content-Type': 'application/json' }
     })
   }
@@ -333,6 +367,117 @@ async function analyzeResume(resumeBase64: string, apiKey: string) {
       areas_to_improve: ["Add more details", "Include metrics"],
       suggestions: "Consider adding quantifiable achievements"
     }), {
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+}
+
+async function evaluateInterviewSession(questions: string[], answers: string[], expectedAnswers: string[], apiKey: string) {
+  console.log('Performing strict evaluation of complete interview session')
+  
+  const questionsAndAnswers = questions.map((q, i) => ({
+    question: q,
+    candidateAnswer: answers[i] || 'No answer provided',
+    expectedAnswer: expectedAnswers[i] || 'No expected answer available'
+  }))
+  
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: `You are a senior technical interviewer at a top-tier company. Perform a STRICT and HONEST evaluation of this candidate's complete interview performance.
+
+                 Interview Data:
+                 ${JSON.stringify(questionsAndAnswers, null, 2)}
+
+                 EVALUATION CRITERIA:
+                 - Technical Accuracy (40%): Is the information correct and demonstrates deep understanding?
+                 - Communication Clarity (20%): Can they explain complex concepts clearly?
+                 - Depth of Knowledge (20%): Do they show thorough understanding beyond surface level?
+                 - Real-world Application (20%): Can they apply knowledge to practical scenarios?
+
+                 IMPORTANT INSTRUCTIONS:
+                 - Be brutally honest - if an answer is wrong, irrelevant, or lacks depth, mark it as FAILED
+                 - Do not be polite or lenient - this is professional-level assessment
+                 - Mark answers as "PASS" or "FAIL" based on industry standards
+                 - Provide specific reasons for failures and detailed improvement suggestions
+                 - Compare each answer against the expected answer provided
+                 - Give overall recommendation: HIRE, MAYBE, or NO HIRE
+
+                 Return JSON format:
+                 {
+                   "overallScore": <number 0-100>,
+                   "overallGrade": "A+|A|B+|B|C+|C|D|F",
+                   "recommendation": "HIRE|MAYBE|NO HIRE",
+                   "questionEvaluations": [
+                     {
+                       "questionNumber": 1,
+                       "question": "question text",
+                       "candidateAnswer": "their answer",
+                       "expectedAnswer": "ideal answer",
+                       "result": "PASS|FAIL",
+                       "score": <0-10>,
+                       "feedback": "specific feedback on what was wrong/right",
+                       "improvements": "how to improve this answer"
+                     }
+                   ],
+                   "strengths": ["specific strengths observed"],
+                   "criticalWeaknesses": ["major areas that need improvement"],
+                   "industryComparison": "How does this candidate compare to industry standards?",
+                   "actionPlan": "Specific steps the candidate should take to improve"
+                 }`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 4096,
+      }
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.statusText}`)
+  }
+
+  const data = await response.json()
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text
+  
+  if (!content) {
+    throw new Error('No content generated')
+  }
+
+  try {
+    const evaluation = JSON.parse(content)
+    return new Response(JSON.stringify(evaluation), {
+      headers: { 'Content-Type': 'application/json' }
+    })
+  } catch {
+    // Fallback strict evaluation
+    const fallbackEvaluation = {
+      overallScore: 45,
+      overallGrade: "D",
+      recommendation: "NO HIRE",
+      questionEvaluations: questions.map((q, i) => ({
+        questionNumber: i + 1,
+        question: q,
+        candidateAnswer: answers[i] || 'No answer provided',
+        expectedAnswer: expectedAnswers[i] || 'No expected answer available',
+        result: "FAIL",
+        score: 4,
+        feedback: "Answer lacks depth and technical accuracy required for professional level",
+        improvements: "Study core concepts, practice with real-world examples, improve communication clarity"
+      })),
+      strengths: ["Attempted to answer questions"],
+      criticalWeaknesses: ["Insufficient technical depth", "Unclear communication", "Lack of real-world examples"],
+      industryComparison: "Below industry standards for professional-level position",
+      actionPlan: "Focus on strengthening technical fundamentals, practice structured communication, gain more hands-on experience"
+    }
+    
+    return new Response(JSON.stringify(fallbackEvaluation), {
       headers: { 'Content-Type': 'application/json' }
     })
   }
