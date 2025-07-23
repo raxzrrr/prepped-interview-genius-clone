@@ -19,6 +19,7 @@ import {
 import { useInterviewReports } from '@/hooks/useInterviewReports';
 import { useToast } from '@/components/ui/use-toast';
 import { downloadCertificate } from '@/services/certificateService';
+import { downloadStoredPDF } from '@/services/pdfReportService';
 
 const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,24 +35,36 @@ const ReportsPage: React.FC = () => {
 
   const handleDownloadPDF = async (report: any) => {
     try {
-      const reportData = {
-        userName: 'Interview Candidate',
-        certificateTitle: `Interview Report - ${report.overallGrade}`,
-        completionDate: new Date(report.timestamp).toLocaleDateString(),
-        score: report.overallScore || 0,
-        verificationCode: report.id.slice(-8).toUpperCase()
-      };
+      if (report.pdfUrl) {
+        // Download the stored PDF
+        await downloadStoredPDF(report.pdfUrl, report.id);
+        
+        toast({
+          title: "Report Downloaded",
+          description: "Your interview report has been downloaded from storage.",
+        });
+      } else {
+        // Fallback: Generate PDF on-demand if no stored PDF exists
+        const reportData = {
+          userName: 'Interview Candidate',
+          certificateTitle: `Interview Report - ${report.overallGrade}`,
+          completionDate: new Date(report.timestamp).toLocaleDateString(),
+          score: report.overallScore || 0,
+          verificationCode: report.id.slice(-8).toUpperCase()
+        };
 
-      await downloadCertificate(reportData);
-      
-      toast({
-        title: "Report Downloaded",
-        description: "Your interview report has been downloaded as PDF.",
-      });
+        await downloadCertificate(reportData);
+        
+        toast({
+          title: "Report Downloaded",
+          description: "Your interview report has been generated and downloaded.",
+        });
+      }
     } catch (error) {
+      console.error('Download error:', error);
       toast({
         title: "Download Failed",
-        description: "Failed to generate PDF. Please try again.",
+        description: "Failed to download PDF. Please try again.",
         variant: "destructive"
       });
     }
@@ -216,9 +229,10 @@ const ReportsPage: React.FC = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownloadPDF(report)}
+                        className={report.pdfUrl ? "text-green-600" : "text-blue-600"}
                       >
                         <Download className="h-4 w-4 mr-1" />
-                        PDF
+                        {report.pdfUrl ? "Download PDF" : "Generate PDF"}
                       </Button>
                       <Button
                         variant="outline"

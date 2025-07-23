@@ -9,6 +9,8 @@ import { CheckCircle, XCircle, Download, Home, RotateCcw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { downloadCertificate } from '@/services/certificateService';
 import { useInterviewReports } from '@/hooks/useInterviewReports';
+import { generateAndStorePDF, ReportPDFData } from '@/services/pdfReportService';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 
 interface InterviewReportProps {
   questions: string[];
@@ -35,6 +37,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
 }) => {
   const { toast } = useToast();
   const { saveReport } = useInterviewReports();
+  const { getSupabaseUserId } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Calculate overall performance - handle both old and new evaluation formats
@@ -66,7 +69,28 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
             jobRole
           };
           
-          await saveReport(reportData);
+          const reportId = await saveReport(reportData);
+          
+          // Generate and store PDF if report was saved successfully
+          if (reportId) {
+            const userId = getSupabaseUserId();
+            if (userId) {
+              const pdfReportData: ReportPDFData = {
+                reportId,
+                userName: 'Interview Candidate',
+                interviewType: interviewType || 'Custom Interview',
+                jobRole,
+                overallScore: Math.round(averageScore * 10),
+                overallGrade: reportData.overallGrade,
+                timestamp: new Date().toISOString(),
+                questions,
+                answers,
+                evaluations
+              };
+              
+              await generateAndStorePDF(pdfReportData, userId);
+            }
+          }
         } catch (error) {
           console.error('Error auto-saving report:', error);
         }
@@ -74,7 +98,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
 
       autoSaveReport();
     }
-  }, [questions, answers, evaluations, facialAnalysis, resumeAnalysis, interviewType, jobRole, saveReport, averageScore]);
+  }, [questions, answers, evaluations, facialAnalysis, resumeAnalysis, interviewType, jobRole, saveReport, averageScore, getSupabaseUserId]);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-green-600';

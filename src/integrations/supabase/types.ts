@@ -239,6 +239,7 @@ export type Database = {
           job_role: string | null
           overall_grade: string
           overall_score: number
+          pdf_url: string | null
           questions: Json
           recommendation: string
           report_data: Json | null
@@ -254,6 +255,7 @@ export type Database = {
           job_role?: string | null
           overall_grade?: string
           overall_score?: number
+          pdf_url?: string | null
           questions?: Json
           recommendation?: string
           report_data?: Json | null
@@ -269,6 +271,7 @@ export type Database = {
           job_role?: string | null
           overall_grade?: string
           overall_score?: number
+          pdf_url?: string | null
           questions?: Json
           recommendation?: string
           report_data?: Json | null

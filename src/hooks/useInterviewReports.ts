@@ -15,6 +15,7 @@ interface InterviewReport {
   reportData: any;
   interviewType?: string;
   jobRole?: string;
+  pdfUrl?: string;
 }
 
 export const useInterviewReports = () => {
@@ -64,7 +65,8 @@ export const useInterviewReports = () => {
         recommendation: report.recommendation,
         reportData: report.report_data || {},
         interviewType: report.interview_type,
-        jobRole: report.job_role
+        jobRole: report.job_role,
+        pdfUrl: report.pdf_url
       }));
 
       setReports(formattedReports);
@@ -125,7 +127,8 @@ export const useInterviewReports = () => {
         recommendation: data.recommendation,
         reportData: data.report_data || {},
         interviewType: data.interview_type,
-        jobRole: data.job_role
+        jobRole: data.job_role,
+        pdfUrl: data.pdf_url
       };
 
       setReports(prev => [newReport, ...prev]);
