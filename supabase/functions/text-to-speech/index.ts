@@ -19,13 +19,13 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    // Get API key from Supabase secrets (properly secured)
+    // Get API key from environment variables
     const apiKey = Deno.env.get('GOOGLE_TTS_API_KEY');
     console.log('TTS API key available:', apiKey ? 'Yes' : 'No');
     
-    if (!apiKey) {
-      console.error('GOOGLE_TTS_API_KEY not found in Supabase secrets');
-      throw new Error('TTS API key not configured. Please contact administrator.');
+    if (!apiKey || apiKey === 'your_google_tts_api_key_here') {
+      console.error('GOOGLE_TTS_API_KEY not found or not properly configured');
+      throw new Error('TTS API key not configured. Please add your API key to the .env file.');
     }
 
     // Generate speech from text using the Google TTS API
