@@ -20,7 +20,7 @@ interface InterviewReport {
 export const useInterviewReports = () => {
   const [reports, setReports] = useState<InterviewReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, getSupabaseUserId } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -32,12 +32,15 @@ export const useInterviewReports = () => {
   const loadReports = async () => {
     if (!user) return;
     
+    const supabaseUserId = getSupabaseUserId();
+    if (!supabaseUserId) return;
+    
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('interview_reports')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', supabaseUserId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -80,11 +83,14 @@ export const useInterviewReports = () => {
   const saveReport = async (reportData: Omit<InterviewReport, 'id' | 'timestamp'>) => {
     if (!user) return null;
 
+    const supabaseUserId = getSupabaseUserId();
+    if (!supabaseUserId) return null;
+
     try {
       const { data, error } = await supabase
         .from('interview_reports')
         .insert({
-          user_id: user.id,
+          user_id: supabaseUserId,
           interview_type: reportData.interviewType || 'custom',
           job_role: reportData.jobRole,
           questions: reportData.questions,
@@ -144,12 +150,15 @@ export const useInterviewReports = () => {
   const deleteReport = async (reportId: string) => {
     if (!user) return;
 
+    const supabaseUserId = getSupabaseUserId();
+    if (!supabaseUserId) return;
+
     try {
       const { error } = await supabase
         .from('interview_reports')
         .delete()
         .eq('id', reportId)
-        .eq('user_id', user.id);
+        .eq('user_id', supabaseUserId);
 
       if (error) {
         console.error('Error deleting report:', error);
