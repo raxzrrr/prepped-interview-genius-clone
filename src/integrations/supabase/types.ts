@@ -274,10 +274,13 @@ export type Database = {
         Row: {
           auth_provider: string | null
           avatar_url: string | null
+          clerk_publishable_key: string | null
           created_at: string
           email: string | null
           email_verified: boolean | null
           full_name: string
+          gemini_api_key: string | null
+          google_tts_api_key: string | null
           id: string
           last_active: string | null
           password_hash: string | null
@@ -288,10 +291,13 @@ export type Database = {
         Insert: {
           auth_provider?: string | null
           avatar_url?: string | null
+          clerk_publishable_key?: string | null
           created_at?: string
           email?: string | null
           email_verified?: boolean | null
           full_name: string
+          gemini_api_key?: string | null
+          google_tts_api_key?: string | null
           id: string
           last_active?: string | null
           password_hash?: string | null
@@ -302,10 +308,13 @@ export type Database = {
         Update: {
           auth_provider?: string | null
           avatar_url?: string | null
+          clerk_publishable_key?: string | null
           created_at?: string
           email?: string | null
           email_verified?: boolean | null
           full_name?: string
+          gemini_api_key?: string | null
+          google_tts_api_key?: string | null
           id?: string
           last_active?: string | null
           password_hash?: string | null
@@ -548,6 +557,14 @@ export type Database = {
           user_data: Json
         }[]
       }
+      get_api_keys: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          gemini_api_key: string
+          google_tts_api_key: string
+          clerk_publishable_key: string
+        }[]
+      }
       register_manual_user: {
         Args: {
           user_email: string
@@ -563,6 +580,14 @@ export type Database = {
           old_password: string
           new_username: string
           new_password: string
+        }
+        Returns: boolean
+      }
+      update_api_keys: {
+        Args: {
+          p_gemini_key?: string
+          p_tts_key?: string
+          p_clerk_key?: string
         }
         Returns: boolean
       }

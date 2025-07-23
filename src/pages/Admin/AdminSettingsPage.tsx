@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import AdminCredentialsSettings from '@/components/Admin/AdminCredentialsSettings';
+import APIKeySettings from '@/components/Admin/APIKeySettings';
 
 const AdminSettingsPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -45,6 +46,8 @@ const AdminSettingsPage: React.FC = () => {
         </div>
         
         <AdminCredentialsSettings />
+        
+        <APIKeySettings />
         
         <Card>
           <CardHeader>

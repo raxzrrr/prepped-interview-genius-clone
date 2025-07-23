@@ -19,14 +19,31 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    // Get API key from environment variables
-    const apiKey = Deno.env.get('GOOGLE_TTS_API_KEY');
-    console.log('TTS API key available:', apiKey ? 'Yes' : 'No');
+    // Get API key from admin profile in database
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     
-    if (!apiKey || apiKey === 'your_google_tts_api_key_here') {
-      console.error('GOOGLE_TTS_API_KEY not found or not properly configured');
-      throw new Error('TTS API key not configured. Please add your API key to the .env file.');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Supabase configuration missing')
     }
+    
+    // Create Supabase client to get API key from admin profile
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    
+    const { data: adminData, error: adminError } = await supabase
+      .from('profiles')
+      .select('google_tts_api_key')
+      .eq('role', 'admin')
+      .single()
+    
+    if (adminError || !adminData?.google_tts_api_key) {
+      console.error('Google TTS API key not found in admin profile:', adminError)
+      throw new Error('Google TTS API key not configured. Please set it in admin settings.')
+    }
+    
+    const apiKey = adminData.google_tts_api_key
+    console.log('TTS API key loaded from admin profile')
 
     // Generate speech from text using the Google TTS API
     const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {

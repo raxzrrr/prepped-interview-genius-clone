@@ -20,14 +20,31 @@ serve(async (req) => {
     
     const { type, prompt } = requestData
     
-    // Get API key from environment variables
-    const apiKey = Deno.env.get('GEMINI_API_KEY')
-    console.log('Gemini API key available:', apiKey ? 'Yes' : 'No');
+    // Get API key from admin profile in database
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     
-    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-      console.error('GEMINI_API_KEY not found or not properly configured')
-      throw new Error('Gemini API key not configured. Please add your API key to the .env file.')
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Supabase configuration missing')
     }
+    
+    // Create Supabase client to get API key from admin profile
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    
+    const { data: adminData, error: adminError } = await supabase
+      .from('profiles')
+      .select('gemini_api_key')
+      .eq('role', 'admin')
+      .single()
+    
+    if (adminError || !adminData?.gemini_api_key) {
+      console.error('Gemini API key not found in admin profile:', adminError)
+      throw new Error('Gemini API key not configured. Please set it in admin settings.')
+    }
+    
+    const apiKey = adminData.gemini_api_key
+    console.log('Gemini API key loaded from admin profile')
 
     console.log('Request type:', type)
     
