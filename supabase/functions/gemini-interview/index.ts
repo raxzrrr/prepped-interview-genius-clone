@@ -67,6 +67,10 @@ serve(async (req) => {
         response = await generateInterviewSet(interviewType, jobRole, questionCount, apiKey, prompt?.resumeBase64)
         break
       case 'generate-hr-technical':
+        console.log('Generating HR technical questions with questionCount:', questionCount)
+        if (!questionCount) {
+          throw new Error('Question count is required for HR technical questions')
+        }
         response = await generateHRTechnicalQuestions(questionCount, apiKey)
         break
       case 'bulk-evaluation':

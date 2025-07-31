@@ -76,6 +76,8 @@ class InterviewService {
   // Generate HR and technical questions
   async generateHRTechnicalQuestions(questionCount: number): Promise<InterviewQuestionSet> {
     try {
+      console.log('Calling generateHRTechnicalQuestions with count:', questionCount);
+      
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: {
           type: 'generate-hr-technical',
