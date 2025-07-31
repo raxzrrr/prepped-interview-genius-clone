@@ -470,6 +470,56 @@ export type Database = {
         }
         Relationships: []
       }
+      user_certificates: {
+        Row: {
+          certificate_id: string
+          certificate_url: string | null
+          completion_data: Json | null
+          created_at: string
+          id: string
+          is_active: boolean
+          issued_date: string
+          score: number | null
+          updated_at: string
+          user_id: string
+          verification_code: string
+        }
+        Insert: {
+          certificate_id: string
+          certificate_url?: string | null
+          completion_data?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          issued_date?: string
+          score?: number | null
+          updated_at?: string
+          user_id: string
+          verification_code: string
+        }
+        Update: {
+          certificate_id?: string
+          certificate_url?: string | null
+          completion_data?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          issued_date?: string
+          score?: number | null
+          updated_at?: string
+          user_id?: string
+          verification_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_certificates_certificate_id_fkey"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "certificates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_interview_usage: {
         Row: {
           created_at: string | null
