@@ -124,17 +124,16 @@ class InterviewService {
     questionCount: number,
     questions: string[],
     idealAnswers: string[],
+    userId: string, // Pass the user ID from the calling component
     jobRole?: string
   ): Promise<InterviewSession> {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      console.log('Creating interview session for user:', userId);
       
       const { data, error } = await supabase
         .from('interview_sessions')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           interview_type: interviewType,
           question_count: questionCount,
           job_role: jobRole,
@@ -145,7 +144,11 @@ class InterviewService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error creating interview session:', error);
+        throw new Error(`Failed to create interview session: ${error.message}`);
+      }
+      
       return data as InterviewSession;
     } catch (error) {
       console.error('Error creating interview session:', error);

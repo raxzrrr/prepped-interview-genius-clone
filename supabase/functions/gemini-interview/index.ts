@@ -207,7 +207,13 @@ Make questions that directly relate to their experience and would challenge them
   console.log('Generated content:', content)
 
   try {
-    const result = JSON.parse(content)
+    // Clean the response by removing markdown formatting
+    let cleanContent = content.trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\n/, '').replace(/\n```$/, '');
+    }
+    
+    const result = JSON.parse(cleanContent)
     if (result.questions && result.ideal_answers && Array.isArray(result.questions) && Array.isArray(result.ideal_answers)) {
       return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json' }
