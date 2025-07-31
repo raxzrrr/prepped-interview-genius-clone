@@ -96,19 +96,17 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           refresh_token: 'clerk-managed'
         });
         
-        if (error) {
-          console.error('Supabase session error:', error);
-          // Still authenticate via Clerk
-          setIsAuthenticated(true);
-        } else {
+        if (data.session) {
           console.log('Supabase session established successfully');
           setSupabaseSession(data.session);
           setIsAuthenticated(true);
+        } else {
+          console.error('Failed to establish Supabase session:', error);
+          setIsAuthenticated(true); // Still authenticate via Clerk
         }
       } else {
         console.error('No Supabase token received from Clerk');
-        // Still authenticate via Clerk
-        setIsAuthenticated(true);
+        setIsAuthenticated(true); // Still authenticate via Clerk
       }
     } catch (error) {
       console.error('Error setting up Supabase session:', error);

@@ -118,28 +118,29 @@ class InterviewService {
     }
   }
 
-  // Create interview session
+  // Create interview session - simplified to work with Clerk JWT
   async createInterviewSession(
     interviewType: 'basic_hr_technical' | 'role_based' | 'resume_based',
     questionCount: number,
     questions: string[],
     idealAnswers: string[],
-    userId: string, // Pass the user ID from the calling component
     jobRole?: string
   ): Promise<InterviewSession> {
     try {
-      console.log('Creating interview session for user:', userId);
+      console.log('Creating interview session...');
       
+      // The Clerk JWT token should automatically provide the correct user context
+      // The RLS policies will handle the user ID mapping
       const { data, error } = await supabase
         .from('interview_sessions')
         .insert({
-          user_id: userId,
           interview_type: interviewType,
           question_count: questionCount,
           job_role: jobRole,
           questions,
           ideal_answers: idealAnswers,
           session_status: 'created'
+          // Note: user_id will be automatically set by the database trigger or policy
         })
         .select()
         .single();
@@ -149,6 +150,7 @@ class InterviewService {
         throw new Error(`Failed to create interview session: ${error.message}`);
       }
       
+      console.log('Interview session created successfully:', data);
       return data as InterviewSession;
     } catch (error) {
       console.error('Error creating interview session:', error);

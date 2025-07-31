@@ -20,7 +20,7 @@ import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
 
 const InterviewsPage: React.FC = () => {
-  const { user, isStudent, getSupabaseUserId } = useAuth();
+  const { user, isStudent } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -52,8 +52,7 @@ const InterviewsPage: React.FC = () => {
         'basic_hr_technical',
         questionCount,
         questionSet.questions,
-        questionSet.ideal_answers,
-        getSupabaseUserId() || '' // Get the Supabase user ID from auth context
+        questionSet.ideal_answers
       );
       
       setQuestions(questionSet.questions);
