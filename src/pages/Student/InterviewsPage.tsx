@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
-import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
@@ -20,7 +18,6 @@ import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
 
 const InterviewsPage: React.FC = () => {
-  const { user, isStudent } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -34,11 +31,6 @@ const InterviewsPage: React.FC = () => {
   const [userAnswers, setUserAnswers] = useState<string[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
-  
-  // Redirect if not logged in or not a student
-  if (!user || !isStudent()) {
-    return <Navigate to="/login" />;
-  }
 
   const startBasicInterview = async () => {
     try {

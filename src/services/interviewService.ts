@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface InterviewSession {
   id: string;
-  user_id: string;
+  user_id?: string;
   interview_type: 'basic_hr_technical' | 'role_based' | 'resume_based';
   question_count: number;
   job_role?: string;
@@ -117,7 +117,7 @@ class InterviewService {
     }
   }
 
-  // Create interview session - completely rewritten for Clerk integration
+  // Create interview session - simplified without authentication
   async createInterviewSession(
     interviewType: 'basic_hr_technical' | 'role_based' | 'resume_based',
     questionCount: number,
@@ -128,11 +128,10 @@ class InterviewService {
     try {
       console.log('Creating interview session...');
       
-      // The database trigger will automatically set the correct user_id from Clerk JWT
+      // Simple insert without authentication - user_id will default to generic UUID
       const { data, error } = await supabase
         .from('interview_sessions')
         .insert({
-          user_id: '00000000-0000-0000-0000-000000000000', // Placeholder - trigger will override
           interview_type: interviewType,
           question_count: questionCount,
           job_role: jobRole,
@@ -182,7 +181,7 @@ class InterviewService {
     }
   }
 
-  // Get user's interview sessions
+  // Get all interview sessions (no user filtering)
   async getUserInterviewSessions(): Promise<InterviewSession[]> {
     try {
       const { data, error } = await supabase

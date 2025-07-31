@@ -244,7 +244,7 @@ export type Database = {
           recommendation: string
           report_data: Json | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           answers?: Json
@@ -260,7 +260,7 @@ export type Database = {
           recommendation?: string
           report_data?: Json | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           answers?: Json
@@ -276,7 +276,7 @@ export type Database = {
           recommendation?: string
           report_data?: Json | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -528,7 +528,7 @@ export type Database = {
           last_interview_date: string | null
           updated_at: string | null
           usage_count: number | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -537,7 +537,7 @@ export type Database = {
           last_interview_date?: string | null
           updated_at?: string | null
           usage_count?: number | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -546,7 +546,7 @@ export type Database = {
           last_interview_date?: string | null
           updated_at?: string | null
           usage_count?: number | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -568,7 +568,7 @@ export type Database = {
           progress: Json | null
           total_modules_count: number | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           completed_modules_count?: number | null
@@ -579,7 +579,7 @@ export type Database = {
           progress?: Json | null
           total_modules_count?: number | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           completed_modules_count?: number | null
@@ -590,7 +590,7 @@ export type Database = {
           progress?: Json | null
           total_modules_count?: number | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -703,10 +703,6 @@ export type Database = {
           google_tts_api_key: string
           clerk_publishable_key: string
         }[]
-      }
-      get_current_clerk_user_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
       }
       register_manual_user: {
         Args: {
