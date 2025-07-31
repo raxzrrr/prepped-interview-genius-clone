@@ -47,6 +47,22 @@ export interface BulkEvaluationResult {
 }
 
 class InterviewService {
+  // Generate consistent UUID from Clerk user ID
+  private generateConsistentUUID(clerkUserId: string): string {
+    // Simple hash-based UUID generation for consistency
+    // This matches the approach used in the auth context
+    let hash = 0;
+    for (let i = 0; i < clerkUserId.length; i++) {
+      const char = clerkUserId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Generate a UUID-like string from the hash
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    return `${hex.substr(0, 8)}-${hex.substr(0, 4)}-4${hex.substr(1, 3)}-8${hex.substr(0, 3)}-${hex}${hex.substr(0, 4)}`;
+  }
+
   // Generate interview question set with ideal answers
   async generateInterviewSet(
     interviewType: 'basic_hr_technical' | 'role_based' | 'resume_based',
@@ -129,18 +145,26 @@ class InterviewService {
     try {
       console.log('Creating interview session...');
       
-      // The Clerk JWT token should automatically provide the correct user context
-      // The RLS policies will handle the user ID mapping
+      // Get the current user ID - use a placeholder until database trigger is set up
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Generate consistent UUID from Clerk user ID
+      const clerkUserId = userData.user.id;
+      const userUuid = this.generateConsistentUUID(clerkUserId);
+      
       const { data, error } = await supabase
         .from('interview_sessions')
         .insert({
+          user_id: userUuid,
           interview_type: interviewType,
           question_count: questionCount,
           job_role: jobRole,
           questions,
           ideal_answers: idealAnswers,
           session_status: 'created'
-          // Note: user_id will be automatically set by the database trigger or policy
         })
         .select()
         .single();
