@@ -558,6 +558,42 @@ export type Database = {
           },
         ]
       }
+      user_learning: {
+        Row: {
+          completed_modules_count: number | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          last_assessment_score: number | null
+          progress: Json | null
+          total_modules_count: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_modules_count?: number | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          last_assessment_score?: number | null
+          progress?: Json | null
+          total_modules_count?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_modules_count?: number | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          last_assessment_score?: number | null
+          progress?: Json | null
+          total_modules_count?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           completed: boolean

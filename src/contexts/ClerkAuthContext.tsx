@@ -86,52 +86,29 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       console.log('Setting up Supabase session for user:', userId);
       
-      // Get the Supabase user ID
-      const supabaseUserId = getSupabaseUserId();
-      const userEmail = clerkUser.emailAddresses[0]?.emailAddress || 'unknown@example.com';
+      // Get Supabase JWT token from Clerk
+      const token = await getToken({ template: 'supabase' });
       
-      if (supabaseUserId) {
-        // Create or sign in the Supabase user using email/password
-        // First, try to sign in with a known password pattern
-        const tempPassword = `clerk_user_${userId.slice(-8)}`;
-        
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: userEmail,
-          password: tempPassword
+      if (token) {
+        // Set the session using Clerk's Supabase token
+        const { data, error } = await supabase.auth.setSession({
+          access_token: token,
+          refresh_token: 'clerk-managed'
         });
-
-        if (signInError && signInError.message?.includes('Invalid login credentials')) {
-          // User doesn't exist in Supabase, create them
-          console.log('Creating new Supabase user for Clerk user');
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: userEmail,
-            password: tempPassword,
-            options: {
-              data: {
-                clerk_user_id: userId,
-                full_name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
-              }
-            }
-          });
-
-          if (signUpError) {
-            console.error('Error creating Supabase user:', signUpError);
-            setIsAuthenticated(true); // Still authenticate via Clerk
-          } else {
-            console.log('Supabase user created successfully');
-            setIsAuthenticated(true);
-          }
-        } else if (signInData?.session) {
-          console.log('Supabase user signed in successfully');
-          setSupabaseSession(signInData.session);
+        
+        if (error) {
+          console.error('Supabase session error:', error);
+          // Still authenticate via Clerk
           setIsAuthenticated(true);
         } else {
-          console.error('Unexpected sign-in result:', signInError);
-          setIsAuthenticated(true); // Still authenticate via Clerk
+          console.log('Supabase session established successfully');
+          setSupabaseSession(data.session);
+          setIsAuthenticated(true);
         }
       } else {
-        console.error('Failed to generate Supabase user ID');
-        setIsAuthenticated(true); // Still authenticate via Clerk
+        console.error('No Supabase token received from Clerk');
+        // Still authenticate via Clerk
+        setIsAuthenticated(true);
       }
     } catch (error) {
       console.error('Error setting up Supabase session:', error);

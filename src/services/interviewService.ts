@@ -47,21 +47,6 @@ export interface BulkEvaluationResult {
 }
 
 class InterviewService {
-  private async getCurrentUserId(): Promise<string> {
-    // For Clerk + Supabase integration, we'll get the user from the current session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) {
-      return session.user.id;
-    }
-    
-    // Fallback: Try to get user from current auth state
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.id) {
-      return user.id;
-    }
-    
-    throw new Error('User not authenticated - please log in again');
-  }
   // Generate interview question set with ideal answers
   async generateInterviewSet(
     interviewType: 'basic_hr_technical' | 'role_based' | 'resume_based',
@@ -142,12 +127,14 @@ class InterviewService {
     jobRole?: string
   ): Promise<InterviewSession> {
     try {
-      const userId = await this.getCurrentUserId();
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
       
       const { data, error } = await supabase
         .from('interview_sessions')
         .insert({
-          user_id: userId,
+          user_id: user.id,
           interview_type: interviewType,
           question_count: questionCount,
           job_role: jobRole,
