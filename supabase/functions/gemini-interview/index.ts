@@ -262,7 +262,7 @@ async function bulkEvaluateAnswers(
 ) {
   console.log('Bulk evaluating answers')
   
-  const evaluationPrompt = `Perform a strict professional evaluation of these interview answers. Compare each user answer with the ideal answer and provide honest, direct feedback.
+  const evaluationPrompt = `You are an EXTREMELY STRICT professional interview evaluator. Your job is to provide harsh, honest feedback that will genuinely help candidates improve. Most candidates should score 4-6 out of 10.
 
 Questions and Answers:
 ${questions.map((q, i) => `
@@ -271,19 +271,27 @@ Ideal Answer: ${idealAnswers[i] || 'Standard professional response expected'}
 User Answer: ${userAnswers[i] || 'No answer provided'}
 `).join('\n')}
 
-Evaluation Criteria:
-- Correctness (40%): Is the answer factually correct and accurate?
-- Completeness (25%): Does it address all parts of the question thoroughly?
-- Depth (20%): Shows deep understanding vs surface-level response?
-- Clarity (15%): Clear communication and well-structured response?
+STRICT Evaluation Criteria (Be HARSH but FAIR):
+- Correctness (40%): Is the answer factually correct? Wrong information = 0-3 points
+- Completeness (25%): Does it fully address the question? Partial answers = 3-5 points  
+- Depth (20%): Shows real understanding or just surface level? Shallow = 2-4 points
+- Clarity (15%): Well-structured communication? Rambling/unclear = 2-5 points
 
-Scoring Scale:
-- 0-3: Poor/Incorrect - Major gaps, wrong information, irrelevant
-- 4-6: Below Average - Partially correct, lacks depth or completeness
-- 7-8: Good - Mostly correct, could be more comprehensive
-- 9-10: Excellent - Comprehensive, accurate, well-structured
+STRICT Scoring Scale (Most people get 4-6):
+- 0-2: Completely Wrong - Factually incorrect, irrelevant, or no understanding shown
+- 3-4: Poor - Major gaps, mostly wrong, shows little understanding
+- 5-6: Below Average - Some correct points but significant issues, incomplete
+- 7-8: Good - Mostly correct, minor gaps, decent understanding shown
+- 9-10: Excellent - Comprehensive, accurate, well-structured, exceptional answer
 
-Be strict and honest. If an answer is wrong or poor quality, mark it accordingly. This is for professional development.
+IMPORTANT SCORING GUIDELINES:
+- Score 9-10 ONLY for truly exceptional answers that would impress senior managers
+- Score 7-8 for solid answers that meet job requirements
+- Score 5-6 for answers that show basic understanding but have clear gaps
+- Score 3-4 for answers with major problems or significant inaccuracies
+- Score 0-2 for completely wrong or irrelevant answers
+
+Be STRICT. If an answer is vague, incomplete, or shows lack of depth, score it accordingly. The goal is honest feedback for improvement.
 
 Return response in this exact JSON format:
 {
@@ -291,24 +299,29 @@ Return response in this exact JSON format:
     {
       "question_number": 1,
       "user_answer": "The actual user answer",
-      "ideal_answer": "The expected ideal answer",
-      "score": 7,
-      "remarks": "Direct feedback on what was good, what was missing, and how to improve",
+      "ideal_answer": "The expected ideal answer showing what a 9-10 response looks like",
+      "score": 5,
+      "remarks": "Direct, honest feedback: what was wrong, what was missing, specific areas for improvement",
       "score_breakdown": {
-        "correctness": 8,
-        "completeness": 6,
-        "depth": 7,
-        "clarity": 8
-      }
+        "correctness": 6,
+        "completeness": 4,
+        "depth": 5,
+        "clarity": 6
+      },
+      "improvement_tips": [
+        "Specific actionable tip 1",
+        "Specific actionable tip 2"
+      ]
     }
   ],
   "overall_statistics": {
-    "average_score": 7.2,
+    "average_score": 5.2,
     "total_questions": ${questions.length},
-    "strengths": ["Clear communication", "Good examples"],
-    "areas_for_improvement": ["More technical depth", "Better structure"],
-    "overall_grade": "B",
-    "recommendation": "Practice more technical scenarios and provide specific examples"
+    "strengths": ["Specific strengths observed"],
+    "critical_weaknesses": ["Major areas that need work"],
+    "overall_grade": "C",
+    "harsh_but_helpful_feedback": "Honest summary of performance with specific improvement areas",
+    "recommendation": "Specific practice areas and next steps for improvement"
   }
 }`
 

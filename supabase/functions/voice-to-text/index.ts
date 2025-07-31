@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
@@ -43,46 +42,64 @@ serve(async (req) => {
   }
 
   try {
-    const { audio } = await req.json()
+    console.log('Voice to text function called');
+    
+    const { audio, language = 'en' } = await req.json()
     
     if (!audio) {
       throw new Error('No audio data provided')
     }
 
-    console.log('Processing voice-to-text request...');
-
-    // Process audio in chunks
-    const binaryAudio = processBase64Chunks(audio)
+    console.log('Processing audio data...');
     
-    // Prepare form data
+    // Get OpenAI API key
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    // Process audio in chunks to prevent memory issues
+    const binaryAudio = processBase64Chunks(audio)
+    console.log('Audio data processed, size:', binaryAudio.length, 'bytes');
+    
+    // Prepare form data for OpenAI Whisper API
     const formData = new FormData()
     const blob = new Blob([binaryAudio], { type: 'audio/webm' })
     formData.append('file', blob, 'audio.webm')
     formData.append('model', 'whisper-1')
+    formData.append('language', language)
+    formData.append('response_format', 'json')
 
-    // Send to OpenAI
+    console.log('Sending to OpenAI Whisper API...');
+
+    // Send to OpenAI Whisper API
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
       },
       body: formData,
     })
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${await response.text()}`)
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${errorText}`)
     }
 
     const result = await response.json()
-    console.log('Voice-to-text successful');
+    console.log('Transcription successful:', result.text);
 
     return new Response(
-      JSON.stringify({ text: result.text }),
+      JSON.stringify({ 
+        text: result.text,
+        language: result.language || language 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Voice-to-text error:', error);
+    console.error('Voice to text error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

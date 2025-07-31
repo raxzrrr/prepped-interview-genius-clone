@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, SkipForward, CheckCircle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { SkipForward, CheckCircle, Type } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
+import VoiceInput from '@/components/VoiceInput';
 
 interface InterviewPrepProps {
   questions?: string[];
@@ -27,9 +29,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
 }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
+  const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
   
   const { toast } = useToast();
 
@@ -39,42 +41,65 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     }
   }, [initialQuestions]);
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
+  const handleVoiceTranscription = (transcription: string) => {
+    setCurrentAnswer(transcription);
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCurrentAnswer(e.target.value);
+  };
+
+  const handleSubmitAnswer = () => {
+    if (!currentAnswer.trim()) {
+      toast({
+        title: "Answer Required",
+        description: "Please provide an answer before proceeding",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedAnswers = [...answers];
+    updatedAnswers[currentQuestionIndex] = currentAnswer.trim();
+    setAnswers(updatedAnswers);
     setCurrentAnswer('');
-  };
-
-  const handleStopRecording = () => {
-    setIsRecording(false);
-    // In a real implementation, this would process audio input
-    // For now, we'll simulate with text input
-    const simulatedAnswer = currentAnswer || `Recorded answer for: ${interviewQuestions[currentQuestionIndex]}`;
-    setCurrentAnswer(simulatedAnswer);
-  };
-
-  const handleNextQuestion = () => {
-    const answer = currentAnswer || 'No answer provided';
-    const newAnswers = [...answers, answer];
-    setAnswers(newAnswers);
-
+    
     if (currentQuestionIndex < interviewQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setCurrentAnswer('');
-    } else {
-      // Interview completed - pass answers to parent for bulk evaluation
-      onComplete({
-        questions: interviewQuestions,
-        answers: newAnswers,
-        evaluations: [], // Will be populated by bulk evaluation
-        facialAnalysis: [], // Placeholder for future facial analysis
-        interviewId: `interview_${Date.now()}`
+      toast({
+        title: "Answer Saved",
+        description: `Moving to question ${currentQuestionIndex + 2}`,
       });
+    } else {
+      handleCompleteInterview(updatedAnswers);
     }
   };
 
+  const handleCompleteInterview = (finalAnswers: string[]) => {
+    onComplete({
+      questions: interviewQuestions,
+      answers: finalAnswers,
+      evaluations: [],
+      facialAnalysis: [],
+      interviewId: `interview_${Date.now()}`
+    });
+  };
+
   const handleSkipQuestion = () => {
-    setCurrentAnswer('Question skipped');
-    handleNextQuestion();
+    const updatedAnswers = [...answers];
+    updatedAnswers[currentQuestionIndex] = 'Question skipped';
+    setAnswers(updatedAnswers);
+    setCurrentAnswer('');
+    
+    if (currentQuestionIndex < interviewQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      toast({
+        title: "Question Skipped",
+        description: `Moving to question ${currentQuestionIndex + 2}`,
+      });
+    } else {
+      handleCompleteInterview(updatedAnswers);
+    }
   };
 
   const progress = ((currentQuestionIndex + 1) / interviewQuestions.length) * 100;
@@ -142,50 +167,66 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
             {interviewQuestions[currentQuestionIndex]}
           </CardTitle>
           <CardDescription>
-            Take your time to think about your response. You can record your answer or type it below.
+            Take your time to think about your response. You can use voice input or type your answer below.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Input Mode Toggle */}
           <div className="flex items-center justify-center space-x-4">
             <Button
-              variant={isRecording ? "destructive" : "default"}
-              size="lg"
-              onClick={isRecording ? handleStopRecording : handleStartRecording}
-              className="flex items-center space-x-2"
+              variant={inputMode === 'voice' ? 'default' : 'outline'}
+              onClick={() => setInputMode('voice')}
+              size="sm"
             >
-              {isRecording ? (
-                <>
-                  <MicOff className="h-5 w-5" />
-                  <span>Stop Recording</span>
-                </>
-              ) : (
-                <>
-                  <Mic className="h-5 w-5" />
-                  <span>Start Recording</span>
-                </>
-              )}
+              Voice Input
+            </Button>
+            <Button
+              variant={inputMode === 'text' ? 'default' : 'outline'}
+              onClick={() => setInputMode('text')}
+              size="sm"
+            >
+              <Type className="h-4 w-4 mr-2" />
+              Text Input
             </Button>
           </div>
 
-          {isRecording && (
-            <div className="text-center">
-              <div className="inline-flex items-center space-x-2 text-red-600">
-                <div className="animate-pulse w-3 h-3 bg-red-600 rounded-full"></div>
-                <span>Recording in progress...</span>
+          {/* Voice Input Mode */}
+          {inputMode === 'voice' && (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <VoiceInput 
+                  onTranscription={handleVoiceTranscription}
+                  className="w-fit"
+                />
               </div>
+              {currentAnswer && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <label className="text-sm font-medium text-gray-700 block mb-2">
+                    Transcribed Answer:
+                  </label>
+                  <Textarea
+                    value={currentAnswer}
+                    onChange={handleTextChange}
+                    placeholder="Your transcribed answer will appear here..."
+                    className="min-h-[120px] bg-white"
+                  />
+                </div>
+              )}
             </div>
           )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Or type your answer:</label>
-            <textarea
-              value={currentAnswer}
-              onChange={(e) => setCurrentAnswer(e.target.value)}
-              placeholder="Type your answer here..."
-              className="w-full p-3 border rounded-lg min-h-[120px] resize-none"
-              disabled={isRecording}
-            />
-          </div>
+          {/* Text Input Mode */}
+          {inputMode === 'text' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Type your answer:</label>
+              <Textarea
+                value={currentAnswer}
+                onChange={handleTextChange}
+                placeholder="Type your answer here..."
+                className="min-h-[120px]"
+              />
+            </div>
+          )}
 
           <div className="flex justify-between">
             <Button
@@ -198,8 +239,9 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
             </Button>
 
             <Button
-              onClick={handleNextQuestion}
+              onClick={handleSubmitAnswer}
               className="flex items-center space-x-2"
+              disabled={!currentAnswer.trim()}
             >
               {currentQuestionIndex === interviewQuestions.length - 1 ? (
                 <CheckCircle className="h-4 w-4" />
@@ -242,6 +284,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
           <li>• Use the STAR method for behavioral questions (Situation, Task, Action, Result)</li>
           <li>• Provide specific examples from your experience</li>
           <li>• Be honest and authentic in your responses</li>
+          <li>• You can edit transcribed text before submitting your answer</li>
         </ul>
       </div>
     </div>

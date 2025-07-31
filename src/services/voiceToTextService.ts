@@ -1,74 +1,88 @@
+import { supabase } from '@/integrations/supabase/client';
 
-import { supabase } from "@/integrations/supabase/client";
-
-class VoiceToTextService {
+export class VoiceRecorder {
   private mediaRecorder: MediaRecorder | null = null;
-  private audioChunks: BlobPart[] = [];
+  private audioChunks: Blob[] = [];
   private stream: MediaStream | null = null;
+  private isRecording = false;
 
-  async startRecording(): Promise<MediaStream> {
+  async startRecording(): Promise<void> {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Starting voice recording...');
       
+      // Request microphone access
+      this.stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      // Create MediaRecorder
+      this.mediaRecorder = new MediaRecorder(this.stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+
       this.audioChunks = [];
-      this.mediaRecorder = new MediaRecorder(this.stream);
-      
+      this.isRecording = true;
+
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.audioChunks.push(event.data);
         }
       };
+
+      this.mediaRecorder.start(100); // Collect data every 100ms
+      console.log('Voice recording started successfully');
       
-      this.mediaRecorder.start();
-      return this.stream;
     } catch (error) {
-      console.error('Error starting audio recording:', error);
-      throw new Error('Failed to access microphone. Please check permissions.');
+      console.error('Error starting recording:', error);
+      throw new Error('Failed to start recording. Please check microphone permissions.');
     }
   }
 
-  stopRecording(): Promise<string> {
+  async stopRecording(): Promise<string> {
     return new Promise((resolve, reject) => {
-      if (!this.mediaRecorder) {
+      if (!this.mediaRecorder || !this.isRecording) {
         reject(new Error('No recording in progress'));
         return;
       }
 
       this.mediaRecorder.onstop = async () => {
         try {
+          console.log('Processing recorded audio...');
+          
+          // Create blob from chunks
           const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+          console.log('Audio blob created, size:', audioBlob.size, 'bytes');
+
+          // Convert to base64
           const base64Audio = await this.blobToBase64(audioBlob);
           
-          const { data, error } = await supabase.functions.invoke('voice-to-text', {
-            body: { audio: base64Audio }
-          });
-
-          if (error) {
-            throw new Error(error.message);
-          }
-
-          resolve(data.text || '');
+          // Clean up
+          this.cleanup();
+          
+          resolve(base64Audio);
         } catch (error) {
-          console.error('Error converting speech to text:', error);
+          console.error('Error processing recording:', error);
           reject(error);
         }
       };
 
       this.mediaRecorder.stop();
-      
-      // Stop all tracks to release microphone
-      if (this.stream) {
-        this.stream.getTracks().forEach(track => track.stop());
-        this.stream = null;
-      }
+      this.isRecording = false;
     });
   }
 
-  private blobToBase64(blob: Blob): Promise<string> {
+  private async blobToBase64(blob: Blob): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
+        // Remove the data URL prefix (data:audio/webm;base64,)
         const base64 = result.split(',')[1];
         resolve(base64);
       };
@@ -77,20 +91,71 @@ class VoiceToTextService {
     });
   }
 
-  isRecording(): boolean {
-    return this.mediaRecorder?.state === 'recording';
+  private cleanup(): void {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    this.mediaRecorder = null;
+    this.audioChunks = [];
+    this.isRecording = false;
   }
 
-  // Legacy methods for backward compatibility
-  start(callback: (text: string) => void): Promise<void> {
-    console.warn('start() method is deprecated, use startRecording() instead');
-    return this.startRecording().then(() => {});
-  }
-
-  stop(): Promise<void> {
-    console.warn('stop() method is deprecated, use stopRecording() instead');
-    return this.stopRecording().then(() => {});
+  getRecordingState(): boolean {
+    return this.isRecording;
   }
 }
 
-export default new VoiceToTextService();
+export class VoiceToTextService {
+  async transcribeAudio(audioBase64: string, language = 'en'): Promise<string> {
+    try {
+      console.log('Sending audio for transcription...');
+      
+      const { data, error } = await supabase.functions.invoke('voice-to-text', {
+        body: {
+          audio: audioBase64,
+          language: language
+        }
+      });
+
+      if (error) {
+        console.error('Transcription error:', error);
+        throw error;
+      }
+
+      if (!data || !data.text) {
+        throw new Error('No transcription received');
+      }
+
+      console.log('Transcription successful:', data.text);
+      return data.text;
+      
+    } catch (error) {
+      console.error('Error in transcription service:', error);
+      throw new Error(`Transcription failed: ${error.message}`);
+    }
+  }
+
+  // Simplified method - component will handle the recording lifecycle
+  async transcribeAudioBlob(audioBlob: Blob, language = 'en'): Promise<string> {
+    const base64Audio = await this.blobToBase64(audioBlob);
+    return this.transcribeAudio(base64Audio, language);
+  }
+
+  private async blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data URL prefix
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+}
+
+export const voiceToTextService = new VoiceToTextService();
+export default voiceToTextService;

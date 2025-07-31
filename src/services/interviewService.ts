@@ -35,13 +35,15 @@ export interface BulkEvaluationResult {
       depth: number;
       clarity: number;
     };
+    improvement_tips: string[];
   }>;
   overall_statistics: {
     average_score: number;
     total_questions: number;
     strengths: string[];
-    areas_for_improvement: string[];
+    critical_weaknesses: string[];
     overall_grade: string;
+    harsh_but_helpful_feedback: string;
     recommendation: string;
   };
 }
