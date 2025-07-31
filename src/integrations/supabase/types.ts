@@ -704,6 +704,10 @@ export type Database = {
           clerk_publishable_key: string
         }[]
       }
+      get_current_clerk_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       register_manual_user: {
         Args: {
           user_email: string
