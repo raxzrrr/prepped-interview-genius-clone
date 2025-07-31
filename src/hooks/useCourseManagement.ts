@@ -44,12 +44,8 @@ export const useCourseManagement = () => {
         questionsData[course.id] = courseQuestions;
       }
       
-      // Filter courses to only include those with questions/assignments
-      const coursesWithQuestions = coursesData.filter(course => 
-        questionsData[course.id] && questionsData[course.id].length > 0
-      );
-      
-      setCourses(coursesWithQuestions);
+      // Set all courses for admin management (no filtering)
+      setCourses(coursesData);
       setVideos(videosData);
       setQuestions(questionsData);
     } catch (error: any) {
