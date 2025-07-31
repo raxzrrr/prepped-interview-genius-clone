@@ -24,7 +24,8 @@ interface UserCertificate {
   completion_data: any;
   certificate_url: string | null;
   verification_code: string;
-  status: string;
+  score: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
   certificates: Certificate;

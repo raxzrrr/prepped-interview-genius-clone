@@ -10,8 +10,9 @@ import { useAuth } from '@/contexts/ClerkAuthContext';
 interface ResumeUploadProps {
   file?: string;
   isLoading?: boolean;
-  onAnalysisComplete?: (questions: string[]) => void;
+  onAnalysisComplete?: (questions: string[], analysis: any) => void;
   onAnalysisResults?: (analysis: any) => void;
+  questionCount?: number;
 }
 
 const ResumeUpload: React.FC<ResumeUploadProps> = ({ 
@@ -101,7 +102,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
 
       setProgress('Complete!');
       setSuccess(true);
-      onAnalysisComplete?.(questions.map(q => q.question));
+      onAnalysisComplete?.(questions.map(q => q.question), analysis);
       
       toast({
         title: "Resume Analysis Complete",

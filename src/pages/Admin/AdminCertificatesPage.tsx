@@ -92,6 +92,7 @@ const AdminCertificatesPage: React.FC = () => {
         .insert([{
           user_id: userId,
           certificate_id: internshipCert.id,
+          verification_code: `CERT-${Date.now().toString().slice(-8).toUpperCase()}`,
           completion_data: {
             issued_by_admin: true,
             admin_notes: `Internship certificate issued for ${userName}`
