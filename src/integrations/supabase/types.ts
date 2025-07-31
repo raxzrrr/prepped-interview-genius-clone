@@ -229,6 +229,116 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_reports: {
+        Row: {
+          answers: Json
+          created_at: string
+          evaluations: Json
+          id: string
+          interview_type: string
+          job_role: string | null
+          overall_grade: string
+          overall_score: number
+          pdf_url: string | null
+          questions: Json
+          recommendation: string
+          report_data: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          evaluations?: Json
+          id?: string
+          interview_type?: string
+          job_role?: string | null
+          overall_grade?: string
+          overall_score?: number
+          pdf_url?: string | null
+          questions?: Json
+          recommendation?: string
+          report_data?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          evaluations?: Json
+          id?: string
+          interview_type?: string
+          job_role?: string | null
+          overall_grade?: string
+          overall_score?: number
+          pdf_url?: string | null
+          questions?: Json
+          recommendation?: string
+          report_data?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_interview_reports_user_id"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          evaluations: Json | null
+          id: string
+          ideal_answers: Json
+          interview_type: string
+          job_role: string | null
+          overall_score: number | null
+          question_count: number
+          questions: Json
+          session_status: string
+          updated_at: string
+          user_answers: Json | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          evaluations?: Json | null
+          id?: string
+          ideal_answers?: Json
+          interview_type: string
+          job_role?: string | null
+          overall_score?: number | null
+          question_count: number
+          questions?: Json
+          session_status?: string
+          updated_at?: string
+          user_answers?: Json | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          evaluations?: Json | null
+          id?: string
+          ideal_answers?: Json
+          interview_type?: string
+          job_role?: string | null
+          overall_score?: number | null
+          question_count?: number
+          questions?: Json
+          session_status?: string
+          updated_at?: string
+          user_answers?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -283,13 +393,10 @@ export type Database = {
         Row: {
           auth_provider: string | null
           avatar_url: string | null
-          clerk_publishable_key: string | null
           created_at: string
           email: string | null
           email_verified: boolean | null
           full_name: string
-          gemini_api_key: string | null
-          google_tts_api_key: string | null
           id: string
           last_active: string | null
           password_hash: string | null
@@ -300,13 +407,10 @@ export type Database = {
         Insert: {
           auth_provider?: string | null
           avatar_url?: string | null
-          clerk_publishable_key?: string | null
           created_at?: string
           email?: string | null
           email_verified?: boolean | null
           full_name: string
-          gemini_api_key?: string | null
-          google_tts_api_key?: string | null
           id: string
           last_active?: string | null
           password_hash?: string | null
@@ -317,13 +421,10 @@ export type Database = {
         Update: {
           auth_provider?: string | null
           avatar_url?: string | null
-          clerk_publishable_key?: string | null
           created_at?: string
           email?: string | null
           email_verified?: boolean | null
           full_name?: string
-          gemini_api_key?: string | null
-          google_tts_api_key?: string | null
           id?: string
           last_active?: string | null
           password_hash?: string | null
@@ -369,60 +470,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_certificates: {
-        Row: {
-          certificate_id: string
-          certificate_url: string | null
-          completion_data: Json | null
-          created_at: string | null
-          id: string
-          issued_date: string | null
-          status: string | null
-          updated_at: string | null
-          user_id: string
-          verification_code: string | null
-        }
-        Insert: {
-          certificate_id: string
-          certificate_url?: string | null
-          completion_data?: Json | null
-          created_at?: string | null
-          id?: string
-          issued_date?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id: string
-          verification_code?: string | null
-        }
-        Update: {
-          certificate_id?: string
-          certificate_url?: string | null
-          completion_data?: Json | null
-          created_at?: string | null
-          id?: string
-          issued_date?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string
-          verification_code?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_certificates_certificate_id_fkey"
-            columns: ["certificate_id"]
-            isOneToOne: false
-            referencedRelation: "certificates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_certificates_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_interview_usage: {
         Row: {
           created_at: string | null
@@ -461,53 +508,50 @@ export type Database = {
           },
         ]
       }
-      user_learning: {
+      user_progress: {
         Row: {
-          assessment_attempted: boolean | null
-          assessment_completed_at: string | null
-          assessment_score: number | null
-          completed_modules: number | null
-          course_completed_at: string | null
-          course_progress: Json | null
-          course_progress_new: Json | null
-          course_score: number | null
+          completed: boolean
+          completed_at: string | null
           created_at: string
           id: string
-          total_modules: number | null
           updated_at: string
           user_id: string
+          video_id: string
         }
         Insert: {
-          assessment_attempted?: boolean | null
-          assessment_completed_at?: string | null
-          assessment_score?: number | null
-          completed_modules?: number | null
-          course_completed_at?: string | null
-          course_progress?: Json | null
-          course_progress_new?: Json | null
-          course_score?: number | null
+          completed?: boolean
+          completed_at?: string | null
           created_at?: string
           id?: string
-          total_modules?: number | null
           updated_at?: string
           user_id: string
+          video_id: string
         }
         Update: {
-          assessment_attempted?: boolean | null
-          assessment_completed_at?: string | null
-          assessment_score?: number | null
-          completed_modules?: number | null
-          course_completed_at?: string | null
-          course_progress?: Json | null
-          course_progress_new?: Json | null
-          course_score?: number | null
+          completed?: boolean
+          completed_at?: string | null
           created_at?: string
           id?: string
-          total_modules?: number | null
           updated_at?: string
           user_id?: string
+          video_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_progress_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "course_videos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_subscriptions: {
         Row: {

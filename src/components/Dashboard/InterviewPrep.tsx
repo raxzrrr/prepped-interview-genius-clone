@@ -1,17 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, Play, Pause, SkipForward, CheckCircle } from 'lucide-react';
+import { Mic, MicOff, SkipForward, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useInterviewApi } from '@/services/api';
 import { Badge } from '@/components/ui/badge';
-
-interface InterviewQuestion {
-  id?: string;
-  question: string;
-}
 
 interface InterviewPrepProps {
   questions?: string[];
@@ -23,69 +16,28 @@ interface InterviewPrepProps {
     interviewId?: string 
   }) => void;
   resumeAnalysis?: any;
+  interviewType?: 'basic_hr_technical' | 'role_based' | 'resume_based';
 }
 
 const InterviewPrep: React.FC<InterviewPrepProps> = ({ 
   questions: initialQuestions = [], 
   onComplete, 
-  resumeAnalysis 
+  resumeAnalysis,
+  interviewType = 'basic_hr_technical'
 }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
-  const [evaluations, setEvaluations] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
-  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
-  const [isEvaluating, setIsEvaluating] = useState(false);
   
   const { toast } = useToast();
-  const { generateInterviewQuestions, evaluateAnswer } = useInterviewApi();
 
   useEffect(() => {
     if (initialQuestions.length > 0) {
       setInterviewQuestions(initialQuestions);
-    } else {
-      generateDynamicQuestions();
     }
   }, [initialQuestions]);
-
-  const generateDynamicQuestions = async () => {
-    setIsGeneratingQuestions(true);
-    try {
-      const role = resumeAnalysis?.suggested_role || 'Software Developer';
-      const generatedQuestions = await generateInterviewQuestions(role);
-      
-      if (generatedQuestions && generatedQuestions.length > 0) {
-        const questions = generatedQuestions.map(q => 
-          typeof q === 'string' ? q : q.question
-        );
-        setInterviewQuestions(questions);
-        toast({
-          title: "Questions Generated",
-          description: `Generated ${questions.length} interview questions`,
-        });
-      }
-    } catch (error) {
-      console.error('Error generating questions:', error);
-      toast({
-        title: "Generation Failed",
-        description: "Using fallback questions. Please check your API key settings.",
-        variant: "destructive"
-      });
-      
-      // Fallback questions
-      setInterviewQuestions([
-        "Tell me about yourself and your background.",
-        "What are your greatest strengths?",
-        "Describe a challenging project you worked on.",
-        "Where do you see yourself in 5 years?",
-        "Why are you interested in this role?"
-      ]);
-    } finally {
-      setIsGeneratingQuestions(false);
-    }
-  };
 
   const handleStartRecording = () => {
     setIsRecording(true);
@@ -96,49 +48,24 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     setIsRecording(false);
     // In a real implementation, this would process audio input
     // For now, we'll simulate with text input
-    const simulatedAnswer = currentAnswer || `Answer for: ${interviewQuestions[currentQuestionIndex]}`;
+    const simulatedAnswer = currentAnswer || `Recorded answer for: ${interviewQuestions[currentQuestionIndex]}`;
     setCurrentAnswer(simulatedAnswer);
   };
 
-  const handleNextQuestion = async () => {
+  const handleNextQuestion = () => {
     const answer = currentAnswer || 'No answer provided';
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
-
-    // Get AI evaluation for the current answer
-    setIsEvaluating(true);
-    try {
-      const evaluation = await evaluateAnswer(
-        interviewQuestions[currentQuestionIndex], 
-        answer
-      );
-      
-      const newEvaluations = [...evaluations, evaluation];
-      setEvaluations(newEvaluations);
-      
-      if (evaluation) {
-        toast({
-          title: "Answer Evaluated",
-          description: `Score: ${evaluation.score_breakdown?.overall || 'N/A'}/10`,
-        });
-      }
-    } catch (error) {
-      console.error('Error evaluating answer:', error);
-      // Continue without evaluation
-      setEvaluations([...evaluations, null]);
-    } finally {
-      setIsEvaluating(false);
-    }
 
     if (currentQuestionIndex < interviewQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setCurrentAnswer('');
     } else {
-      // Interview completed
+      // Interview completed - pass answers to parent for bulk evaluation
       onComplete({
         questions: interviewQuestions,
         answers: newAnswers,
-        evaluations: [...evaluations, evaluations[evaluations.length - 1]],
+        evaluations: [], // Will be populated by bulk evaluation
         facialAnalysis: [], // Placeholder for future facial analysis
         interviewId: `interview_${Date.now()}`
       });
@@ -146,30 +73,43 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   };
 
   const handleSkipQuestion = () => {
+    setCurrentAnswer('Question skipped');
     handleNextQuestion();
   };
 
   const progress = ((currentQuestionIndex + 1) / interviewQuestions.length) * 100;
 
-  if (isGeneratingQuestions) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-purple mx-auto mb-4"></div>
-          <p className="text-lg font-medium">Generating personalized interview questions...</p>
-          <p className="text-sm text-gray-500 mt-2">This may take a moment</p>
-        </div>
-      </div>
-    );
-  }
+  const getInterviewTypeLabel = () => {
+    switch (interviewType) {
+      case 'basic_hr_technical':
+        return 'HR + Technical Interview';
+      case 'role_based':
+        return 'Role-Based Interview';
+      case 'resume_based':
+        return 'Resume-Based Interview';
+      default:
+        return 'Interview Practice';
+    }
+  };
+
+  const getInterviewTypeDescription = () => {
+    switch (interviewType) {
+      case 'basic_hr_technical':
+        return 'Combination of behavioral and basic technical questions';
+      case 'role_based':
+        return 'Field-specific technical and industry questions';
+      case 'resume_based':
+        return 'Personalized questions based on your resume';
+      default:
+        return 'Practice interview session';
+    }
+  };
 
   if (interviewQuestions.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-lg font-medium text-gray-600">No questions available</p>
-        <Button onClick={generateDynamicQuestions} className="mt-4">
-          Generate Questions
-        </Button>
+        <p className="text-sm text-gray-500 mt-2">Please try again or contact support.</p>
       </div>
     );
   }
@@ -178,13 +118,13 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Interview Practice</h1>
+          <h1 className="text-2xl font-bold">{getInterviewTypeLabel()}</h1>
           <p className="text-gray-600">
             Question {currentQuestionIndex + 1} of {interviewQuestions.length}
           </p>
         </div>
         <Badge variant="outline">
-          AI-Generated Questions
+          {getInterviewTypeDescription()}
         </Badge>
       </div>
 
@@ -242,7 +182,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               value={currentAnswer}
               onChange={(e) => setCurrentAnswer(e.target.value)}
               placeholder="Type your answer here..."
-              className="w-full p-3 border rounded-lg min-h-[100px] resize-none"
+              className="w-full p-3 border rounded-lg min-h-[120px] resize-none"
               disabled={isRecording}
             />
           </div>
@@ -259,22 +199,17 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
 
             <Button
               onClick={handleNextQuestion}
-              disabled={isEvaluating}
               className="flex items-center space-x-2"
             >
-              {isEvaluating ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : currentQuestionIndex === interviewQuestions.length - 1 ? (
+              {currentQuestionIndex === interviewQuestions.length - 1 ? (
                 <CheckCircle className="h-4 w-4" />
               ) : (
                 <SkipForward className="h-4 w-4" />
               )}
               <span>
-                {isEvaluating 
-                  ? 'Evaluating...' 
-                  : currentQuestionIndex === interviewQuestions.length - 1 
-                    ? 'Complete Interview' 
-                    : 'Next Question'
+                {currentQuestionIndex === interviewQuestions.length - 1 
+                  ? 'Complete Interview' 
+                  : 'Next Question'
                 }
               </span>
             </Button>
@@ -299,6 +234,16 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
           </CardContent>
         </Card>
       )}
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="font-medium text-blue-900 mb-2">Interview Tips</h4>
+        <ul className="text-sm text-blue-800 space-y-1">
+          <li>• Take your time to think through each question</li>
+          <li>• Use the STAR method for behavioral questions (Situation, Task, Action, Result)</li>
+          <li>• Provide specific examples from your experience</li>
+          <li>• Be honest and authentic in your responses</li>
+        </ul>
+      </div>
     </div>
   );
 };
