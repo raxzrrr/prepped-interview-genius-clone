@@ -240,7 +240,7 @@ Make questions that directly relate to their experience and would challenge them
 
 // Generate HR and technical questions specifically
 async function generateHRTechnicalQuestions(questionCount: number, apiKey: string) {
-  return generateInterviewSet('basic_hr_technical', '', questionCount, apiKey)
+  return generateInterviewSet('basic_hr_technical', '', questionCount, apiKey, undefined)
 }
 
 // Bulk evaluate all answers at once
