@@ -11,6 +11,9 @@ interface APIKeys {
   gemini_api_key: string | null;
   google_tts_api_key: string | null;
   clerk_publishable_key: string | null;
+  razorpay_key_id: string | null;
+  razorpay_key_secret: string | null;
+  pro_plan_price_inr: number | null;
 }
 
 const APIKeySettings: React.FC = () => {
@@ -18,18 +21,24 @@ const APIKeySettings: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<APIKeys>({
     gemini_api_key: '',
     google_tts_api_key: '',
-    clerk_publishable_key: ''
+    clerk_publishable_key: '',
+    razorpay_key_id: '',
+    razorpay_key_secret: '',
+    pro_plan_price_inr: 999
   });
   const [showKeys, setShowKeys] = useState({
     gemini: false,
     tts: false,
-    clerk: false
+    clerk: false,
+    razorpay_id: false,
+    razorpay_secret: false
   });
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState({
     gemini: false,
     tts: false,
-    clerk: false
+    clerk: false,
+    razorpay: false
   });
 
   useEffect(() => {
@@ -43,7 +52,15 @@ const APIKeySettings: React.FC = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        setApiKeys(data[0]);
+        const apiData = data[0] as any;
+        setApiKeys({
+          gemini_api_key: apiData.gemini_api_key || '',
+          google_tts_api_key: apiData.google_tts_api_key || '',
+          clerk_publishable_key: apiData.clerk_publishable_key || '',
+          razorpay_key_id: apiData.razorpay_key_id || '',
+          razorpay_key_secret: apiData.razorpay_key_secret || '',
+          pro_plan_price_inr: apiData.pro_plan_price_inr || 999
+        });
       }
     } catch (error) {
       console.error('Error loading API keys:', error);
@@ -55,14 +72,14 @@ const APIKeySettings: React.FC = () => {
     }
   };
 
-  const handleKeyChange = (keyType: keyof APIKeys, value: string) => {
+  const handleKeyChange = (keyType: keyof APIKeys, value: string | number) => {
     setApiKeys(prev => ({
       ...prev,
       [keyType]: value
     }));
   };
 
-  const testAPIKey = async (keyType: 'gemini' | 'tts' | 'clerk') => {
+  const testAPIKey = async (keyType: 'gemini' | 'tts' | 'clerk' | 'razorpay') => {
     setTesting(prev => ({ ...prev, [keyType]: true }));
     
     try {
@@ -87,6 +104,12 @@ const APIKeySettings: React.FC = () => {
           if (apiKeys.clerk_publishable_key) {
             // Basic validation for Clerk publishable key format
             testResult = apiKeys.clerk_publishable_key.startsWith('pk_');
+          }
+          break;
+        case 'razorpay':
+          if (apiKeys.razorpay_key_id && apiKeys.razorpay_key_secret) {
+            // Basic validation for Razorpay key format
+            testResult = apiKeys.razorpay_key_id.startsWith('rzp_');
           }
           break;
       }
@@ -114,8 +137,11 @@ const APIKeySettings: React.FC = () => {
       const { error } = await supabase.rpc('update_api_keys', {
         p_gemini_key: apiKeys.gemini_api_key || null,
         p_tts_key: apiKeys.google_tts_api_key || null,
-        p_clerk_key: apiKeys.clerk_publishable_key || null
-      });
+        p_clerk_key: apiKeys.clerk_publishable_key || null,
+        p_razorpay_key_id: apiKeys.razorpay_key_id || null,
+        p_razorpay_key_secret: apiKeys.razorpay_key_secret || null,
+        p_pro_plan_price_inr: apiKeys.pro_plan_price_inr || null
+      } as any);
       
       if (error) throw error;
       
@@ -135,7 +161,7 @@ const APIKeySettings: React.FC = () => {
     }
   };
 
-  const toggleShowKey = (keyType: 'gemini' | 'tts' | 'clerk') => {
+  const toggleShowKey = (keyType: 'gemini' | 'tts' | 'clerk' | 'razorpay_id' | 'razorpay_secret') => {
     setShowKeys(prev => ({
       ...prev,
       [keyType]: !prev[keyType]
@@ -147,7 +173,8 @@ const APIKeySettings: React.FC = () => {
     label: string,
     description: string,
     showKey: boolean,
-    testKey: 'gemini' | 'tts' | 'clerk'
+    testKey: 'gemini' | 'tts' | 'clerk' | 'razorpay',
+    toggleKey: 'gemini' | 'tts' | 'clerk' | 'razorpay_id' | 'razorpay_secret'
   ) => (
     <div className="space-y-3">
       <div>
@@ -169,7 +196,7 @@ const APIKeySettings: React.FC = () => {
             variant="ghost"
             size="sm"
             className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
-            onClick={() => toggleShowKey(testKey)}
+            onClick={() => toggleShowKey(toggleKey)}
           >
             {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
@@ -203,6 +230,7 @@ const APIKeySettings: React.FC = () => {
           'Gemini API Key',
           'Used for AI-powered interview question generation and analysis',
           showKeys.gemini,
+          'gemini',
           'gemini'
         )}
         
@@ -211,6 +239,7 @@ const APIKeySettings: React.FC = () => {
           'Google Text-to-Speech API Key',
           'Used for converting text to speech in interview scenarios',
           showKeys.tts,
+          'tts',
           'tts'
         )}
         
@@ -219,8 +248,43 @@ const APIKeySettings: React.FC = () => {
           'Clerk Publishable Key',
           'Used for user authentication (frontend)',
           showKeys.clerk,
+          'clerk',
           'clerk'
         )}
+        
+        {renderKeyInput(
+          'razorpay_key_id',
+          'Razorpay Key ID',
+          'Used for payment processing (public key)',
+          showKeys.razorpay_id,
+          'razorpay',
+          'razorpay_id'
+        )}
+        
+        {renderKeyInput(
+          'razorpay_key_secret',
+          'Razorpay Key Secret',
+          'Used for payment processing (secret key)',
+          showKeys.razorpay_secret,
+          'razorpay',
+          'razorpay_secret'
+        )}
+        
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="pro_plan_price_inr">Pro Plan Price (INR)</Label>
+            <p className="text-sm text-muted-foreground">Set the price for pro subscriptions in Indian Rupees</p>
+          </div>
+          <Input
+            id="pro_plan_price_inr"
+            type="number"
+            value={apiKeys.pro_plan_price_inr || ''}
+            onChange={(e) => handleKeyChange('pro_plan_price_inr', parseInt(e.target.value) || 999)}
+            placeholder="Enter price in INR"
+            min="1"
+            step="1"
+          />
+        </div>
         
         <div className="flex justify-end pt-4">
           <Button 

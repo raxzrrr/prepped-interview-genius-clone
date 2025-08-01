@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { CheckIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
+import { usePaymentSettings } from '@/hooks/usePaymentSettings';
 import RazorpayButton from '@/components/Payment/RazorpayButton';
 
 const PricingSection: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasActivePlan, hasAnyActivePlan } = useSubscription();
+  const { settings: paymentSettings } = usePaymentSettings();
   
   const plans = [
     {
@@ -32,7 +34,7 @@ const PricingSection: React.FC = () => {
     },
     {
       name: "Pro",
-      price: "₹1,999",
+      price: paymentSettings ? `₹${paymentSettings.pro_plan_price_inr}` : "₹999",
       period: " per month",
       description: "Everything you need for interview success",
       features: [
@@ -48,7 +50,7 @@ const PricingSection: React.FC = () => {
       popular: true,
       buttonVariant: "default",
       planType: "pro",
-      amount: 1999
+      amount: paymentSettings?.pro_plan_price_inr || 999
     },
     {
       name: "Enterprise",

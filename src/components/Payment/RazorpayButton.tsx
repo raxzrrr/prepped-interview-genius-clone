@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { usePaymentSettings } from '@/hooks/usePaymentSettings';
 import { Loader2 } from 'lucide-react';
 
 interface RazorpayButtonProps {
@@ -32,6 +33,7 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { settings: paymentSettings, loading: settingsLoading } = usePaymentSettings();
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -48,6 +50,15 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
       toast({
         title: "Authentication Required",
         description: "Please log in to purchase a plan",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!paymentSettings?.razorpay_key_id) {
+      toast({
+        title: "Payment Setup Required",
+        description: "Payment system is not configured. Please contact support.",
         variant: "destructive",
       });
       return;
@@ -73,7 +84,7 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
       if (orderError) throw orderError;
 
       const options = {
-        key: 'rzp_test_9WKG4ZjYWcO0j9', // This will be replaced with your actual key
+        key: paymentSettings.razorpay_key_id,
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'Interview Genius',
@@ -142,7 +153,7 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
       variant={variant}
       className={`w-full ${variant === "default" ? 'bg-brand-purple hover:bg-brand-lightPurple' : ''}`}
       onClick={handlePayment}
-      disabled={disabled || loading}
+      disabled={disabled || loading || settingsLoading || !paymentSettings?.razorpay_key_id}
     >
       {loading ? (
         <>
