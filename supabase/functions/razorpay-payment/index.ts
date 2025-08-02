@@ -65,7 +65,15 @@ serve(async (req) => {
           throw new Error('Invalid authentication token')
         }
 
-        const authenticated_user_id = userData.user.id
+        // Convert Clerk user ID to Supabase user ID using the same algorithm as frontend
+        const clerkUserId = userData.user.id
+        const hash = Array.from(clerkUserId).reduce((acc, char) => {
+          return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+        }, 0);
+        
+        const hex = Math.abs(hash).toString(16).padStart(8, '0');
+        const supabaseUserId = `${hex.substring(0, 8)}-${hex.substring(0, 4)}-4${hex.substring(1, 4)}-a${hex.substring(0, 3)}-${hex.substring(0, 12)}`;
+
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
         
         // Verify payment signature using Web Crypto API
@@ -92,11 +100,11 @@ serve(async (req) => {
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         const supabase = createClient(supabaseUrl, supabaseKey)
 
-        // Store payment record using authenticated user ID
+        // Store payment record using Supabase user ID
         const { error: paymentError } = await supabase
           .from('payments')
           .insert({
-            user_id: authenticated_user_id,
+            user_id: supabaseUserId,
             razorpay_order_id,
             razorpay_payment_id,
             razorpay_signature,
@@ -111,14 +119,14 @@ serve(async (req) => {
           throw new Error('Failed to store payment record')
         }
 
-        // Update user subscription using authenticated user ID
+        // Update user subscription using Supabase user ID
         const subscriptionEnd = new Date()
         subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1) // 1 month subscription
 
         const { error: subscriptionError } = await supabase
           .from('user_subscriptions')
           .upsert({
-            user_id: authenticated_user_id,
+            user_id: supabaseUserId,
             plan_type,
             status: 'active',
             current_period_start: new Date().toISOString(),
