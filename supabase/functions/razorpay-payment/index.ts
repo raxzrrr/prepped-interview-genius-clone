@@ -53,7 +53,20 @@ serve(async (req) => {
       }
 
       case 'verify_payment': {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, user_id, plan_type } = payload
+        // Get authenticated user from JWT token instead of trusting frontend payload
+        const authHeader = req.headers.get('Authorization')
+        if (!authHeader) {
+          throw new Error('No authorization header provided')
+        }
+
+        const token = authHeader.replace('Bearer ', '')
+        const { data: userData, error: userError } = await supabase.auth.getUser(token)
+        if (userError || !userData.user) {
+          throw new Error('Invalid authentication token')
+        }
+
+        const authenticated_user_id = userData.user.id
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
         
         // Verify payment signature using Web Crypto API
         const encoder = new TextEncoder()
@@ -79,11 +92,11 @@ serve(async (req) => {
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         const supabase = createClient(supabaseUrl, supabaseKey)
 
-        // Store payment record
+        // Store payment record using authenticated user ID
         const { error: paymentError } = await supabase
           .from('payments')
           .insert({
-            user_id,
+            user_id: authenticated_user_id,
             razorpay_order_id,
             razorpay_payment_id,
             razorpay_signature,
@@ -98,14 +111,14 @@ serve(async (req) => {
           throw new Error('Failed to store payment record')
         }
 
-        // Update user subscription
+        // Update user subscription using authenticated user ID
         const subscriptionEnd = new Date()
         subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1) // 1 month subscription
 
         const { error: subscriptionError } = await supabase
           .from('user_subscriptions')
           .upsert({
-            user_id,
+            user_id: authenticated_user_id,
             plan_type,
             status: 'active',
             current_period_start: new Date().toISOString(),
