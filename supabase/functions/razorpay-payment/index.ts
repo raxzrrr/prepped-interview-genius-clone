@@ -53,6 +53,11 @@ serve(async (req) => {
       }
 
       case 'verify_payment': {
+        // Initialize Supabase client first
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        const supabase = createClient(supabaseUrl, supabaseKey)
+
         // Get authenticated user from JWT token instead of trusting frontend payload
         const authHeader = req.headers.get('Authorization')
         if (!authHeader) {
@@ -95,10 +100,6 @@ serve(async (req) => {
           throw new Error('Invalid payment signature')
         }
 
-        // Initialize Supabase client
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        const supabase = createClient(supabaseUrl, supabaseKey)
 
         // Store payment record using Supabase user ID
         const { error: paymentError } = await supabase
