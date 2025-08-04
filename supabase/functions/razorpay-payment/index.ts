@@ -61,7 +61,7 @@ serve(async (req) => {
         const supabase = createClient(supabaseUrl, supabaseKey)
         console.log('Supabase client initialized');
 
-        // Get authenticated user from JWT token instead of trusting frontend payload
+        // Get authenticated user from JWT token
         const authHeader = req.headers.get('Authorization')
         console.log('Auth header present:', !!authHeader);
         
@@ -73,10 +73,9 @@ serve(async (req) => {
         const token = authHeader.replace('Bearer ', '')
         console.log('Token extracted, length:', token.length);
         
-        // Validate JWT token directly without Supabase auth
-        let clerkUserId: string;
+        // Extract user email from Clerk JWT token
+        let userEmail: string;
         try {
-          // For Clerk tokens, extract user ID from the token payload
           const parts = token.split('.');
           console.log('Token parts count:', parts.length);
           
@@ -88,31 +87,36 @@ serve(async (req) => {
           const payload = JSON.parse(atob(parts[1]));
           console.log('JWT payload decoded, keys:', Object.keys(payload));
           
-          clerkUserId = payload.sub;
-          console.log('Clerk user ID from token:', clerkUserId);
+          // Get email from the token - Clerk tokens contain email
+          userEmail = payload.email || payload.email_address;
+          console.log('User email from token:', userEmail);
           
-          if (!clerkUserId) {
-            console.log('ERROR: No user ID in token payload');
-            throw new Error('No user ID in token');
+          if (!userEmail) {
+            console.log('ERROR: No email in token payload');
+            throw new Error('No email in token');
           }
         } catch (error) {
           console.error('Token validation error:', error);
           throw new Error('Invalid authentication token');
         }
 
-        // Convert Clerk user ID to Supabase user ID using the same algorithm as frontend
-        const hash = Array.from(clerkUserId).reduce((acc, char) => {
-          return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
-        }, 0);
-        
-        const hex = Math.abs(hash).toString(16).padStart(8, '0');
-        const supabaseUserId = `${hex.substring(0, 8)}-${hex.substring(0, 4)}-4${hex.substring(1, 4)}-a${hex.substring(0, 3)}-${hex.substring(0, 12)}`;
-        
-        console.log('Payment verification:', {
-          clerkUserId,
-          supabaseUserId,
-          hash,
-          hex
+        // Find the user in profiles table by email
+        console.log('Looking up user by email in profiles table...');
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .eq('email', userEmail)
+          .single();
+
+        if (profileError || !profile) {
+          console.error('Profile lookup failed:', profileError);
+          throw new Error('User profile not found');
+        }
+
+        const supabaseUserId = profile.id;
+        console.log('Found user profile:', {
+          email: profile.email,
+          userId: supabaseUserId
         });
 
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
