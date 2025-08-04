@@ -7,6 +7,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Fixed namespace UUID for consistent generation (matches frontend)
+const NAMESPACE_UUID = '1b671a64-40d5-491e-99b0-da01ff1f3341';
+
+function generateConsistentUUID(userId: string): string {
+  try {
+    // Simple hash function to create deterministic UUID (matches frontend logic)
+    let hash = 0;
+    const input = userId + NAMESPACE_UUID;
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert hash to hex and pad to create UUID format
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    return `${hex.slice(0, 8)}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-a${hex.slice(0, 3)}-${hex.slice(0, 12).padEnd(12, '0')}`;
+  } catch (error) {
+    console.error("Error generating consistent UUID:", error);
+    // Fallback to a random UUID
+    return crypto.randomUUID();
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -73,7 +97,8 @@ serve(async (req) => {
         const token = authHeader.replace('Bearer ', '')
         console.log('Token extracted, length:', token.length);
         
-        // Extract user email from Clerk JWT token
+        // Extract Clerk user ID from JWT token
+        let clerkUserId: string;
         let userEmail: string;
         try {
           const parts = token.split('.');
@@ -87,9 +112,19 @@ serve(async (req) => {
           const payload = JSON.parse(atob(parts[1]));
           console.log('JWT payload decoded, keys:', Object.keys(payload));
           
+          // Extract Clerk user ID (sub claim)
+          clerkUserId = payload.sub;
+          if (!clerkUserId) {
+            console.log('ERROR: No Clerk user ID in token payload');
+            throw new Error('No Clerk user ID in token');
+          }
+          
           // Get email from the token - Clerk tokens contain email
           userEmail = payload.email || payload.email_address;
-          console.log('User email from token:', userEmail);
+          console.log('User details from token:', {
+            clerkUserId,
+            email: userEmail
+          });
           
           if (!userEmail) {
             console.log('ERROR: No email in token payload');
@@ -100,24 +135,50 @@ serve(async (req) => {
           throw new Error('Invalid authentication token');
         }
 
-        // Find the user in profiles table by email
-        console.log('Looking up user by email in profiles table...');
+        // Generate consistent UUID for Supabase (matches frontend logic)
+        const supabaseUserId = generateConsistentUUID(clerkUserId);
+        console.log('Generated Supabase user ID:', {
+          clerkUserId,
+          supabaseUserId,
+          email: userEmail
+        });
+
+        // Verify user exists in profiles table and determine actual user ID
+        console.log('Verifying user exists in profiles table...');
+        let actualUserId: string;
+        
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id, email')
-          .eq('email', userEmail)
+          .eq('id', supabaseUserId)
           .single();
 
         if (profileError || !profile) {
-          console.error('Profile lookup failed:', profileError);
-          throw new Error('User profile not found');
+          console.error('Profile lookup by generated ID failed:', profileError);
+          console.log('Attempting fallback lookup by email...');
+          
+          // Fallback: try to find by email in case user was created differently
+          const { data: emailProfile, error: emailError } = await supabase
+            .from('profiles')
+            .select('id, email')
+            .eq('email', userEmail)
+            .single();
+            
+          if (emailError || !emailProfile) {
+            console.error('Email-based profile lookup also failed:', emailError);
+            throw new Error('User profile not found');
+          }
+          
+          console.log('Found user via email fallback:', emailProfile);
+          actualUserId = emailProfile.id;
+          console.log('Using actual user ID from database:', actualUserId);
+        } else {
+          console.log('Found user profile by generated ID:', {
+            email: profile.email,
+            userId: supabaseUserId
+          });
+          actualUserId = supabaseUserId;
         }
-
-        const supabaseUserId = profile.id;
-        console.log('Found user profile:', {
-          email: profile.email,
-          userId: supabaseUserId
-        });
 
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
         console.log('Payment payload received:', {
@@ -154,29 +215,45 @@ serve(async (req) => {
         }
         console.log('Payment signature verified successfully');
 
-        // Store payment record using Supabase user ID
-        console.log('Inserting payment record...');
-        const { error: paymentError } = await supabase
-          .from('payments')
-          .insert({
-            user_id: supabaseUserId,
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature,
-            amount: payload.amount,
-            currency: payload.currency || 'INR',
-            plan_type,
-            status: 'completed'
-          })
+        // Store payment record using actual user ID
+        console.log('Inserting payment record with user_id:', actualUserId);
+        console.log('Payment data to insert:', {
+          user_id: actualUserId,
+          razorpay_order_id,
+          razorpay_payment_id,
+          amount: payload.amount,
+          currency: payload.currency || 'INR',
+          plan_type,
+          status: 'completed'
+        });
+        
+        try {
+          const { error: paymentError } = await supabase
+            .from('payments')
+            .insert({
+              user_id: actualUserId,
+              razorpay_order_id,
+              razorpay_payment_id,
+              razorpay_signature,
+              amount: payload.amount,
+              currency: payload.currency || 'INR',
+              plan_type,
+              status: 'completed'
+            });
 
-        if (paymentError) {
-          console.error('Payment record insertion failed:', paymentError)
-          throw new Error('Failed to store payment record')
+          if (paymentError) {
+            console.error('Payment record insertion failed:', paymentError);
+            console.error('Error details:', JSON.stringify(paymentError));
+            throw new Error(`Failed to store payment record: ${paymentError.message}`);
+          }
+          console.log('Payment record inserted successfully');
+        } catch (error) {
+          console.error('Exception during payment insertion:', error);
+          throw error;
         }
-        console.log('Payment record inserted successfully');
 
-        // Update user subscription using Supabase user ID
-        console.log('Creating/updating subscription...');
+        // Update user subscription using actual user ID
+        console.log('Creating/updating subscription for user_id:', actualUserId);
         const subscriptionEnd = new Date()
         subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1) // 1 month subscription
         
@@ -188,7 +265,7 @@ serve(async (req) => {
         const { error: subscriptionError } = await supabase
           .from('user_subscriptions')
           .upsert({
-            user_id: supabaseUserId,
+            user_id: actualUserId,
             plan_type,
             status: 'active',
             current_period_start: new Date().toISOString(),
@@ -198,7 +275,8 @@ serve(async (req) => {
 
         if (subscriptionError) {
           console.error('Subscription creation failed:', subscriptionError)
-          throw new Error('Failed to update subscription')
+          console.error('Subscription error details:', JSON.stringify(subscriptionError));
+          throw new Error(`Failed to update subscription: ${subscriptionError.message}`)
         }
         console.log('Subscription created/updated successfully');
         console.log('=== PAYMENT VERIFICATION SUCCESS ===');
