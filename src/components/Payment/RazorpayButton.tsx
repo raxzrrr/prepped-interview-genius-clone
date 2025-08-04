@@ -97,7 +97,7 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
             console.log('=== PAYMENT SUCCESS HANDLER START ===');
             console.log('Razorpay response:', response);
             
-            // Get JWT token for authentication
+            // Get JWT token for authentication - get the raw session token
             const token = await getToken();
             console.log('JWT token obtained:', !!token, 'Length:', token?.length);
             
@@ -123,6 +123,8 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
                 plan_type: planType,
                 amount,
                 currency: orderData.currency,
+                user_email: user.primaryEmailAddress?.emailAddress,
+                user_id: user.id,
               },
               headers: {
                 Authorization: `Bearer ${token}`,

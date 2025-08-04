@@ -97,42 +97,16 @@ serve(async (req) => {
         const token = authHeader.replace('Bearer ', '')
         console.log('Token extracted, length:', token.length);
         
-        // Extract Clerk user ID from JWT token
-        let clerkUserId: string;
-        let userEmail: string;
-        try {
-          const parts = token.split('.');
-          console.log('Token parts count:', parts.length);
-          
-          if (parts.length !== 3) {
-            console.log('ERROR: Invalid JWT format, parts:', parts.length);
-            throw new Error('Invalid JWT format');
-          }
-          
-          const payload = JSON.parse(atob(parts[1]));
-          console.log('JWT payload decoded, keys:', Object.keys(payload));
-          
-          // Extract Clerk user ID (sub claim)
-          clerkUserId = payload.sub;
-          if (!clerkUserId) {
-            console.log('ERROR: No Clerk user ID in token payload');
-            throw new Error('No Clerk user ID in token');
-          }
-          
-          // Get email from the token - Clerk tokens contain email
-          userEmail = payload.email || payload.email_address;
-          console.log('User details from token:', {
-            clerkUserId,
-            email: userEmail
-          });
-          
-          if (!userEmail) {
-            console.log('ERROR: No email in token payload');
-            throw new Error('No email in token');
-          }
-        } catch (error) {
-          console.error('Token validation error:', error);
-          throw new Error('Invalid authentication token');
+        // Get user data from request payload (sent from frontend)
+        const { user_email, user_id: clerkUserId } = payload;
+        console.log('User data from payload:', {
+          user_email,
+          clerkUserId
+        });
+
+        if (!user_email || !clerkUserId) {
+          console.log('ERROR: Missing user data in payload');
+          throw new Error('Missing user email or ID in request');
         }
 
         // Generate consistent UUID for Supabase (matches frontend logic)
@@ -140,7 +114,7 @@ serve(async (req) => {
         console.log('Generated Supabase user ID:', {
           clerkUserId,
           supabaseUserId,
-          email: userEmail
+          email: user_email
         });
 
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
@@ -169,7 +143,7 @@ serve(async (req) => {
           const { data: emailProfile, error: emailError } = await supabase
             .from('profiles')
             .select('id, email')
-            .eq('email', userEmail)
+            .eq('email', user_email)
             .single();
             
           if (emailError || !emailProfile) {
