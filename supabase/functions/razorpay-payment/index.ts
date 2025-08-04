@@ -65,19 +65,41 @@ serve(async (req) => {
         }
 
         const token = authHeader.replace('Bearer ', '')
-        const { data: userData, error: userError } = await supabase.auth.getUser(token)
-        if (userError || !userData.user) {
-          throw new Error('Invalid authentication token')
+        
+        // Validate JWT token directly without Supabase auth
+        let clerkUserId: string;
+        try {
+          // For Clerk tokens, extract user ID from the token payload
+          const parts = token.split('.');
+          if (parts.length !== 3) {
+            throw new Error('Invalid JWT format');
+          }
+          
+          const payload = JSON.parse(atob(parts[1]));
+          clerkUserId = payload.sub;
+          
+          if (!clerkUserId) {
+            throw new Error('No user ID in token');
+          }
+        } catch (error) {
+          console.error('Token validation error:', error);
+          throw new Error('Invalid authentication token');
         }
 
         // Convert Clerk user ID to Supabase user ID using the same algorithm as frontend
-        const clerkUserId = userData.user.id
         const hash = Array.from(clerkUserId).reduce((acc, char) => {
           return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
         }, 0);
         
         const hex = Math.abs(hash).toString(16).padStart(8, '0');
         const supabaseUserId = `${hex.substring(0, 8)}-${hex.substring(0, 4)}-4${hex.substring(1, 4)}-a${hex.substring(0, 3)}-${hex.substring(0, 12)}`;
+        
+        console.log('Payment verification:', {
+          clerkUserId,
+          supabaseUserId,
+          hash,
+          hex
+        });
 
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
         

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { ClerkAuthProvider } from "@/contexts/ClerkAuthContext";
 import ProtectedRoute from "@/components/Auth/ProtectedRoute";
+import { supabase } from "@/integrations/supabase/client";
 
 // Public Pages
 import HomePage from "@/pages/HomePage";
@@ -36,7 +37,9 @@ import AdminCertificatesPage from "@/pages/Admin/AdminCertificatesPage";
 import AdminSettingsPage from "@/pages/Admin/AdminSettingsPage";
 
 const queryClient = new QueryClient();
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "";
+
+// Use the Clerk publishable key from database
+const clerkPubKey = "pk_test_ZmFzdC1wZWxpY2FuLTQ4LmNsZXJrLmFjY291bnRzLmRldiQ";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

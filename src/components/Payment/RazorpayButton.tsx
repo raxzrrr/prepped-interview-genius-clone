@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/ClerkAuthContext';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
@@ -32,6 +33,7 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { getToken } = useClerkAuth();
   const { toast } = useToast();
   const { settings: paymentSettings, loading: settingsLoading } = usePaymentSettings();
 
@@ -92,6 +94,19 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
         order_id: orderData.id,
         handler: async (response: any) => {
           try {
+            // Get JWT token for authentication
+            const token = await getToken();
+            if (!token) {
+              throw new Error('Unable to get authentication token');
+            }
+
+            console.log('Sending payment verification:', {
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+              plan_type: planType,
+              amount
+            });
+
             const { error: verifyError } = await supabase.functions.invoke('razorpay-payment', {
               body: {
                 action: 'verify_payment',
@@ -101,6 +116,9 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
                 plan_type: planType,
                 amount,
                 currency: orderData.currency,
+              },
+              headers: {
+                Authorization: `Bearer ${token}`,
               },
             });
 

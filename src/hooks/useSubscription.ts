@@ -30,7 +30,7 @@ export const useSubscription = () => {
         userEmail: user?.primaryEmailAddress?.emailAddress
       });
       
-      if (!user || !supabaseUserId) {
+      if (!isAuthenticated || !user || !supabaseUserId) {
         console.log('useSubscription - Missing user or supabaseUserId:', { 
           user: !!user, 
           supabaseUserId,
