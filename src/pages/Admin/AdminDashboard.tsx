@@ -44,13 +44,6 @@ const AdminDashboard: React.FC = () => {
       color: "bg-purple-500"
     },
     {
-      title: "Coupon Management",
-      description: "Create and manage discount coupons",
-      icon: Gift,
-      href: "/admin/coupons",
-      color: "bg-orange-500"
-    },
-    {
       title: "Certificate Management",
       description: "Manage course certificates and achievements",
       icon: Award,

@@ -51,26 +51,6 @@ const PricingSection: React.FC = () => {
       buttonVariant: "default",
       planType: "pro",
       amount: paymentSettings?.pro_plan_price_inr || 999
-    },
-    {
-      name: "Enterprise",
-      price: "₹4,999",
-      period: " per month",
-      description: "Advanced features for serious job seekers",
-      features: [
-        "Everything in Pro plan",
-        "Priority support",
-        "1-on-1 coaching session (30 min)",
-        "Custom interview scenarios",
-        "Industry-specific question banks",
-        "Advanced analytics dashboard",
-        "Downloadable resources & templates"
-      ],
-      buttonText: "Get Enterprise",
-      popular: false,
-      buttonVariant: "outline",
-      planType: "enterprise",
-      amount: 4999
     }
   ];
 
@@ -134,7 +114,7 @@ const PricingSection: React.FC = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           {plans.map((plan, index) => (
             <div 
               key={index} 
