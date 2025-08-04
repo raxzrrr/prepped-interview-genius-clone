@@ -77,8 +77,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin' },
     { icon: UserCog, label: 'User Management', href: '/admin/user-management' },
     { icon: GraduationCap, label: 'Course Management', href: '/admin/courses' },
-    // { icon: FileVideo, label: 'Manage Content', href: '/admin/content' },
-    // { icon: Tag, label: 'Coupon Codes', href: '/admin/coupons' },
     { icon: CreditCard, label: 'Payments', href: '/admin/payments' },
     { icon: Award, label: 'Certificates', href: '/admin/certificates' },
     { icon: Settings, label: 'Settings', href: '/admin/settings' },
