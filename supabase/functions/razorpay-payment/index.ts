@@ -143,6 +143,14 @@ serve(async (req) => {
           email: userEmail
         });
 
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
+        console.log('Payment payload received:', {
+          razorpay_order_id,
+          razorpay_payment_id, 
+          plan_type,
+          amount: payload.amount
+        });
+
         // Verify user exists in profiles table and determine actual user ID
         console.log('Verifying user exists in profiles table...');
         let actualUserId: string;
@@ -180,13 +188,6 @@ serve(async (req) => {
           actualUserId = supabaseUserId;
         }
 
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
-        console.log('Payment payload received:', {
-          razorpay_order_id,
-          razorpay_payment_id, 
-          plan_type,
-          amount: payload.amount
-        });
         
         // Verify payment signature using Web Crypto API
         console.log('Starting signature verification...');

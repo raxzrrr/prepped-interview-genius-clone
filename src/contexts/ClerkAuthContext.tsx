@@ -202,11 +202,36 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             id: supabaseUserId,
             full_name: fullName,
             email: email,
-            role: role
+            role: role,
+            auth_provider: 'clerk'
           });
           
         if (insertError) {
           console.error('Error creating profile:', insertError);
+          // Try alternative approach - maybe user already exists with different ID
+          console.log('Attempting to find existing user by email...');
+          const { data: emailProfile, error: emailError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle();
+            
+          if (!emailError && emailProfile) {
+            console.log('Found existing profile with different ID, updating...');
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                full_name: fullName,
+                auth_provider: 'both'
+              })
+              .eq('email', email);
+              
+            if (updateError) {
+              console.error('Error updating existing profile:', updateError);
+            } else {
+              console.log('Successfully updated existing profile');
+            }
+          }
         } else {
           console.log('Profile created successfully');
         }
