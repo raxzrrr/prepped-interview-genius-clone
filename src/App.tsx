@@ -30,8 +30,6 @@ import ReportDetailPage from './pages/Student/ReportDetailPage';
 import AdminDashboard from "@/pages/Admin/AdminDashboard";
 import UserManagementPage from "@/pages/Admin/UserManagementPage";
 import CourseManagementPage from "@/pages/Admin/CourseManagementPage";
-import AdminContentPage from "@/pages/Admin/AdminContentPage";
-import AdminCouponsPage from "@/pages/Admin/AdminCouponsPage";
 import AdminPaymentsPage from "@/pages/Admin/AdminPaymentsPage";
 import AdminCertificatesPage from "@/pages/Admin/AdminCertificatesPage";
 import AdminSettingsPage from "@/pages/Admin/AdminSettingsPage";
@@ -69,8 +67,6 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/user-management" element={<ProtectedRoute requiredRole="admin"><UserManagementPage /></ProtectedRoute>} />
               <Route path="/admin/courses" element={<ProtectedRoute requiredRole="admin"><CourseManagementPage /></ProtectedRoute>} />
-              <Route path="/admin/content" element={<ProtectedRoute requiredRole="admin"><AdminContentPage /></ProtectedRoute>} />
-              <Route path="/admin/coupons" element={<ProtectedRoute requiredRole="admin"><AdminCouponsPage /></ProtectedRoute>} />
               <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPaymentsPage /></ProtectedRoute>} />
               <Route path="/admin/certificates" element={<ProtectedRoute requiredRole="admin"><AdminCertificatesPage /></ProtectedRoute>} />
               <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettingsPage /></ProtectedRoute>} />
