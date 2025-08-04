@@ -94,20 +94,27 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
         order_id: orderData.id,
         handler: async (response: any) => {
           try {
+            console.log('=== PAYMENT SUCCESS HANDLER START ===');
+            console.log('Razorpay response:', response);
+            
             // Get JWT token for authentication
             const token = await getToken();
+            console.log('JWT token obtained:', !!token, 'Length:', token?.length);
+            
             if (!token) {
+              console.log('ERROR: Unable to get authentication token');
               throw new Error('Unable to get authentication token');
             }
 
-            console.log('Sending payment verification:', {
+            console.log('Sending payment verification with data:', {
               order_id: response.razorpay_order_id,
               payment_id: response.razorpay_payment_id,
               plan_type: planType,
-              amount
+              amount,
+              currency: orderData.currency
             });
 
-            const { error: verifyError } = await supabase.functions.invoke('razorpay-payment', {
+            const { data, error: verifyError } = await supabase.functions.invoke('razorpay-payment', {
               body: {
                 action: 'verify_payment',
                 razorpay_order_id: response.razorpay_order_id,
@@ -121,9 +128,15 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
                 Authorization: `Bearer ${token}`,
               },
             });
+            
+            console.log('Payment verification response:', { data, error: verifyError });
 
-            if (verifyError) throw verifyError;
+            if (verifyError) {
+              console.log('Payment verification failed:', verifyError);
+              throw verifyError;
+            }
 
+            console.log('=== PAYMENT VERIFICATION SUCCESS ===');
             toast({
               title: "Payment Successful!",
               description: `Welcome to ${planName} plan! Your subscription is now active.`,
@@ -131,10 +144,11 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
 
             // Refresh the page to update subscription status
             setTimeout(() => {
+              console.log('Reloading page to refresh subscription status...');
               window.location.reload();
             }, 2000);
           } catch (error) {
-            console.error('Payment verification failed:', error);
+            console.error('=== PAYMENT VERIFICATION ERROR ===', error);
             toast({
               title: "Payment Verification Failed",
               description: "Please contact support if amount was deducted.",

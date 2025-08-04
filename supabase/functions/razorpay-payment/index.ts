@@ -53,32 +53,46 @@ serve(async (req) => {
       }
 
       case 'verify_payment': {
+        console.log('=== PAYMENT VERIFICATION START ===');
+        
         // Initialize Supabase client first
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         const supabase = createClient(supabaseUrl, supabaseKey)
+        console.log('Supabase client initialized');
 
         // Get authenticated user from JWT token instead of trusting frontend payload
         const authHeader = req.headers.get('Authorization')
+        console.log('Auth header present:', !!authHeader);
+        
         if (!authHeader) {
+          console.log('ERROR: No authorization header provided');
           throw new Error('No authorization header provided')
         }
 
         const token = authHeader.replace('Bearer ', '')
+        console.log('Token extracted, length:', token.length);
         
         // Validate JWT token directly without Supabase auth
         let clerkUserId: string;
         try {
           // For Clerk tokens, extract user ID from the token payload
           const parts = token.split('.');
+          console.log('Token parts count:', parts.length);
+          
           if (parts.length !== 3) {
+            console.log('ERROR: Invalid JWT format, parts:', parts.length);
             throw new Error('Invalid JWT format');
           }
           
           const payload = JSON.parse(atob(parts[1]));
+          console.log('JWT payload decoded, keys:', Object.keys(payload));
+          
           clerkUserId = payload.sub;
+          console.log('Clerk user ID from token:', clerkUserId);
           
           if (!clerkUserId) {
+            console.log('ERROR: No user ID in token payload');
             throw new Error('No user ID in token');
           }
         } catch (error) {
@@ -102,6 +116,15 @@ serve(async (req) => {
         });
 
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type } = payload
+        console.log('Payment payload received:', {
+          razorpay_order_id,
+          razorpay_payment_id, 
+          plan_type,
+          amount: payload.amount
+        });
+        
+        // Verify payment signature using Web Crypto API
+        console.log('Starting signature verification...');
         
         // Verify payment signature using Web Crypto API
         const encoder = new TextEncoder()
@@ -119,11 +142,16 @@ serve(async (req) => {
           .join('')
 
         if (expectedSignature !== razorpay_signature) {
+          console.log('ERROR: Signature mismatch', {
+            expected: expectedSignature,
+            received: razorpay_signature
+          });
           throw new Error('Invalid payment signature')
         }
-
+        console.log('Payment signature verified successfully');
 
         // Store payment record using Supabase user ID
+        console.log('Inserting payment record...');
         const { error: paymentError } = await supabase
           .from('payments')
           .insert({
@@ -138,13 +166,20 @@ serve(async (req) => {
           })
 
         if (paymentError) {
-          console.error('Payment record error:', paymentError)
+          console.error('Payment record insertion failed:', paymentError)
           throw new Error('Failed to store payment record')
         }
+        console.log('Payment record inserted successfully');
 
         // Update user subscription using Supabase user ID
+        console.log('Creating/updating subscription...');
         const subscriptionEnd = new Date()
         subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1) // 1 month subscription
+        
+        console.log('Subscription dates:', {
+          start: new Date().toISOString(),
+          end: subscriptionEnd.toISOString()
+        });
 
         const { error: subscriptionError } = await supabase
           .from('user_subscriptions')
@@ -158,9 +193,11 @@ serve(async (req) => {
           })
 
         if (subscriptionError) {
-          console.error('Subscription error:', subscriptionError)
+          console.error('Subscription creation failed:', subscriptionError)
           throw new Error('Failed to update subscription')
         }
+        console.log('Subscription created/updated successfully');
+        console.log('=== PAYMENT VERIFICATION SUCCESS ===');
 
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
