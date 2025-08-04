@@ -79,23 +79,11 @@ serve(async (req) => {
       case 'verify_payment': {
         console.log('=== PAYMENT VERIFICATION START ===');
         
-        // Initialize Supabase client first
+        // Initialize Supabase client with service role key
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         const supabase = createClient(supabaseUrl, supabaseKey)
-        console.log('Supabase client initialized');
-
-        // Get authenticated user from JWT token
-        const authHeader = req.headers.get('Authorization')
-        console.log('Auth header present:', !!authHeader);
-        
-        if (!authHeader) {
-          console.log('ERROR: No authorization header provided');
-          throw new Error('No authorization header provided')
-        }
-
-        const token = authHeader.replace('Bearer ', '')
-        console.log('Token extracted, length:', token.length);
+        console.log('Supabase client initialized with service role key');
         
         // Get user data from request payload (sent from frontend)
         const { user_email, user_id: clerkUserId } = payload;

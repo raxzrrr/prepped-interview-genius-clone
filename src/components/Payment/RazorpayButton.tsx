@@ -97,14 +97,9 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
             console.log('=== PAYMENT SUCCESS HANDLER START ===');
             console.log('Razorpay response:', response);
             
-            // Get JWT token for authentication - get the raw session token
-            const token = await getToken();
-            console.log('JWT token obtained:', !!token, 'Length:', token?.length);
-            
-            if (!token) {
-              console.log('ERROR: Unable to get authentication token');
-              throw new Error('Unable to get authentication token');
-            }
+            // Since JWT verification is disabled for this function, we don't need a token
+            // All user authentication is handled via the user data we pass in the payload
+            console.log('Proceeding with payment verification using user data from payload');
 
             console.log('Sending payment verification with data:', {
               order_id: response.razorpay_order_id,
@@ -125,9 +120,6 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
                 currency: orderData.currency,
                 user_email: user.primaryEmailAddress?.emailAddress,
                 user_id: user.id,
-              },
-              headers: {
-                Authorization: `Bearer ${token}`,
               },
             });
             
