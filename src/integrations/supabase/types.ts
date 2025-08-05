@@ -809,14 +809,24 @@ export type Database = {
         Returns: boolean
       }
       update_api_keys: {
-        Args: {
-          p_gemini_key?: string
-          p_tts_key?: string
-          p_clerk_key?: string
-          p_razorpay_key_id?: string
-          p_razorpay_key_secret?: string
-          p_pro_plan_price_inr?: number
-        }
+        Args:
+          | {
+              p_gemini_key?: string
+              p_tts_key?: string
+              p_clerk_key?: string
+              p_razorpay_key_id?: string
+              p_razorpay_key_secret?: string
+              p_pro_plan_price_inr?: number
+            }
+          | {
+              p_gemini_key?: string
+              p_tts_key?: string
+              p_clerk_key?: string
+              p_razorpay_key_id?: string
+              p_razorpay_key_secret?: string
+              p_pro_plan_price_inr?: number
+              p_company_name?: string
+            }
         Returns: boolean
       }
     }
