@@ -17,33 +17,81 @@ export type Database = {
       admin_credentials: {
         Row: {
           clerk_publishable_key: string | null
+          company_name: string | null
           created_at: string
           gemini_api_key: string | null
           google_tts_api_key: string | null
           id: string
           password_hash: string
+          pro_plan_price_inr: number | null
+          razorpay_key_id: string | null
+          razorpay_key_secret: string | null
           updated_at: string
           username: string
         }
         Insert: {
           clerk_publishable_key?: string | null
+          company_name?: string | null
           created_at?: string
           gemini_api_key?: string | null
           google_tts_api_key?: string | null
           id?: string
           password_hash: string
+          pro_plan_price_inr?: number | null
+          razorpay_key_id?: string | null
+          razorpay_key_secret?: string | null
           updated_at?: string
           username: string
         }
         Update: {
           clerk_publishable_key?: string | null
+          company_name?: string | null
           created_at?: string
           gemini_api_key?: string | null
           google_tts_api_key?: string | null
           id?: string
           password_hash?: string
+          pro_plan_price_inr?: number | null
+          razorpay_key_id?: string | null
+          razorpay_key_secret?: string | null
           updated_at?: string
           username?: string
+        }
+        Relationships: []
+      }
+      certificate_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          html_template: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          placeholders: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          html_template: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          placeholders?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          html_template?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          placeholders?: Json | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -472,6 +520,7 @@ export type Database = {
       }
       user_certificates: {
         Row: {
+          certificate_hash: string | null
           certificate_id: string
           certificate_url: string | null
           completion_data: Json | null
@@ -479,12 +528,15 @@ export type Database = {
           id: string
           is_active: boolean
           issued_date: string
+          populated_html: string | null
           score: number | null
+          template_id: string | null
           updated_at: string
           user_id: string
           verification_code: string
         }
         Insert: {
+          certificate_hash?: string | null
           certificate_id: string
           certificate_url?: string | null
           completion_data?: Json | null
@@ -492,12 +544,15 @@ export type Database = {
           id?: string
           is_active?: boolean
           issued_date?: string
+          populated_html?: string | null
           score?: number | null
+          template_id?: string | null
           updated_at?: string
           user_id: string
           verification_code: string
         }
         Update: {
+          certificate_hash?: string | null
           certificate_id?: string
           certificate_url?: string | null
           completion_data?: Json | null
@@ -505,7 +560,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           issued_date?: string
+          populated_html?: string | null
           score?: number | null
+          template_id?: string | null
           updated_at?: string
           user_id?: string
           verification_code?: string
@@ -516,6 +573,13 @@ export type Database = {
             columns: ["certificate_id"]
             isOneToOne: false
             referencedRelation: "certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_certificates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "certificate_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -696,13 +760,35 @@ export type Database = {
           user_data: Json
         }[]
       }
+      generate_certificate_hash: {
+        Args: {
+          user_id: string
+          template_id: string
+          completion_data: Json
+          issued_date: string
+        }
+        Returns: string
+      }
       get_api_keys: {
         Args: Record<PropertyKey, never>
         Returns: {
           gemini_api_key: string
           google_tts_api_key: string
           clerk_publishable_key: string
+          razorpay_key_id: string
+          razorpay_key_secret: string
+          pro_plan_price_inr: number
         }[]
+      }
+      populate_certificate_template: {
+        Args: {
+          template_id: string
+          user_id: string
+          course_name: string
+          completion_date?: string
+          score?: number
+        }
+        Returns: string
       }
       register_manual_user: {
         Args: {
@@ -727,6 +813,9 @@ export type Database = {
           p_gemini_key?: string
           p_tts_key?: string
           p_clerk_key?: string
+          p_razorpay_key_id?: string
+          p_razorpay_key_secret?: string
+          p_pro_plan_price_inr?: number
         }
         Returns: boolean
       }

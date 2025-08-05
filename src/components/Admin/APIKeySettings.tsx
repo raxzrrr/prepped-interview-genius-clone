@@ -14,6 +14,7 @@ interface APIKeys {
   razorpay_key_id: string | null;
   razorpay_key_secret: string | null;
   pro_plan_price_inr: number | null;
+  company_name: string | null;
 }
 
 const APIKeySettings: React.FC = () => {
@@ -24,7 +25,8 @@ const APIKeySettings: React.FC = () => {
     clerk_publishable_key: '',
     razorpay_key_id: '',
     razorpay_key_secret: '',
-    pro_plan_price_inr: 999
+    pro_plan_price_inr: 999,
+    company_name: 'cyrobox solutions'
   });
   const [showKeys, setShowKeys] = useState({
     gemini: false,
@@ -59,7 +61,8 @@ const APIKeySettings: React.FC = () => {
           clerk_publishable_key: apiData.clerk_publishable_key || '',
           razorpay_key_id: apiData.razorpay_key_id || '',
           razorpay_key_secret: apiData.razorpay_key_secret || '',
-          pro_plan_price_inr: apiData.pro_plan_price_inr || 999
+          pro_plan_price_inr: apiData.pro_plan_price_inr || 999,
+          company_name: apiData.company_name || 'cyrobox solutions'
         });
       }
     } catch (error) {
@@ -270,6 +273,20 @@ const APIKeySettings: React.FC = () => {
           'razorpay_secret'
         )}
         
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="company_name">Company Name</Label>
+            <p className="text-sm text-muted-foreground">Company name displayed on certificates</p>
+          </div>
+          <Input
+            id="company_name"
+            type="text"
+            value={apiKeys.company_name || ''}
+            onChange={(e) => handleKeyChange('company_name', e.target.value)}
+            placeholder="Enter company name"
+          />
+        </div>
+
         <div className="space-y-3">
           <div>
             <Label htmlFor="pro_plan_price_inr">Pro Plan Price (INR)</Label>
