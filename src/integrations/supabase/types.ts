@@ -624,6 +624,10 @@ export type Database = {
       }
       user_learning: {
         Row: {
+          assessment_attempted: boolean | null
+          assessment_completed_at: string | null
+          assessment_passed: boolean | null
+          assessment_score: number | null
           completed_modules_count: number | null
           created_at: string | null
           id: string
@@ -635,6 +639,10 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          assessment_attempted?: boolean | null
+          assessment_completed_at?: string | null
+          assessment_passed?: boolean | null
+          assessment_score?: number | null
           completed_modules_count?: number | null
           created_at?: string | null
           id?: string
@@ -646,6 +654,10 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          assessment_attempted?: boolean | null
+          assessment_completed_at?: string | null
+          assessment_passed?: boolean | null
+          assessment_score?: number | null
           completed_modules_count?: number | null
           created_at?: string | null
           id?: string
