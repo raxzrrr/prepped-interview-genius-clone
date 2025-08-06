@@ -219,6 +219,7 @@ export const useLearningData = (totalModules: number) => {
 
     try {
       const now = new Date().toISOString();
+      const passed = score >= 70;
       
       // Update local state first
       setUserLearningData(prevData => {
@@ -226,13 +227,14 @@ export const useLearningData = (totalModules: number) => {
         return {
           ...prevData,
           assessment_attempted: true,
+          assessment_passed: passed,
           assessment_score: score,
-          assessment_completed_at: now,
+          assessment_completed_at: passed ? now : null,
           updated_at: now
         };
       });
 
-      // Try to update via service
+      // Try to update via direct database operation
       try {
         const updatedData = await learningService.updateAssessmentScore(user.id, score);
         setUserLearningData(updatedData);

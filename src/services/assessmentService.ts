@@ -78,18 +78,33 @@ export const assessmentService = {
     };
   },
 
-  // Save assessment results to database
+  // Save assessment results to database  
   async saveAssessmentResults(
     userId: string, 
     courseId: string, 
     result: AssessmentResult
   ): Promise<void> {
     try {
+      // Generate consistent UUID for Supabase
+      const generateConsistentUUID = (clerkUserId: string): string => {
+        const cleanId = clerkUserId.replace(/^user_/, '');
+        const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
+        return [
+          paddedId.substring(0, 8),
+          paddedId.substring(8, 12),
+          paddedId.substring(12, 16),
+          paddedId.substring(16, 20),
+          paddedId.substring(20, 32)
+        ].join('-');
+      };
+
+      const supabaseUserId = generateConsistentUUID(userId);
+
       // Update user_learning table with assessment results
       const { error } = await supabase
         .from('user_learning')
         .upsert({
-          user_id: userId,
+          user_id: supabaseUserId,
           assessment_attempted: true,
           assessment_passed: result.passed,
           assessment_score: result.score,
@@ -120,6 +135,21 @@ export const assessmentService = {
     }
 
     try {
+      // Generate consistent UUID for Supabase
+      const generateConsistentUUID = (clerkUserId: string): string => {
+        const cleanId = clerkUserId.replace(/^user_/, '');
+        const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
+        return [
+          paddedId.substring(0, 8),
+          paddedId.substring(8, 12),
+          paddedId.substring(12, 16),
+          paddedId.substring(16, 20),
+          paddedId.substring(20, 32)
+        ].join('-');
+      };
+
+      const supabaseUserId = generateConsistentUUID(userId);
+
       // Get the default certificate template
       const template = await certificateTemplateService.getDefaultTemplate();
       if (!template) {
@@ -129,7 +159,7 @@ export const assessmentService = {
       // Generate the certificate
       const certificateData = {
         templateId: template.id,
-        userId: userId,
+        userId: supabaseUserId,
         courseName: courseName,
         score: score,
         completionDate: new Date()
