@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/ClerkAuthContext';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { courseService, Course, CourseVideo } from '@/services/courseService';
 import { questionService, CourseQuestion } from '@/services/questionService';
 import { learningService, UserLearningData } from '@/services/learningService';

@@ -1,101 +1,151 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface UserLearningData {
-  id: string;
-  user_id: string;
-  course_progress: Record<string, any>;
-  course_progress_new: Record<string, any>;
-  completed_modules: number;
-  total_modules: number;
-  course_score: number | null;
-  course_completed_at: string | null;
-  assessment_attempted: boolean;
-  assessment_score: number | null;
-  assessment_completed_at: string | null;
-  created_at: string;
-  updated_at: string;
+  id?: string;
+  user_id?: string;
+  progress?: Record<string, any>;
+  course_progress?: Record<string, any>; // For backwards compatibility
+  course_progress_new?: Record<string, any>;
+  completed_modules?: number; // For backwards compatibility
+  completed_modules_count?: number;
+  total_modules?: number; // For backwards compatibility
+  total_modules_count?: number;
+  last_assessment_score?: number;
+  is_completed?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  assessment_attempted?: boolean;
+  assessment_passed?: boolean;
+  assessment_score?: number;
+  assessment_completed_at?: string;
+  course_score?: number; // For backwards compatibility
+  course_completed_at?: string; // For backwards compatibility
 }
 
-const invokeFunction = async (functionName: string, body: any, retries = 3): Promise<any> => {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      console.log(`Invoking ${functionName}, attempt ${attempt + 1}/${retries + 1}`, body);
-      
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body
-      });
-
-      if (error) {
-        console.error(`Function ${functionName} error:`, error);
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('Network error')) {
-          if (attempt === retries) {
-            throw new Error('Network error - function not reachable after all retries');
-          }
-          console.log(`Network error, retrying attempt ${attempt + 1}...`);
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-          continue;
-        }
-        throw error;
-      }
-      
-      if (!data?.success) {
-        console.error(`Function ${functionName} returned error:`, data?.error);
-        throw new Error(data?.error || 'Unknown function error');
-      }
-      
-      console.log(`Function ${functionName} success:`, data.data);
-      return data;
-    } catch (error) {
-      console.error(`Function ${functionName} attempt ${attempt + 1} failed:`, error);
-      
-      if (attempt === retries) {
-        throw error;
-      }
-      
-      // Wait before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-    }
-  }
+// Generate a consistent UUID from Clerk User ID
+const generateConsistentUUID = (clerkUserId: string): string => {
+  // Remove any prefix like "user_" if present
+  const cleanId = clerkUserId.replace(/^user_/, '');
+  
+  // Pad or truncate to 32 characters
+  const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
+  
+  // Format as UUID
+  return [
+    paddedId.substring(0, 8),
+    paddedId.substring(8, 12),
+    paddedId.substring(12, 16),
+    paddedId.substring(16, 20),
+    paddedId.substring(20, 32)
+  ].join('-');
 };
 
 export const learningService = {
   async fetchUserLearningData(clerkUserId: string, totalModules: number): Promise<UserLearningData | null> {
     try {
-      const data = await invokeFunction('learning-service', {
-        action: 'fetch',
-        clerkUserId,
-        totalModules
-      });
+      const userId = generateConsistentUUID(clerkUserId);
       
-      return data.data;
+      const { data, error } = await supabase
+        .from('user_learning')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching learning data:', error);
+        throw error;
+      }
+
+      if (!data) {
+        // Create new record if it doesn't exist
+        const newRecord = {
+          user_id: userId,
+          progress: {},
+          course_progress_new: {},
+          completed_modules_count: 0,
+          total_modules_count: totalModules,
+          last_assessment_score: 0,
+          is_completed: false,
+          assessment_attempted: false,
+          assessment_passed: false,
+          assessment_score: null,
+          assessment_completed_at: null
+        };
+
+        const { data: createdData, error: createError } = await supabase
+          .from('user_learning')
+          .insert([newRecord])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating learning record:', createError);
+          throw createError;
+        }
+
+        return createdData as UserLearningData;
+      }
+      
+      return data as UserLearningData;
     } catch (error) {
-      console.error('Error fetching learning data:', error);
-      throw error;
+      console.error('Error in fetchUserLearningData:', error);
+      return null;
     }
   },
 
   async updateModuleProgress(
-    clerkUserId: string, 
-    courseProgress: Record<string, any>, 
+    clerkUserId: string,
+    courseProgress: Record<string, any>,
     completedModulesCount: number,
     totalModules: number
   ): Promise<UserLearningData> {
     try {
-      const updateData: any = {
+      const userId = generateConsistentUUID(clerkUserId);
+      
+      const updateData = {
         course_progress_new: courseProgress,
-        completed_modules: completedModulesCount,
-        total_modules: totalModules
+        completed_modules_count: completedModulesCount,
+        total_modules_count: totalModules,
+        updated_at: new Date().toISOString()
       };
 
-      // Check for course completion logic here if needed
-      const data = await invokeFunction('learning-service', {
-        action: 'update',
-        clerkUserId,
-        data: updateData
-      });
+      // Try to update existing record
+      const { data, error } = await supabase
+        .from('user_learning')
+        .update(updateData)
+        .eq('user_id', userId)
+        .select()
+        .maybeSingle();
+
+      if (error || !data) {
+        // If no record exists, create one
+        const newRecord = {
+          user_id: userId,
+          progress: {},
+          ...updateData,
+          last_assessment_score: 0,
+          is_completed: false,
+          assessment_attempted: false,
+          assessment_passed: false,
+          assessment_score: null,
+          assessment_completed_at: null
+        };
+
+        const { data: createdData, error: createError } = await supabase
+          .from('user_learning')
+          .insert([newRecord])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating learning record:', createError);
+          throw createError;
+        }
+
+        return createdData as UserLearningData;
+      }
       
-      return data.data;
+      return data as UserLearningData;
     } catch (error) {
       console.error('Error updating module progress:', error);
       throw error;
@@ -104,13 +154,52 @@ export const learningService = {
 
   async updateAssessmentScore(clerkUserId: string, score: number): Promise<UserLearningData> {
     try {
-      const data = await invokeFunction('learning-service', {
-        action: 'updateAssessment',
-        clerkUserId,
-        data: { score }
-      });
+      const userId = generateConsistentUUID(clerkUserId);
       
-      return data.data;
+      const updateData = {
+        assessment_attempted: true,
+        assessment_passed: score >= 70,
+        assessment_score: score,
+        assessment_completed_at: score >= 70 ? new Date().toISOString() : null,
+        last_assessment_score: score,
+        updated_at: new Date().toISOString()
+      };
+
+      // Try to update existing record
+      const { data, error } = await supabase
+        .from('user_learning')
+        .update(updateData)
+        .eq('user_id', userId)
+        .select()
+        .maybeSingle();
+
+      if (error || !data) {
+        // If no record exists, create one
+        const newRecord = {
+          user_id: userId,
+          progress: {},
+          course_progress_new: {},
+          completed_modules_count: 0,
+          total_modules_count: 0,
+          is_completed: false,
+          ...updateData
+        };
+
+        const { data: createdData, error: createError } = await supabase
+          .from('user_learning')
+          .insert([newRecord])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating learning record:', createError);
+          throw createError;
+        }
+
+        return createdData as UserLearningData;
+      }
+      
+      return data as UserLearningData;
     } catch (error) {
       console.error('Error updating assessment score:', error);
       throw error;
