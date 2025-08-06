@@ -9,9 +9,9 @@ import { CheckCircle, XCircle, Award, Lock } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useInterviewApi } from '@/services/api';
-import { downloadCertificate } from '@/services/certificateService';
 import { learningService } from '@/services/learningService';
 import { questionService, CourseQuestion } from '@/services/questionService';
+import { certificateTemplateService } from '@/services/certificateTemplateService';
 
 interface AssessmentQuestion {
   id: string;
@@ -163,7 +163,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
     setShowResults(true);
 
     if (passed) {
-      generateCertificate(score);
+      await generateCertificate(score);
       toast({
         title: "Congratulations!",
         description: `You passed the ${courseName} assessment with ${score}%! Your certificate has been generated.`,
@@ -179,17 +179,34 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
     onComplete(passed, score);
   };
 
-  const generateCertificate = (score: number) => {
+  const generateCertificate = async (score: number) => {
     try {
+      const supabaseUserId = getSupabaseUserId();
+      if (!supabaseUserId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get the default certificate template
+      const template = await certificateTemplateService.getDefaultTemplate();
+      if (!template) {
+        throw new Error('No certificate template available');
+      }
+
+      // Generate the certificate using the template service
       const certificateData = {
-        userName: user?.fullName || 'Student',
-        certificateTitle: `${courseName} Course Completion`,
-        completionDate: new Date().toLocaleDateString(),
+        templateId: template.id,
+        userId: supabaseUserId,
+        courseName: courseName,
         score: score,
-        verificationCode: `${courseId.toUpperCase()}-${Date.now().toString().slice(-8)}`
+        completionDate: new Date()
       };
 
-      downloadCertificate(certificateData);
+      await certificateTemplateService.generateCertificate(certificateData);
+      
+      toast({
+        title: "Certificate Generated!",
+        description: "Your course completion certificate has been generated and saved to your account.",
+      });
       
     } catch (error) {
       console.error('Error generating certificate:', error);
