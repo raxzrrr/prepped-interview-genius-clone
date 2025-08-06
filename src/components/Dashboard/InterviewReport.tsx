@@ -6,7 +6,9 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, XCircle, Download, Home, RotateCcw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { downloadCertificate } from '@/services/certificateService';
+import { downloadCertificate, generateCertificatePDF } from '@/services/certificateService';
+import { interviewService } from '@/services/interviewService';
+import { useAuth } from '@/contexts/ClerkAuthContext';
 
 interface InterviewReportProps {
   questions: string[];
@@ -31,6 +33,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
 }) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
+  const auth = useAuth();
 
   // Calculate overall performance from new evaluation format
   const averageScore = evaluations.length > 0 
@@ -60,7 +63,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     return 'F';
   };
 
-  const handleDownloadReport = () => {
+  const handleDownloadReport = async () => {
     try {
       const reportData = {
         userName: 'Interview Candidate',
@@ -70,12 +73,42 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
         verificationCode: `INT-${Date.now().toString().slice(-8).toUpperCase()}`
       };
 
+      // Generate PDF
+      const pdf = generateCertificatePDF(reportData);
+      const pdfBlob = pdf.output('blob');
+      
+      // Download the PDF
       downloadCertificate(reportData);
       
-      toast({
-        title: "Report Downloaded",
-        description: "Your interview report has been downloaded successfully.",
-      });
+      // Save to user_reports table if user is authenticated
+      if (auth.user && auth.getSupabaseUserId) {
+        const userId = auth.getSupabaseUserId();
+        if (userId) {
+          const reportTitle = `${getInterviewTypeLabel()} - ${new Date().toLocaleDateString()}`;
+          const metadata = {
+            interview_type: interviewType,
+            overall_score: averageScore,
+            total_questions: questions.length,
+            generated_at: new Date().toISOString()
+          };
+          
+          await interviewService.saveInterviewReportPDF(userId, reportTitle, pdfBlob, metadata);
+          toast({
+            title: "Report Downloaded",
+            description: "Your interview report has been downloaded and saved to your profile!",
+          });
+        } else {
+          toast({
+            title: "Report Downloaded",
+            description: "Your interview report has been downloaded successfully.",
+          });
+        }
+      } else {
+        toast({
+          title: "Report Downloaded",
+          description: "Your interview report has been downloaded successfully.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Download Failed",

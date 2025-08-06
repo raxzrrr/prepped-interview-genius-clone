@@ -234,6 +234,38 @@ class InterviewService {
       throw error;
     }
   }
+
+  // Save interview report as PDF to user_reports table
+  async saveInterviewReportPDF(
+    userId: string,
+    reportTitle: string,
+    pdfBlob: Blob,
+    metadata: any = {}
+  ): Promise<void> {
+    try {
+      // Convert blob to base64 string for storage
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const base64String = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+      const { error } = await supabase
+        .from('user_reports')
+        .insert({
+          user_id: userId,
+          report_type: 'interview',
+          title: reportTitle,
+          pdf_data: base64String,
+          metadata: metadata
+        });
+
+      if (error) {
+        console.error('Error saving interview report PDF:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Failed to save interview report PDF:', error);
+      throw error;
+    }
+  }
 }
 
 export const interviewService = new InterviewService();

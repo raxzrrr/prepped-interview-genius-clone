@@ -124,50 +124,129 @@ export const assessmentService = {
     }
   },
 
-  // Generate certificate if assessment passed
+  // Generate certificate if user passed using default template from certificates table
   async generateCertificateIfPassed(
     userId: string,
     courseName: string,
     score: number
   ): Promise<void> {
-    if (score < 70) {
-      return; // Don't generate certificate if not passed
+    const PASSING_SCORE = 70;
+    
+    if (score >= PASSING_SCORE) {
+      try {
+        // Generate consistent UUID for Supabase
+        const generateConsistentUUID = (clerkUserId: string): string => {
+          const cleanId = clerkUserId.replace(/^user_/, '');
+          const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
+          return [
+            paddedId.substring(0, 8),
+            paddedId.substring(8, 12),
+            paddedId.substring(12, 16),
+            paddedId.substring(16, 20),
+            paddedId.substring(20, 32)
+          ].join('-');
+        };
+
+        const supabaseUserId = generateConsistentUUID(userId);
+
+        // Get default certificate from certificates table
+        const { data: defaultCertificate, error: certError } = await supabase
+          .from('certificates')
+          .select('*')
+          .eq('is_active', true)
+          .eq('certificate_type', 'completion')
+          .single();
+
+        if (certError || !defaultCertificate) {
+          console.warn('No default certificate found, using template fallback');
+          await this.generateCertificateWithTemplate(supabaseUserId, courseName, score);
+          return;
+        }
+
+        // Get user details
+        const { data: userProfile, error: userError } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', supabaseUserId)
+          .single();
+
+        if (userError || !userProfile) {
+          throw new Error('User not found');
+        }
+
+        // Generate verification code
+        const verificationCode = `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        
+        // Save to user_certificates table
+        const { error: saveError } = await supabase
+          .from('user_certificates')
+          .insert({
+            user_id: supabaseUserId,
+            certificate_id: defaultCertificate.id,
+            verification_code: verificationCode,
+            score: score,
+            completion_data: {
+              course_name: courseName,
+              completion_date: new Date().toISOString(),
+              score: score,
+              passing_score: PASSING_SCORE,
+              user_name: userProfile.full_name
+            },
+            is_active: true
+          });
+
+        if (saveError) {
+          throw saveError;
+        }
+
+        console.log('Certificate generated and saved successfully');
+      } catch (error) {
+        console.error('Error generating certificate:', error);
+        throw error;
+      }
     }
+  },
 
+  // Fallback method using certificate templates
+  async generateCertificateWithTemplate(
+    userId: string,
+    courseName: string,
+    score: number
+  ): Promise<void> {
     try {
-      // Generate consistent UUID for Supabase
-      const generateConsistentUUID = (clerkUserId: string): string => {
-        const cleanId = clerkUserId.replace(/^user_/, '');
-        const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
-        return [
-          paddedId.substring(0, 8),
-          paddedId.substring(8, 12),
-          paddedId.substring(12, 16),
-          paddedId.substring(16, 20),
-          paddedId.substring(20, 32)
-        ].join('-');
-      };
-
-      const supabaseUserId = generateConsistentUUID(userId);
-
-      // Get the default certificate template
-      const template = await certificateTemplateService.getDefaultTemplate();
-      if (!template) {
-        throw new Error('No certificate template available');
+      // Get default certificate template
+      const defaultTemplate = await certificateTemplateService.getDefaultTemplate();
+      
+      if (!defaultTemplate) {
+        console.warn('No default certificate template found');
+        return;
       }
 
-      // Generate the certificate
-      const certificateData = {
-        templateId: template.id,
-        userId: supabaseUserId,
+      // Generate certificate with template
+      const populatedHtml = await certificateTemplateService.generateCertificate({
+        templateId: defaultTemplate.id,
+        userId: userId,
         courseName: courseName,
         score: score,
         completionDate: new Date()
-      };
+      });
 
-      await certificateTemplateService.generateCertificate(certificateData);
+      // Save to user_certificates table
+      await certificateTemplateService.saveUserCertificate({
+        userId: userId,
+        templateId: defaultTemplate.id,
+        courseName: courseName,
+        score: score,
+        populatedHtml: populatedHtml,
+        completionData: {
+          course_name: courseName,
+          completion_date: new Date().toISOString(),
+          score: score,
+          passing_score: 70
+        }
+      });
     } catch (error) {
-      console.error('Error generating certificate:', error);
+      console.error('Error with template fallback:', error);
       throw error;
     }
   }
