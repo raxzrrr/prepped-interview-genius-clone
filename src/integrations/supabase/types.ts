@@ -629,6 +629,7 @@ export type Database = {
           assessment_passed: boolean | null
           assessment_score: number | null
           completed_modules_count: number | null
+          course_id: string
           created_at: string | null
           id: string
           is_completed: boolean | null
@@ -644,6 +645,7 @@ export type Database = {
           assessment_passed?: boolean | null
           assessment_score?: number | null
           completed_modules_count?: number | null
+          course_id: string
           created_at?: string | null
           id?: string
           is_completed?: boolean | null
@@ -659,6 +661,7 @@ export type Database = {
           assessment_passed?: boolean | null
           assessment_score?: number | null
           completed_modules_count?: number | null
+          course_id?: string
           created_at?: string | null
           id?: string
           is_completed?: boolean | null
@@ -668,7 +671,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_learning_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_progress: {
         Row: {

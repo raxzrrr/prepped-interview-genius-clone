@@ -41,7 +41,7 @@ const generateConsistentUUID = (clerkUserId: string): string => {
 };
 
 export const learningService = {
-  async fetchUserLearningData(clerkUserId: string, totalModules: number): Promise<UserLearningData | null> {
+  async fetchUserLearningData(clerkUserId: string, totalModules: number, courseId?: string): Promise<UserLearningData | null> {
     try {
       const userId = generateConsistentUUID(clerkUserId);
       
@@ -57,9 +57,14 @@ export const learningService = {
       }
 
       if (!data) {
-        // Create new record if it doesn't exist
+        // Create new record if it doesn't exist (only if courseId is provided)
+        if (!courseId) {
+          return null; // Cannot create without courseId
+        }
+        
         const newRecord = {
           user_id: userId,
+          course_id: courseId,
           progress: {},
           course_progress_new: {},
           completed_modules_count: 0,
@@ -95,6 +100,7 @@ export const learningService = {
 
   async updateModuleProgress(
     clerkUserId: string,
+    courseId: string,
     courseProgress: Record<string, any>,
     completedModulesCount: number,
     totalModules: number
@@ -121,6 +127,7 @@ export const learningService = {
         // If no record exists, create one
         const newRecord = {
           user_id: userId,
+          course_id: courseId,
           progress: {},
           ...updateData,
           last_assessment_score: 0,
@@ -152,7 +159,7 @@ export const learningService = {
     }
   },
 
-  async updateAssessmentScore(clerkUserId: string, score: number): Promise<UserLearningData> {
+  async updateAssessmentScore(clerkUserId: string, courseId: string, score: number): Promise<UserLearningData> {
     try {
       const userId = generateConsistentUUID(clerkUserId);
       
@@ -177,6 +184,7 @@ export const learningService = {
         // If no record exists, create one
         const newRecord = {
           user_id: userId,
+          course_id: courseId,
           progress: {},
           course_progress_new: {},
           completed_modules_count: 0,

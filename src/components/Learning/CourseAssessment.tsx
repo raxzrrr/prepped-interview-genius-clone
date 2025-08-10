@@ -117,7 +117,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
 
       // Generate certificate if passed
       if (result.passed) {
-        await assessmentService.generateCertificateIfPassed(userId, courseName, result.score);
+        await assessmentService.generateCertificateIfPassed(userId, courseId, courseName, result.score);
         
         toast({
           title: "Congratulations!",

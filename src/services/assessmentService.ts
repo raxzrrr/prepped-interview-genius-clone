@@ -119,13 +119,14 @@ export const assessmentService = {
         .from('user_learning')
         .upsert({
           user_id: supabaseUserId,
+          course_id: courseId,
           assessment_attempted: true,
           assessment_passed: result.passed,
           assessment_score: result.score,
           assessment_completed_at: result.passed ? new Date().toISOString() : null,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'user_id'
+          onConflict: 'user_id,course_id'
         });
 
       if (error) {
@@ -141,6 +142,7 @@ export const assessmentService = {
   // Generate certificate if user passed using default template from certificates table
   async generateCertificateIfPassed(
     userId: string,
+    courseId: string,
     courseName: string,
     score: number
   ): Promise<void> {
@@ -173,7 +175,7 @@ export const assessmentService = {
 
         if (certError || !defaultCertificate) {
           console.warn('No default certificate found, using template fallback');
-          await this.generateCertificateWithTemplate(supabaseUserId, courseName, score);
+          await this.generateCertificateWithTemplate(supabaseUserId, courseId, courseName, score);
           return;
         }
 
@@ -200,6 +202,7 @@ export const assessmentService = {
             verification_code: verificationCode,
             score: score,
             completion_data: {
+              course_id: courseId,
               course_name: courseName,
               completion_date: new Date().toISOString(),
               score: score,
@@ -224,6 +227,7 @@ export const assessmentService = {
   // Fallback method using certificate templates
   async generateCertificateWithTemplate(
     userId: string,
+    courseId: string,
     courseName: string,
     score: number
   ): Promise<void> {
@@ -253,6 +257,7 @@ export const assessmentService = {
         score: score,
         populatedHtml: populatedHtml,
         completionData: {
+          course_id: courseId,
           course_name: courseName,
           completion_date: new Date().toISOString(),
           score: score,

@@ -189,6 +189,7 @@ export const useLearningData = (totalModules: number) => {
       try {
         const updatedData = await learningService.updateModuleProgress(
           user.id,
+          courseId,
           courseProgress,
           completedModulesCount,
           totalModules
@@ -236,7 +237,7 @@ export const useLearningData = (totalModules: number) => {
 
       // Try to update via direct database operation
       try {
-        const updatedData = await learningService.updateAssessmentScore(user.id, score);
+        const updatedData = await learningService.updateAssessmentScore(user.id, 'interview-mastery', score);
         setUserLearningData(updatedData);
         console.log('Successfully updated assessment score via service');
         return true;
