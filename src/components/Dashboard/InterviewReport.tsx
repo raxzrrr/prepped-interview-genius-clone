@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, XCircle, Download, Home, RotateCcw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { downloadCertificate, generateCertificatePDF } from '@/services/certificateService';
+import { downloadInterviewReport, generateInterviewReportPDF } from '@/services/certificateService';
 import { interviewService } from '@/services/interviewService';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 
@@ -66,19 +66,24 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   const handleDownloadReport = async () => {
     try {
       const reportData = {
-        userName: 'Interview Candidate',
-        certificateTitle: `${interviewType === 'basic_hr_technical' ? 'HR & Technical' : 'Custom'} Interview Completion`,
+        userName: auth.user?.fullName || 'Interview Candidate',
+        interviewType: getInterviewTypeLabel(),
         completionDate: new Date().toLocaleDateString(),
-        score: Math.round(averageScore * 10),
-        verificationCode: `INT-${Date.now().toString().slice(-8).toUpperCase()}`
+        overallScore: averageScore,
+        grade: getGradeFromScore(averageScore),
+        totalQuestions: questions.length,
+        questions,
+        answers,
+        evaluations,
+        idealAnswers
       };
 
       // Generate PDF
-      const pdf = generateCertificatePDF(reportData);
+      const pdf = generateInterviewReportPDF(reportData);
       const pdfBlob = pdf.output('blob');
       
       // Download the PDF
-      downloadCertificate(reportData);
+      downloadInterviewReport(reportData);
       
       // Save to user_reports table if user is authenticated
       if (auth.user && auth.getSupabaseUserId) {
