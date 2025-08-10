@@ -56,25 +56,39 @@ export const assessmentService = {
   },
 
   // Calculate assessment results
-  calculateResults(questions: AssessmentQuestion[], answers: AssessmentAnswer[]): AssessmentResult {
-    let correctAnswers = 0;
+  async calculateResults(courseId: string, userAnswers: AssessmentAnswer[]): Promise<AssessmentResult> {
+    // Fetch questions from backend
+    const questions = await questionService.fetchQuestionsByCourse(courseId);
     
-    answers.forEach(answer => {
-      const question = questions.find(q => q.id === answer.questionId);
-      if (question && question.correct_answer === answer.selectedAnswer) {
-        correctAnswers++;
+    if (questions.length === 0) {
+      throw new Error('No questions found for this course');
+    }
+
+    let pointsEarned = 0;
+    
+    // Evaluate each question
+    questions.forEach(question => {
+      const userAnswer = userAnswers.find(answer => answer.questionId === question.id);
+      
+      // Check if answer is valid and correct
+      if (userAnswer && 
+          userAnswer.selectedAnswer >= 1 && 
+          userAnswer.selectedAnswer <= 4 && 
+          userAnswer.selectedAnswer === question.correct_answer) {
+        pointsEarned++;
       }
+      // Skipped or invalid answers count as incorrect (0 points)
     });
 
-    const score = Math.round((correctAnswers / questions.length) * 100);
-    const passed = score >= 70;
+    const score = Math.round((pointsEarned / questions.length) * 100);
+    const passed = score >= 80; // 80% passing threshold
 
     return {
       totalQuestions: questions.length,
-      correctAnswers,
+      correctAnswers: pointsEarned,
       score,
       passed,
-      answers
+      answers: userAnswers
     };
   },
 
@@ -130,7 +144,7 @@ export const assessmentService = {
     courseName: string,
     score: number
   ): Promise<void> {
-    const PASSING_SCORE = 70;
+    const PASSING_SCORE = 80;
     
     if (score >= PASSING_SCORE) {
       try {
@@ -242,7 +256,7 @@ export const assessmentService = {
           course_name: courseName,
           completion_date: new Date().toISOString(),
           score: score,
-          passing_score: 70
+          passing_score: 80
         }
       });
     } catch (error) {

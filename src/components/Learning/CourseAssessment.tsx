@@ -102,8 +102,8 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
     setLoading(true);
     
     try {
-      // Calculate results
-      const result = assessmentService.calculateResults(questions, finalAnswers);
+      // Calculate results using courseId and answers
+      const result = await assessmentService.calculateResults(courseId, finalAnswers);
       setAssessmentResult(result);
 
       // Get user ID
@@ -126,7 +126,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
       } else {
         toast({
           title: "Assessment Not Passed",
-          description: `You scored ${result.score}%. You need 70% or higher to pass.`,
+          description: `You scored ${result.score}%. You need 80% or higher to pass.`,
           variant: "destructive"
         });
       }
@@ -215,7 +215,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
           <CardDescription>
             {assessmentResult.passed 
               ? 'You have successfully passed the course assessment!' 
-              : 'You need 70% or higher to pass. Please review and try again.'
+              : 'You need 80% or higher to pass. Please review and try again.'
             }
           </CardDescription>
         </CardHeader>
