@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/ClerkAuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, FileText, Settings, CreditCard, Gift, Award } from 'lucide-react';
+import { useAdminStats } from '@/hooks/useAdminStats';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -59,6 +60,9 @@ const AdminDashboard: React.FC = () => {
     }
   ];
 
+  const stats = useAdminStats();
+  const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -105,19 +109,19 @@ const AdminDashboard: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <h3 className="text-2xl font-bold text-blue-600">-</h3>
+                  <h3 className="text-2xl font-bold text-blue-600">{stats.loading ? '…' : stats.totalCourses}</h3>
                   <p className="text-sm text-gray-600">Total Courses</p>
                 </div>
                 <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <h3 className="text-2xl font-bold text-green-600">-</h3>
+                  <h3 className="text-2xl font-bold text-green-600">{stats.loading ? '…' : stats.activeStudents}</h3>
                   <p className="text-sm text-gray-600">Active Students</p>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <h3 className="text-2xl font-bold text-purple-600">-</h3>
+                  <h3 className="text-2xl font-bold text-purple-600">{stats.loading ? '…' : inr.format(stats.totalRevenue)}</h3>
                   <p className="text-sm text-gray-600">Total Revenue</p>
                 </div>
                 <div className="text-center p-4 bg-orange-50 rounded-lg">
-                  <h3 className="text-2xl font-bold text-orange-600">-</h3>
+                  <h3 className="text-2xl font-bold text-orange-600">{stats.loading ? '…' : stats.certificatesIssued}</h3>
                   <p className="text-sm text-gray-600">Certificates Issued</p>
                 </div>
               </div>

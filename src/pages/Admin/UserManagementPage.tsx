@@ -227,6 +227,35 @@ const UserManagementPage: React.FC = () => {
     }
   };
 
+
+  const handleGrantPro = async (userId: string) => {
+    try {
+      const periodEnd = new Date();
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .upsert({
+          user_id: userId,
+          plan_type: 'pro',
+          status: 'active',
+          current_period_start: new Date().toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error granting pro plan:', error);
+        toast({ title: 'Error', description: 'Failed to grant Pro plan', variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Pro plan granted', description: 'User has been upgraded to Pro.' });
+    } catch (e) {
+      console.error('Error in handleGrantPro:', e);
+      toast({ title: 'Error', description: 'Failed to grant Pro plan', variant: 'destructive' });
+    }
+  };
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -250,7 +279,6 @@ const UserManagementPage: React.FC = () => {
         return <Badge variant="outline">Unknown</Badge>;
     }
   };
-
   const getSubscriptionBadge = (subscription?: UserSubscription) => {
     if (!subscription) {
       return <Badge variant="outline">Free</Badge>;
@@ -518,6 +546,13 @@ const UserManagementPage: React.FC = () => {
                           >
                             <Edit className="w-3 h-3 mr-1" />
                             Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleGrantPro(user.id)}
+                            className="text-xs"
+                          >
+                            Grant Pro
                           </Button>
                         </div>
                       </TableCell>
