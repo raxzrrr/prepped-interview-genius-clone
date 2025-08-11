@@ -69,7 +69,7 @@ const AdminPaymentsPage: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchPayments())
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const stats = useMemo(() => {
