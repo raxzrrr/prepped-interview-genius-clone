@@ -32,6 +32,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([]);
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
+  const [isCompleting, setIsCompleting] = useState(false);
   
   const { toast } = useToast();
 
@@ -76,6 +77,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
   };
 
   const handleCompleteInterview = (finalAnswers: string[]) => {
+    setIsCompleting(true);
     onComplete({
       questions: interviewQuestions,
       answers: finalAnswers,
@@ -135,6 +137,22 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
       <div className="text-center py-8">
         <p className="text-lg font-medium text-gray-600">No questions available</p>
         <p className="text-sm text-gray-500 mt-2">Please try again or contact support.</p>
+      </div>
+    );
+  }
+
+  if (isCompleting) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <Card>
+          <CardContent className="py-16 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="h-8 w-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+            </div>
+            <h2 className="text-xl font-semibold">Generating your report...</h2>
+            <p className="text-gray-600">Please wait while we evaluate your answers and prepare the report.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -233,6 +251,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
               variant="outline"
               onClick={handleSkipQuestion}
               className="flex items-center space-x-2"
+              disabled={isCompleting}
             >
               <SkipForward className="h-4 w-4" />
               <span>Skip Question</span>
@@ -241,7 +260,7 @@ const InterviewPrep: React.FC<InterviewPrepProps> = ({
             <Button
               onClick={handleSubmitAnswer}
               className="flex items-center space-x-2"
-              disabled={!currentAnswer.trim()}
+              disabled={!currentAnswer.trim() || isCompleting}
             >
               {currentQuestionIndex === interviewQuestions.length - 1 ? (
                 <CheckCircle className="h-4 w-4" />

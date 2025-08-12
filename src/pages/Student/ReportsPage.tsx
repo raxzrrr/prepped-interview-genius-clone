@@ -30,12 +30,10 @@ const ReportsPage: React.FC = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const uid = getSupabaseUserId();
-        if (!uid) return;
+        // Rely on RLS to return only the current user's reports
         const { data, error } = await supabase
           .from('user_reports')
           .select('id, title, created_at, pdf_url, pdf_data, metadata')
-          .eq('user_id', uid)
           .order('created_at', { ascending: false });
         if (error) throw error;
         setReports((data || []) as UserReport[]);
@@ -46,7 +44,7 @@ const ReportsPage: React.FC = () => {
       }
     };
     fetchReports();
-  }, [getSupabaseUserId]);
+  }, []);
 
   const handleDownload = (report: UserReport) => {
     if (report.pdf_url) {

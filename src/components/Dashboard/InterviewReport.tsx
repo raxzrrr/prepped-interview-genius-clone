@@ -78,6 +78,7 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
       }
     };
     saveReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.getSupabaseUserId, interviewType, questions, answers, evaluations, idealAnswers]);
 
   // Calculate overall performance from new evaluation format

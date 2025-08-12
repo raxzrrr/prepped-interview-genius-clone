@@ -243,22 +243,39 @@ class InterviewService {
     metadata: any = {}
   ): Promise<void> {
     try {
-      // Convert blob to base64 string for storage
+      // Use the authenticated Supabase user id to satisfy RLS policies
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('Supabase auth error while getting user:', authError);
+      }
+      const authUserId = authData?.user?.id || null;
+
+      if (!authUserId) {
+        console.warn('No authenticated Supabase user; skipping report save to respect RLS.');
+        return;
+      }
+
+      // Convert blob to base64 string for storage (bytea column accepts base64)
       const arrayBuffer = await pdfBlob.arrayBuffer();
       const base64String = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
       const { error } = await supabase
         .from('user_reports')
         .insert({
-          user_id: userId,
+          user_id: authUserId,
           report_type: 'interview',
           title: reportTitle,
           pdf_data: base64String,
-          metadata: metadata
+          metadata
         });
 
       if (error) {
-        console.error('Error saving interview report PDF:', error);
+        console.error('Error saving interview report PDF:', {
+          message: (error as any).message,
+          details: (error as any).details,
+          hint: (error as any).hint,
+          code: (error as any).code,
+        });
         throw error;
       }
     } catch (error) {
