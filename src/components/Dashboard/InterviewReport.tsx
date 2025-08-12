@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,51 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const auth = useAuth();
+  const savedRef = useRef(false);
+
+  // Auto-save the report to user_reports when this report is shown
+  useEffect(() => {
+    if (savedRef.current) return;
+    const saveReport = async () => {
+      try {
+        const userId = auth.getSupabaseUserId?.();
+        if (!userId) return;
+
+        // Compute average score locally to avoid ordering issues
+        const avg = evaluations.length > 0
+          ? evaluations.reduce((sum, evaluation) => sum + (evaluation.score || 0), 0) / evaluations.length
+          : 0;
+        const grade = avg >= 9 ? 'A+' : avg >= 8 ? 'A' : avg >= 7 ? 'B+' : avg >= 6 ? 'B' : avg >= 5 ? 'C+' : avg >= 4 ? 'C' : avg >= 3 ? 'D' : 'F';
+
+        const reportData = {
+          userName: auth.user?.fullName || 'Interview Candidate',
+          interviewType: getInterviewTypeLabel(),
+          completionDate: new Date().toLocaleDateString(),
+          overallScore: avg,
+          grade,
+          totalQuestions: questions.length,
+          questions,
+          answers,
+          evaluations,
+          idealAnswers
+        };
+        const pdf = generateInterviewReportPDF(reportData);
+        const pdfBlob = pdf.output('blob');
+        const reportTitle = `${getInterviewTypeLabel()} - ${new Date().toLocaleDateString()}`;
+        const metadata = {
+          interview_type: interviewType,
+          overall_score: avg,
+          total_questions: questions.length,
+          generated_at: new Date().toISOString()
+        };
+        await interviewService.saveInterviewReportPDF(userId, reportTitle, pdfBlob, metadata);
+        savedRef.current = true;
+      } catch (e) {
+        // silent fail - user can still download manually
+      }
+    };
+    saveReport();
+  }, [auth.getSupabaseUserId, interviewType, questions, answers, evaluations, idealAnswers]);
 
   // Calculate overall performance from new evaluation format
   const averageScore = evaluations.length > 0 
