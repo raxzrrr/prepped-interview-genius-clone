@@ -24,6 +24,7 @@ interface AuthContextType {
   isStudent: () => boolean;
   logout: () => Promise<void>;
   getSupabaseUserId: () => string | null;
+  ensureSupabaseSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -114,6 +115,16 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  // Ensure Supabase session is active; if missing, try to establish it via Clerk
+  const ensureSupabaseSession = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) return;
+    } catch (_) {
+      // ignore and attempt to set up a session
+    }
+    await setupSupabaseSession();
+  };
   useEffect(() => {
     if (isTempAdmin) {
       // Set up temporary admin profile
@@ -325,7 +336,8 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isAdmin,
       isStudent,
       logout,
-      getSupabaseUserId
+      getSupabaseUserId,
+      ensureSupabaseSession
     }}>
       {children}
     </AuthContext.Provider>

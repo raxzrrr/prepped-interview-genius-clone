@@ -41,6 +41,8 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
     if (savedRef.current) return;
     const saveReport = async () => {
       try {
+        // Ensure Supabase session is active before saving (RLS requires auth)
+        await auth.ensureSupabaseSession?.();
         const userId = auth.getSupabaseUserId?.();
         if (!userId) return;
 
