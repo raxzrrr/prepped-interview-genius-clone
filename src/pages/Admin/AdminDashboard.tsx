@@ -34,7 +34,7 @@ const AdminDashboard: React.FC = () => {
       title: "Content Management",
       description: "Manage learning materials and resources",
       icon: FileText,
-      href: "/admin/content",
+      href: "/admin/courses",
       color: "bg-green-500"
     },
     {

@@ -4,6 +4,7 @@ import AddVideoForm from './AddVideoForm';
 import AddQuestionForm from './AddQuestionForm';
 import { Course } from '@/services/courseService';
 import { CourseQuestion } from '@/services/questionService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface CourseManagementFormsProps {
   showAddCourse: boolean;
@@ -61,20 +62,44 @@ const CourseManagementForms: React.FC<CourseManagementFormsProps> = ({
         />
       )}
 
-      {showAddVideo && selectedCourse && (
-        <AddVideoForm
-          selectedCourse={selectedCourse}
-          onAddVideo={onAddVideo}
-          onCancel={onCancelAddVideo}
-        />
+      {selectedCourse && (
+        <Dialog open={showAddVideo} onOpenChange={(open) => { if (!open) onCancelAddVideo(); }}>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>
+                Add Video{selectedCourse ? ` to "${selectedCourse.name}"` : ''}
+              </DialogTitle>
+              <DialogDescription>
+                Upload a file or paste a URL, then set details and order
+              </DialogDescription>
+            </DialogHeader>
+            <AddVideoForm
+              selectedCourse={selectedCourse}
+              onAddVideo={onAddVideo}
+              onCancel={onCancelAddVideo}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
-      {showAddQuestion && selectedCourse && (
-        <AddQuestionForm
-          onAddQuestion={onAddQuestion}
-          onCancel={onCancelAddQuestion}
-          nextOrderIndex={(questions[selectedCourse.id] || []).length}
-        />
+      {selectedCourse && (
+        <Dialog open={showAddQuestion} onOpenChange={(open) => { if (!open) onCancelAddQuestion(); }}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                Add Question{selectedCourse ? ` to "${selectedCourse.name}"` : ''}
+              </DialogTitle>
+              <DialogDescription>
+                Create a question with options and select the correct answer
+              </DialogDescription>
+            </DialogHeader>
+            <AddQuestionForm
+              onAddQuestion={onAddQuestion}
+              onCancel={onCancelAddQuestion}
+              nextOrderIndex={(questions[selectedCourse.id] || []).length}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

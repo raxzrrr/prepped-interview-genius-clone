@@ -72,10 +72,10 @@ const Header: React.FC = () => {
               <Link to="/admin" className="text-gray-600 hover:text-brand-purple transition-colors">
                 Admin Panel
               </Link>
-              <Link to="/admin/users" className="text-gray-600 hover:text-brand-purple transition-colors">
+              <Link to="/admin/user-management" className="text-gray-600 hover:text-brand-purple transition-colors">
                 Manage Users
               </Link>
-              <Link to="/admin/content" className="text-gray-600 hover:text-brand-purple transition-colors">
+              <Link to="/admin/courses" className="text-gray-600 hover:text-brand-purple transition-colors">
                 Manage Content
               </Link>
             </>
