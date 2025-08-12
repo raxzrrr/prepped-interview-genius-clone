@@ -86,27 +86,38 @@ export const ClerkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     try {
       console.log('Setting up Supabase session for user:', userId);
-      
-      // Get Supabase JWT token from Clerk
-      const token = await getToken({ template: 'supabase' });
-      
+
+      // Try Clerk JWT template first, then fall back to plain token + IdP sign-in
+      let token: string | null = null;
+      try {
+        token = await getToken({ template: 'supabase' });
+      } catch (e) {
+        console.warn('Clerk JWT template "supabase" not found, falling back to IdP sign-in');
+      }
+      if (!token) {
+        token = await getToken();
+      }
+
       if (token) {
-        // Set the session using Clerk's Supabase token
-        const { data, error } = await supabase.auth.setSession({
-          access_token: token,
-          refresh_token: 'clerk-managed'
+        // Sign into Supabase with Clerk IdP token
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'clerk',
+          token
         });
-        
-        if (data.session) {
-          console.log('Supabase session established successfully');
+
+        if (data?.session) {
+          console.log('Supabase session established via Clerk IdP');
           setSupabaseSession(data.session);
           setIsAuthenticated(true);
-        } else {
-          console.error('Failed to establish Supabase session:', error);
+        } else if (error) {
+          console.error('Failed to sign in to Supabase with Clerk token:', error);
           setIsAuthenticated(true); // Still authenticate via Clerk
+        } else {
+          console.error('Unknown error establishing Supabase session');
+          setIsAuthenticated(true);
         }
       } else {
-        console.error('No Supabase token received from Clerk');
+        console.error('No token received from Clerk');
         setIsAuthenticated(true); // Still authenticate via Clerk
       }
     } catch (error) {
