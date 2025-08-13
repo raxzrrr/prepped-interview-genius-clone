@@ -179,20 +179,23 @@ Deno.serve(async (req) => {
           .from('user_learning')
           .select('id')
           .eq('user_id', supabaseUserId)
+          .eq('course_id', data.course_id)
           .maybeSingle();
         
         if (!assessmentCheckData) {
           // Create record if it doesn't exist
           const newRecord = {
             user_id: supabaseUserId,
-            course_progress: {},
-            completed_modules: 0,
-            total_modules: 0,
-            assessment_attempted: true,
-            assessment_score: data.score,
-            assessment_completed_at: new Date().toISOString(),
-            course_score: null,
-            course_completed_at: null
+            course_id: data.course_id,
+            progress: {},
+            completed_modules_count: 0,
+            total_modules_count: 0,
+            assessment_attempted: data.assessment_attempted,
+            assessment_passed: data.assessment_passed,
+            assessment_score: data.assessment_score,
+            last_assessment_score: data.last_assessment_score,
+            assessment_completed_at: data.assessment_completed_at,
+            is_completed: false
           };
 
           const { data: createdData, error: createError } = await supabase
@@ -211,12 +214,15 @@ Deno.serve(async (req) => {
           const { data: assessmentData, error: assessmentError } = await supabase
             .from('user_learning')
             .update({
-              assessment_attempted: true,
-              assessment_score: data.score,
-              assessment_completed_at: new Date().toISOString(),
+              assessment_attempted: data.assessment_attempted,
+              assessment_passed: data.assessment_passed,
+              assessment_score: data.assessment_score,
+              last_assessment_score: data.last_assessment_score,
+              assessment_completed_at: data.assessment_completed_at,
               updated_at: new Date().toISOString()
             })
             .eq('user_id', supabaseUserId)
+            .eq('course_id', data.course_id)
             .select('*')
             .single();
           
@@ -225,7 +231,7 @@ Deno.serve(async (req) => {
             throw assessmentError;
           }
           result = assessmentData;
-          console.log('Updated assessment score:', data.score);
+          console.log('Updated assessment score:', data.assessment_score);
         }
         break;
 

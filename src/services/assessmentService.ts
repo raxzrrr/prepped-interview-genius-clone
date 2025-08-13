@@ -81,7 +81,7 @@ export const assessmentService = {
     });
 
     const score = Math.round((pointsEarned / questions.length) * 100);
-    const passed = score >= 80; // 80% passing threshold
+    const passed = score >= 70; // 70% passing threshold
 
     return {
       totalQuestions: questions.length,
@@ -92,47 +92,35 @@ export const assessmentService = {
     };
   },
 
-  // Save assessment results to database  
+  // Save assessment results to database using learning-service  
   async saveAssessmentResults(
     userId: string, 
     courseId: string, 
     result: AssessmentResult
   ): Promise<void> {
     try {
-      // Generate consistent UUID for Supabase
-      const generateConsistentUUID = (clerkUserId: string): string => {
-        const cleanId = clerkUserId.replace(/^user_/, '');
-        const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
-        return [
-          paddedId.substring(0, 8),
-          paddedId.substring(8, 12),
-          paddedId.substring(12, 16),
-          paddedId.substring(16, 20),
-          paddedId.substring(20, 32)
-        ].join('-');
-      };
-
-      const supabaseUserId = generateConsistentUUID(userId);
-
-      // Update user_learning table with assessment results
-      const { error } = await supabase
-        .from('user_learning')
-        .upsert({
-          user_id: supabaseUserId,
-          course_id: courseId,
-          assessment_attempted: true,
-          assessment_passed: result.passed,
-          assessment_score: result.score,
-          assessment_completed_at: result.passed ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,course_id'
-        });
+      // Call learning-service edge function to save assessment results
+      const { data, error } = await supabase.functions.invoke('learning-service', {
+        body: {
+          action: 'updateAssessment',
+          clerkUserId: userId,
+          data: {
+            course_id: courseId,
+            assessment_attempted: true,
+            assessment_passed: result.passed,
+            assessment_score: result.score,
+            last_assessment_score: result.score,
+            assessment_completed_at: result.passed ? new Date().toISOString() : null
+          }
+        }
+      });
 
       if (error) {
-        console.error('Error saving assessment results:', error);
+        console.error('Error calling learning-service for assessment:', error);
         throw error;
       }
+
+      console.log('Assessment results saved successfully via learning-service');
     } catch (error) {
       console.error('Error in saveAssessmentResults:', error);
       throw error;
@@ -146,7 +134,7 @@ export const assessmentService = {
     courseName: string,
     score: number
   ): Promise<void> {
-    const PASSING_SCORE = 80;
+    const PASSING_SCORE = 70;
     
     if (score >= PASSING_SCORE) {
       try {
@@ -206,7 +194,7 @@ export const assessmentService = {
               course_name: courseName,
               completion_date: new Date().toISOString(),
               score: score,
-              passing_score: PASSING_SCORE,
+              passing_score: 70,
               user_name: userProfile.full_name
             },
             is_active: true
@@ -261,7 +249,7 @@ export const assessmentService = {
           course_name: courseName,
           completion_date: new Date().toISOString(),
           score: score,
-          passing_score: 80
+          passing_score: 70
         }
       });
     } catch (error) {
