@@ -110,7 +110,7 @@ export const assessmentService = {
             assessment_passed: result.passed,
             assessment_score: result.score,
             last_assessment_score: result.score,
-            assessment_completed_at: result.passed ? new Date().toISOString() : null
+            assessment_completed_at: new Date().toISOString()
           }
         }
       });
