@@ -183,7 +183,15 @@ export type Database = {
           question_text?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "course_questions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       course_videos: {
         Row: {
@@ -846,6 +854,10 @@ export type Database = {
           razorpay_key_secret: string
           pro_plan_price_inr: number
         }[]
+      }
+      is_current_user_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       populate_certificate_template: {
         Args: {
