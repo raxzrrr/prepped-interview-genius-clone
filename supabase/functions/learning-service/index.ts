@@ -13,22 +13,78 @@ interface LearningServiceRequest {
   totalModules?: number;
 }
 
-// Fixed UUID generation function that creates consistent UUIDs
-const generateConsistentUUID = (userId: string): string => {
-  const namespace = '1b671a64-40d5-491e-99b0-da01ff1f3341';
+// Get real Supabase Auth user ID from Clerk user ID
+const getSupabaseUserId = async (supabase: any, clerkUserId: string): Promise<string> => {
+  // Try to get user from Supabase Auth using admin client
+  const { data: { user }, error: authError } = await supabase.auth.admin.getUserById(clerkUserId);
   
-  // Simple hash function to create deterministic UUID
-  let hash = 0;
-  const input = userId + namespace;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+  if (authError || !user) {
+    throw new Error(`User not found in Supabase Auth: ${clerkUserId}`);
   }
   
-  // Convert hash to hex and pad to create UUID format
-  const hex = Math.abs(hash).toString(16).padStart(8, '0');
-  return `${hex.slice(0, 8)}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-a${hex.slice(0, 3)}-${hex.slice(0, 12).padEnd(12, '0')}`;
+  return user.id;
+};
+
+// Certificate generation function
+const generateCertificate = async (supabase: any, params: {
+  userId: string;
+  name: string;
+  courseId: string;
+  courseName: string;
+  score: number;
+}): Promise<void> => {
+  const PASSING_SCORE = 70;
+  
+  if (params.score < PASSING_SCORE) {
+    console.log('Score below passing threshold, no certificate generated');
+    return;
+  }
+
+  try {
+    // Get default certificate from certificates table
+    const { data: defaultCertificate, error: certError } = await supabase
+      .from('certificates')
+      .select('*')
+      .eq('is_active', true)
+      .eq('certificate_type', 'completion')
+      .single();
+
+    if (certError || !defaultCertificate) {
+      console.warn('No default certificate found');
+      return;
+    }
+
+    // Generate verification code
+    const verificationCode = `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    
+    // Save to user_certificates table
+    const { error: saveError } = await supabase
+      .from('user_certificates')
+      .insert({
+        user_id: params.userId,
+        certificate_id: defaultCertificate.id,
+        verification_code: verificationCode,
+        score: params.score,
+        completion_data: {
+          course_id: params.courseId,
+          course_name: params.courseName,
+          completion_date: new Date().toISOString(),
+          score: params.score,
+          passing_score: PASSING_SCORE,
+          user_name: params.name
+        },
+        is_active: true
+      });
+
+    if (saveError) {
+      throw saveError;
+    }
+
+    console.log('Certificate generated successfully for user:', params.userId);
+  } catch (error) {
+    console.error('Error generating certificate:', error);
+    throw error;
+  }
 };
 
 Deno.serve(async (req) => {
@@ -59,8 +115,8 @@ Deno.serve(async (req) => {
       throw new Error('Clerk user ID is required');
     }
 
-    // Convert Clerk user ID to consistent UUID
-    const supabaseUserId = generateConsistentUUID(clerkUserId);
+    // Get real Supabase user ID from Clerk user ID
+    const supabaseUserId = await getSupabaseUserId(supabase, clerkUserId);
     console.log('Processing request for Clerk user:', clerkUserId, 'as UUID:', supabaseUserId);
 
     let result;
@@ -232,6 +288,44 @@ Deno.serve(async (req) => {
           }
           result = assessmentData;
           console.log('Updated assessment score:', data.assessment_score);
+        }
+
+        // Generate certificate if user passed
+        if (data.assessment_passed) {
+          console.log('User passed assessment, generating certificate...');
+          
+          // Get user profile for certificate
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', supabaseUserId)
+            .maybeSingle();
+
+          if (profileError || !profileData) {
+            console.error('Could not fetch user profile for certificate:', profileError);
+          } else {
+            // Get course name for certificate
+            const { data: courseData, error: courseError } = await supabase
+              .from('courses')
+              .select('name')
+              .eq('id', data.course_id)
+              .maybeSingle();
+
+            const courseName = courseData?.name || 'Course';
+
+            try {
+              await generateCertificate(supabase, {
+                userId: supabaseUserId,
+                name: profileData.full_name,
+                courseId: data.course_id,
+                courseName: courseName,
+                score: data.assessment_score
+              });
+            } catch (certError) {
+              console.error('Certificate generation failed:', certError);
+              // Don't throw - assessment should still be saved even if certificate fails
+            }
+          }
         }
         break;
 
