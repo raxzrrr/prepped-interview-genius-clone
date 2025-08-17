@@ -21,6 +21,7 @@ import Dashboard from "@/pages/Student/Dashboard";
 import InterviewsPage from "@/pages/Student/InterviewsPage";
 import CustomInterviewsPage from "@/pages/Student/CustomInterviewsPage";
 import LearningPage from "@/pages/Student/LearningPage";
+import JobsPage from "@/pages/Student/JobsPage";
 import ReportsPage from "@/pages/Student/ReportsPage";
 import CertificatesPage from "@/pages/Student/CertificatesPage";
 import SettingsPage from "@/pages/Student/SettingsPage";
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="/interviews" element={<ProtectedRoute><InterviewsPage /></ProtectedRoute>} />
               <Route path="/custom-interviews" element={<ProtectedRoute><CustomInterviewsPage /></ProtectedRoute>} />
               <Route path="/learning" element={<ProtectedRoute><LearningPage /></ProtectedRoute>} />
+              <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
               <Route path="/reports/:id" element={<ProtectedRoute><ReportDetailPage /></ProtectedRoute>} />
               <Route path="/certificates" element={<ProtectedRoute><CertificatesPage /></ProtectedRoute>} />

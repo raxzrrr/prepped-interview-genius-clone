@@ -15,7 +15,8 @@ import {
   CreditCard,
   Sparkles,
   GraduationCap,
-  UserCog
+  UserCog,
+  Briefcase
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { icon: Video, label: 'Interview Practice', href: '/interviews' },
     { icon: Sparkles, label: 'Custom Interviews', href: '/custom-interviews' },
     { icon: BookOpen, label: 'Learning Hub', href: '/learning' },
+    { icon: Briefcase, label: 'Jobs', href: '/jobs' },
     { icon: FileText, label: 'My Reports', href: '/reports' },
     { icon: Award, label: 'Certificates', href: '/certificates' },
     { icon: Settings, label: 'Settings', href: '/settings' },
