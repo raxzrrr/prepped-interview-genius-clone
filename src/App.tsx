@@ -22,10 +22,10 @@ import InterviewsPage from "@/pages/Student/InterviewsPage";
 import CustomInterviewsPage from "@/pages/Student/CustomInterviewsPage";
 import LearningPage from "@/pages/Student/LearningPage";
 import JobsPage from "@/pages/Student/JobsPage";
-import ReportsPage from "@/pages/Student/ReportsPage";
+import InterviewResourcesPage from "@/pages/Student/InterviewResourcesPage";
 import CertificatesPage from "@/pages/Student/CertificatesPage";
 import SettingsPage from "@/pages/Student/SettingsPage";
-import ReportDetailPage from './pages/Student/ReportDetailPage';
+
 
 // Admin Pages
 import AdminDashboard from "@/pages/Admin/AdminDashboard";
@@ -34,6 +34,7 @@ import CourseManagementPage from "@/pages/Admin/CourseManagementPage";
 import AdminPaymentsPage from "@/pages/Admin/AdminPaymentsPage";
 import AdminCertificatesPage from "@/pages/Admin/AdminCertificatesPage";
 import AdminSettingsPage from "@/pages/Admin/AdminSettingsPage";
+import AdminInterviewResourcesPage from "@/pages/Admin/InterviewResourcesPage";
 
 const queryClient = new QueryClient();
 
@@ -60,8 +61,7 @@ const App = () => (
               <Route path="/custom-interviews" element={<ProtectedRoute><CustomInterviewsPage /></ProtectedRoute>} />
               <Route path="/learning" element={<ProtectedRoute><LearningPage /></ProtectedRoute>} />
               <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
-              <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-              <Route path="/reports/:id" element={<ProtectedRoute><ReportDetailPage /></ProtectedRoute>} />
+              <Route path="/interview-resources" element={<ProtectedRoute><InterviewResourcesPage /></ProtectedRoute>} />
               <Route path="/certificates" element={<ProtectedRoute><CertificatesPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               
@@ -72,6 +72,7 @@ const App = () => (
               <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPaymentsPage /></ProtectedRoute>} />
               <Route path="/admin/certificates" element={<ProtectedRoute requiredRole="admin"><AdminCertificatesPage /></ProtectedRoute>} />
               <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettingsPage /></ProtectedRoute>} />
+              <Route path="/admin/interview-resources" element={<ProtectedRoute requiredRole="admin"><AdminInterviewResourcesPage /></ProtectedRoute>} />
               
               {/* Catch-all / 404 route */}
               <Route path="*" element={<NotFound />} />

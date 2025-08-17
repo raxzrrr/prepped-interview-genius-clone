@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -343,6 +343,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      interview_resources: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
       }
       interview_sessions: {
         Row: {
@@ -825,34 +864,34 @@ export type Database = {
     }
     Functions: {
       authenticate_admin: {
-        Args: { admin_username: string; admin_password: string }
+        Args: { admin_password: string; admin_username: string }
         Returns: boolean
       }
       authenticate_user: {
         Args: { user_email: string; user_password: string }
         Returns: {
-          user_id: string
           user_data: Json
+          user_id: string
         }[]
       }
       generate_certificate_hash: {
         Args: {
-          user_id: string
-          template_id: string
           completion_data: Json
           issued_date: string
+          template_id: string
+          user_id: string
         }
         Returns: string
       }
       get_api_keys: {
         Args: Record<PropertyKey, never>
         Returns: {
+          clerk_publishable_key: string
           gemini_api_key: string
           google_tts_api_key: string
-          clerk_publishable_key: string
+          pro_plan_price_inr: number
           razorpay_key_id: string
           razorpay_key_secret: string
-          pro_plan_price_inr: number
         }[]
       }
       is_current_user_admin: {
@@ -861,41 +900,41 @@ export type Database = {
       }
       populate_certificate_template: {
         Args: {
+          completion_date?: string
+          course_name: string
+          score?: number
           template_id: string
           user_id: string
-          course_name: string
-          completion_date?: string
-          score?: number
         }
         Returns: string
       }
       register_manual_user: {
         Args: {
           user_email: string
-          user_password: string
           user_full_name: string
+          user_password: string
           user_role?: string
         }
         Returns: string
       }
       update_admin_credentials: {
         Args: {
-          old_username: string
-          old_password: string
-          new_username: string
           new_password: string
+          new_username: string
+          old_password: string
+          old_username: string
         }
         Returns: boolean
       }
       update_api_keys: {
         Args: {
-          p_gemini_key?: string
-          p_tts_key?: string
           p_clerk_key?: string
+          p_company_name?: string
+          p_gemini_key?: string
+          p_pro_plan_price_inr?: number
           p_razorpay_key_id?: string
           p_razorpay_key_secret?: string
-          p_pro_plan_price_inr?: number
-          p_company_name?: string
+          p_tts_key?: string
         }
         Returns: boolean
       }

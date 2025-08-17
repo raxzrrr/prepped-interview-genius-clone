@@ -70,7 +70,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { icon: Sparkles, label: 'Custom Interviews', href: '/custom-interviews' },
     { icon: BookOpen, label: 'Learning Hub', href: '/learning' },
     { icon: Briefcase, label: 'Jobs', href: '/jobs' },
-    { icon: FileText, label: 'My Reports', href: '/reports' },
+    { icon: FileText, label: 'Interview Resources', href: '/interview-resources' },
     { icon: Award, label: 'Certificates', href: '/certificates' },
     { icon: Settings, label: 'Settings', href: '/settings' },
   ];
@@ -79,6 +79,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin' },
     { icon: UserCog, label: 'User Management', href: '/admin/user-management' },
     { icon: GraduationCap, label: 'Course Management', href: '/admin/courses' },
+    { icon: FileText, label: 'Interview Resources', href: '/admin/interview-resources' },
     { icon: CreditCard, label: 'Payments', href: '/admin/payments' },
     { icon: Award, label: 'Certificates', href: '/admin/certificates' },
     { icon: Settings, label: 'Settings', href: '/admin/settings' },
