@@ -31,6 +31,7 @@ const UserManagementPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [subscriptionFilter, setSubscriptionFilter] = useState<string>('all');
 
   // Check for temporary admin access
   const isTempAdmin = localStorage.getItem('tempAdmin') === 'true';
@@ -158,7 +159,20 @@ const UserManagementPage: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     
-    return matchesSearch && matchesStatus && matchesRole;
+    // Filter by subscription type
+    let matchesSubscription = true;
+    if (subscriptionFilter === 'pro') {
+      matchesSubscription = user.subscription && 
+                           user.subscription.plan_type === 'pro' && 
+                           user.subscription.status === 'active' &&
+                           new Date(user.subscription.current_period_end) > new Date();
+    } else if (subscriptionFilter === 'free') {
+      matchesSubscription = !user.subscription || 
+                           user.subscription.status !== 'active' ||
+                           new Date(user.subscription.current_period_end) <= new Date();
+    }
+    
+    return matchesSearch && matchesStatus && matchesRole && matchesSubscription;
   });
 
   const handleUpdateUser = async (updatedUser: Profile) => {
@@ -285,11 +299,20 @@ const UserManagementPage: React.FC = () => {
     }
     
     const isActive = subscription.status === 'active' && new Date(subscription.current_period_end) > new Date();
+    const grantedDate = formatDate(subscription.created_at);
+    
     return (
-      <Badge className={isActive ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-gray-100 text-gray-800"}>
-        <Shield className="w-3 h-3 mr-1" />
-        {subscription.plan_type} {isActive ? '(Active)' : '(Expired)'}
-      </Badge>
+      <div className="flex flex-col gap-1">
+        <Badge className={isActive ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 hover:from-green-200 hover:to-emerald-200" : "bg-gray-100 text-gray-800"}>
+          <Shield className="w-3 h-3 mr-1" />
+          {subscription.plan_type.toUpperCase()} {isActive ? '✓' : '(Expired)'}
+        </Badge>
+        {subscription.plan_type === 'pro' && (
+          <span className="text-xs text-muted-foreground">
+            Granted: {grantedDate}
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -386,6 +409,17 @@ const UserManagementPage: React.FC = () => {
                       <SelectItem value="all">All Roles</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="student">Student</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={subscriptionFilter} onValueChange={setSubscriptionFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Filter by plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Plans</SelectItem>
+                      <SelectItem value="pro">PRO Users</SelectItem>
+                      <SelectItem value="free">Free Users</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
