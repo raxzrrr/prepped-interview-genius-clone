@@ -16,7 +16,9 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
-type UserSubscription = Database['public']['Tables']['user_subscriptions']['Row'];
+type UserSubscription = Database['public']['Tables']['user_subscriptions']['Row'] & {
+  was_granted?: boolean | null;
+};
 
 interface UserWithSubscription extends Profile {
   subscription?: UserSubscription;
@@ -162,9 +164,24 @@ const UserManagementPage: React.FC = () => {
     // Filter by subscription type
     let matchesSubscription = true;
     if (subscriptionFilter === 'pro') {
+      // All active PRO users
       matchesSubscription = user.subscription && 
                            user.subscription.plan_type === 'pro' && 
                            user.subscription.status === 'active' &&
+                           new Date(user.subscription.current_period_end) > new Date();
+    } else if (subscriptionFilter === 'granted') {
+      // Only admin-granted PRO users
+      matchesSubscription = user.subscription && 
+                           user.subscription.plan_type === 'pro' && 
+                           user.subscription.status === 'active' &&
+                           user.subscription.was_granted === true &&
+                           new Date(user.subscription.current_period_end) > new Date();
+    } else if (subscriptionFilter === 'purchased') {
+      // Only purchased PRO users
+      matchesSubscription = user.subscription && 
+                           user.subscription.plan_type === 'pro' && 
+                           user.subscription.status === 'active' &&
+                           (user.subscription.was_granted === false || user.subscription.was_granted === null) &&
                            new Date(user.subscription.current_period_end) > new Date();
     } else if (subscriptionFilter === 'free') {
       matchesSubscription = !user.subscription || 
@@ -255,6 +272,7 @@ const UserManagementPage: React.FC = () => {
           status: 'active',
           current_period_start: new Date().toISOString(),
           current_period_end: periodEnd.toISOString(),
+          was_granted: true, // Mark as admin-granted
           updated_at: new Date().toISOString(),
         });
 
@@ -264,7 +282,8 @@ const UserManagementPage: React.FC = () => {
         return;
       }
 
-      toast({ title: 'Pro plan granted', description: 'User has been upgraded to Pro.' });
+      toast({ title: 'Pro plan granted', description: 'User has been upgraded to Pro for 1 month.' });
+      fetchUsers(); // Refresh the user list
     } catch (e) {
       console.error('Error in handleGrantPro:', e);
       toast({ title: 'Error', description: 'Failed to grant Pro plan', variant: 'destructive' });
@@ -295,23 +314,31 @@ const UserManagementPage: React.FC = () => {
   };
   const getSubscriptionBadge = (subscription?: UserSubscription) => {
     if (!subscription) {
-      return <Badge variant="outline">Free</Badge>;
+      return <Badge variant="outline" className="bg-gray-50">Free</Badge>;
     }
     
     const isActive = subscription.status === 'active' && new Date(subscription.current_period_end) > new Date();
-    const grantedDate = formatDate(subscription.created_at);
+    const isGranted = subscription.was_granted === true;
+    const dateAdded = formatDate(subscription.created_at);
+    
+    if (!isActive) {
+      return <Badge className="bg-gray-100 text-gray-600">Expired</Badge>;
+    }
     
     return (
       <div className="flex flex-col gap-1">
-        <Badge className={isActive ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 hover:from-green-200 hover:to-emerald-200" : "bg-gray-100 text-gray-800"}>
-          <Shield className="w-3 h-3 mr-1" />
-          {subscription.plan_type.toUpperCase()} {isActive ? '✓' : '(Expired)'}
-        </Badge>
-        {subscription.plan_type === 'pro' && (
-          <span className="text-xs text-muted-foreground">
-            Granted: {grantedDate}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <Badge className={isGranted 
+            ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-800 hover:from-purple-200 hover:to-indigo-200" 
+            : "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 hover:from-green-200 hover:to-emerald-200"}>
+            <Shield className="w-3 h-3 mr-1" />
+            {subscription.plan_type.toUpperCase()}
+            {isGranted ? ' (Admin)' : ' (Paid)'}
+          </Badge>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {isGranted ? 'Granted: ' : 'Since: '}{dateAdded}
+        </span>
       </div>
     );
   };
@@ -413,12 +440,14 @@ const UserManagementPage: React.FC = () => {
                   </Select>
 
                   <Select value={subscriptionFilter} onValueChange={setSubscriptionFilter}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-44">
                       <SelectValue placeholder="Filter by plan" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Plans</SelectItem>
-                      <SelectItem value="pro">PRO Users</SelectItem>
+                      <SelectItem value="pro">All PRO Users</SelectItem>
+                      <SelectItem value="granted">Admin Granted PRO</SelectItem>
+                      <SelectItem value="purchased">Purchased PRO</SelectItem>
                       <SelectItem value="free">Free Users</SelectItem>
                     </SelectContent>
                   </Select>

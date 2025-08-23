@@ -827,6 +827,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          was_granted: boolean | null
         }
         Insert: {
           created_at?: string
@@ -837,6 +838,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          was_granted?: boolean | null
         }
         Update: {
           created_at?: string
@@ -847,6 +849,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          was_granted?: boolean | null
         }
         Relationships: [
           {
