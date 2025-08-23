@@ -10,6 +10,7 @@ import { FileUploader } from '@/components/ui/file-uploader';
 import { Trash2, Download, FileText, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { adminUploadService } from '@/services/adminUploadService';
 
 interface InterviewResource {
   id: string;
@@ -80,43 +81,15 @@ const InterviewResourcesPage: React.FC = () => {
 
     setUploading(true);
     try {
-      // Ensure Supabase session is active
-      await ensureSupabaseSession();
+      const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
       
-      // Convert base64 to blob
-      const base64Data = fileData.split(',')[1];
-      const blob = new Blob([
-        new Uint8Array(
-          atob(base64Data)
-            .split('')
-            .map(char => char.charCodeAt(0))
-        )
-      ], { type: 'application/pdf' });
-
-      const fileName = `${Date.now()}-${title.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
-      const filePath = `${fileName}`;
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('interview-resources')
-        .upload(filePath, blob);
-
-      if (uploadError) throw uploadError;
-
-      // Save metadata to database - using Supabase user ID
-      const supabaseUserId = getSupabaseUserId();
-      const { error: dbError } = await supabase
-        .from('interview_resources')
-        .insert({
-          title: title.trim(),
-          description: description.trim() || null,
-          file_name: fileName,
-          file_path: filePath,
-          file_size: blob.size,
-          uploaded_by: supabaseUserId
-        });
-
-      if (dbError) throw dbError;
+      // Use admin upload service which bypasses RLS
+      await adminUploadService.uploadInterviewResource(
+        fileData,
+        title.trim(),
+        description.trim() || null,
+        fileName
+      );
 
       toast({
         title: "Success",
@@ -132,7 +105,7 @@ const InterviewResourcesPage: React.FC = () => {
       console.error('Error uploading resource:', error);
       toast({
         title: "Upload Failed",
-        description: "Failed to upload interview resource",
+        description: "Failed to upload interview resource. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -146,12 +119,11 @@ const InterviewResourcesPage: React.FC = () => {
     }
 
     try {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('interview-resources')
-        .remove([resource.file_path]);
-
-      if (storageError) throw storageError;
+      // Use admin service to delete (bypasses RLS)
+      await adminUploadService.delete({
+        filePath: resource.file_path,
+        bucket: 'interview-resources'
+      });
 
       // Mark as inactive in database
       const { error: dbError } = await supabase
