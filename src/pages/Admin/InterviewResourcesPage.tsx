@@ -23,7 +23,7 @@ interface InterviewResource {
 }
 
 const InterviewResourcesPage: React.FC = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, ensureSupabaseSession, getSupabaseUserId } = useAuth();
   const { toast } = useToast();
   const [resources, setResources] = useState<InterviewResource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +80,9 @@ const InterviewResourcesPage: React.FC = () => {
 
     setUploading(true);
     try {
+      // Ensure Supabase session is active
+      await ensureSupabaseSession();
+      
       // Convert base64 to blob
       const base64Data = fileData.split(',')[1];
       const blob = new Blob([
@@ -100,7 +103,8 @@ const InterviewResourcesPage: React.FC = () => {
 
       if (uploadError) throw uploadError;
 
-      // Save metadata to database
+      // Save metadata to database - using Supabase user ID
+      const supabaseUserId = getSupabaseUserId();
       const { error: dbError } = await supabase
         .from('interview_resources')
         .insert({
@@ -109,7 +113,7 @@ const InterviewResourcesPage: React.FC = () => {
           file_name: fileName,
           file_path: filePath,
           file_size: blob.size,
-          uploaded_by: user?.id
+          uploaded_by: supabaseUserId
         });
 
       if (dbError) throw dbError;
