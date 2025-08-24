@@ -14,6 +14,7 @@ interface ResumeAnalysisResultsProps {
     job_openings?: {
       role: string;
       locations: string[];
+      global?: string[];
     }[];
   };
 }
@@ -102,8 +103,15 @@ const ResumeAnalysisResults: React.FC<ResumeAnalysisResultsProps> = ({ analysis 
               {job_openings.map((job, index) => (
                 <div key={index} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="font-medium text-blue-900 mb-2">{job.role}</div>
-                  <div className="text-sm text-blue-700">
-                    <span className="font-medium">Locations:</span> {job.locations.join(' • ')}
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <div>
+                      <span className="font-medium">Indian Locations:</span> {job.locations.join(' • ')}
+                    </div>
+                    {job.global && job.global.length > 0 && (
+                      <div>
+                        <span className="font-medium">Global Opportunities:</span> {job.global.join(' • ')}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
