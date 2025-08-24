@@ -529,42 +529,6 @@ export type Database = {
         }
         Relationships: []
       }
-      question_banks: {
-        Row: {
-          category: string
-          created_at: string | null
-          difficulty_level: string | null
-          id: string
-          is_active: boolean | null
-          questions: Json
-          technology: string
-          total_questions: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          category: string
-          created_at?: string | null
-          difficulty_level?: string | null
-          id?: string
-          is_active?: boolean | null
-          questions?: Json
-          technology: string
-          total_questions?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string
-          created_at?: string | null
-          difficulty_level?: string | null
-          id?: string
-          is_active?: boolean | null
-          questions?: Json
-          technology?: string
-          total_questions?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       user_certificates: {
         Row: {
           certificate_hash: string | null
@@ -724,51 +688,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_progress: {
-        Row: {
-          completed: boolean
-          completed_at: string | null
-          created_at: string
-          id: string
-          updated_at: string
-          user_id: string
-          video_id: string
-        }
-        Insert: {
-          completed?: boolean
-          completed_at?: string | null
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id: string
-          video_id: string
-        }
-        Update: {
-          completed?: boolean
-          completed_at?: string | null
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id?: string
-          video_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_progress_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_progress_video_id_fkey"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "course_videos"
             referencedColumns: ["id"]
           },
         ]
