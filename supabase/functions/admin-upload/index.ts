@@ -72,6 +72,17 @@ serve(async (req) => {
         throw storageError;
       }
 
+      // Mark the resource as inactive in the database
+      const { error: dbError } = await supabase
+        .from('interview_resources')
+        .update({ is_active: false })
+        .eq('file_path', filePath);
+
+      if (dbError) {
+        console.error('Error marking resource as inactive:', dbError);
+        // Don't throw here since file is already deleted from storage
+      }
+
       return new Response(
         JSON.stringify({ success: true }),
         { 
