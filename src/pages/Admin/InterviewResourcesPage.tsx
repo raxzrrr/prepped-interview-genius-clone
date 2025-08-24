@@ -35,7 +35,7 @@ const InterviewResourcesPage: React.FC = () => {
   const [resources, setResources] = useState<InterviewResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [showInactive, setShowInactive] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [fileData, setFileData] = useState<string | null>(null);
@@ -52,17 +52,18 @@ const InterviewResourcesPage: React.FC = () => {
 
   useEffect(() => {
     fetchResources();
-  }, [showInactive]);
+  }, [showAll]);
 
   const fetchResources = async () => {
+    setLoading(true);
     try {
       let query = supabase
         .from('interview_resources')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Optionally filter by active status
-      if (!showInactive) {
+      // Filter by active status unless showing all
+      if (!showAll) {
         query = query.eq('is_active', true);
       }
 
@@ -241,11 +242,11 @@ const InterviewResourcesPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowInactive(!showInactive)}
+                onClick={() => setShowAll(!showAll)}
                 className="flex items-center gap-2"
               >
-                {showInactive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                {showInactive ? 'Showing All' : 'Showing Active Only'}
+                {showAll ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                {showAll ? 'Showing All' : 'Active Only'}
               </Button>
             </div>
           </CardHeader>
@@ -276,7 +277,7 @@ const InterviewResourcesPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <h4 className="font-medium truncate">{resource.title}</h4>
                         {!resource.is_active && (
-                          <span className="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                             Inactive
                           </span>
                         )}
