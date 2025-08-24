@@ -208,6 +208,10 @@ const CustomInterviewsPage: React.FC = () => {
         throw new Error('Invalid evaluation result received');
       }
 
+      // Check if this is a fallback evaluation (all scores are 0 or very low)
+      const avgScore = bulkEvaluation.overall_statistics.average_score;
+      const isFallbackEvaluation = avgScore <= 1 || bulkEvaluation.evaluations.every(e => e.score <= 2);
+
       // Update session with results
       if (sessionId) {
         console.log('Updating interview session with results...');
@@ -215,7 +219,7 @@ const CustomInterviewsPage: React.FC = () => {
           sessionId,
           data.answers,
           bulkEvaluation.evaluations,
-          bulkEvaluation.overall_statistics.average_score
+          avgScore
         );
       }
       
@@ -223,24 +227,32 @@ const CustomInterviewsPage: React.FC = () => {
       setEvaluations(bulkEvaluation.evaluations);
       setCurrentStep('completed');
       
-      toast({
-        title: "Interview Completed",
-        description: `Overall Score: ${bulkEvaluation.overall_statistics.average_score.toFixed(1)}/10`,
-      });
+      if (isFallbackEvaluation) {
+        toast({
+          title: "Interview Completed",
+          description: "Evaluation service had issues, but your interview is saved with basic feedback.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Interview Completed",
+          description: `Overall Score: ${avgScore.toFixed(1)}/10`,
+        });
+      }
     } catch (error: any) {
       console.error('Error completing interview:', error);
       console.error('Error details:', error.message);
       
-      toast({
-        title: "Evaluation Failed",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-      
-      // Set empty evaluations so the report can still be shown
+      // Even if evaluation fails completely, show the report with answers
       setUserAnswers(data.answers || []);
       setEvaluations([]);
       setCurrentStep('completed');
+      
+      toast({
+        title: "Interview Completed",
+        description: "Your answers are saved. Evaluation service is temporarily unavailable.",
+        variant: "default",
+      });
     }
   };
 
