@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { AlertCircle, FileText, CheckCircle, Loader2, XCircle, Upload } from 'lucide-react';
 import { useInterviewApi } from '@/services/api';
 import { useAuth } from '@/contexts/ClerkAuthContext';
+import { parseResumeFile, formatParsedResumeForAPI } from '@/utils/resumeParser';
 
 interface ResumeUploadProps {
   file?: string;
@@ -25,14 +26,15 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [progress, setProgress] = useState<string>('');
-  const [uploadedFile, setUploadedFile] = useState<string | null>(file || null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [parsedResume, setParsedResume] = useState<string | null>(null);
   const { toast } = useToast();
   const { generateInterviewQuestions, analyzeResume } = useInterviewApi();
   const { user } = useAuth();
 
   useEffect(() => {
-    if (uploadedFile && !analyzing && !success && !error) {
-      analyzeResumeFile();
+    if (uploadedFile && !analyzing && !success && !error && !parsedResume) {
+      parseAndAnalyzeResume();
     }
   }, [uploadedFile]);
 
@@ -45,17 +47,14 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setUploadedFile(result);
-      setError(null);
-      setSuccess(false);
-    };
-    reader.readAsDataURL(file);
+    console.log('PDF file selected:', file.name, 'Size:', file.size, 'Type:', file.type);
+    setUploadedFile(file);
+    setParsedResume(null);
+    setError(null);
+    setSuccess(false);
   };
 
-  const analyzeResumeFile = async () => {
+  const parseAndAnalyzeResume = async () => {
     if (!user || !uploadedFile) {
       setError('User not authenticated or no file uploaded');
       return;
@@ -65,18 +64,23 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       setAnalyzing(true);
       setError(null);
       setSuccess(false);
-      setProgress('Validating file...');
+      setProgress('Parsing PDF content...');
       
-      console.log("Starting resume analysis...");
+      console.log("Starting PDF parsing...");
       
-      if (!uploadedFile.includes('application/pdf')) {
-        throw new Error('Only PDF files are supported');
-      }
+      // Parse PDF and extract text content
+      const parsedData = await parseResumeFile(uploadedFile);
+      const formattedText = formatParsedResumeForAPI(parsedData);
       
-      // Perform analysis and get comprehensive response
-      setProgress('Analyzing your resume...');
-      console.log("Calling analyzeResume API...");
-      const result = await analyzeResume(uploadedFile);
+      console.log('PDF parsing complete. Raw text length:', parsedData.rawText.length);
+      console.log('Parsed resume text preview:', parsedData.rawText.substring(0, 500));
+      
+      setParsedResume(formattedText);
+      
+      // Perform analysis with parsed text
+      setProgress('Analyzing resume content with AI...');
+      console.log("Calling analyzeResume API with parsed text...");
+      const result = await analyzeResume(formattedText);
       
       if (!result) {
         throw new Error('Failed to analyze resume - no response from API. Please check your API configuration.');
@@ -98,8 +102,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
       });
       
     } catch (error: any) {
-      console.error('Error analyzing resume:', error);
-      setError(error.message || 'Failed to analyze resume');
+      console.error('Error parsing or analyzing resume:', error);
+      setError(error.message || 'Failed to parse or analyze resume');
       toast({
         title: "Resume Analysis Failed",
         description: error.message || "An error occurred while analyzing your resume. Please check your API configuration and try again.",
@@ -114,8 +118,9 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
     setError(null);
     setSuccess(false);
     setProgress('');
+    setParsedResume(null);
     if (uploadedFile) {
-      analyzeResumeFile();
+      parseAndAnalyzeResume();
     }
   };
 

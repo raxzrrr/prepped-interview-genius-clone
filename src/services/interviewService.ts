@@ -99,7 +99,8 @@ class InterviewService {
   async bulkEvaluateAnswers(
     questions: string[],
     userAnswers: string[],
-    idealAnswers: string[]
+    idealAnswers: string[],
+    resumeAnalysis?: any // Optional resume analysis for context
   ): Promise<BulkEvaluationResult> {
     try {
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
@@ -107,7 +108,8 @@ class InterviewService {
           type: 'bulk-evaluation',
           questions,
           answers: userAnswers,
-          idealAnswers
+          idealAnswers,
+          prompt: { resumeText: resumeAnalysis?.rawText || '' }
         }
       });
 

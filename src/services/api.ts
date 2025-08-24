@@ -181,7 +181,7 @@ export const useInterviewApi = () => {
     }
   };
 
-  const analyzeResume = async (resumeBase64: string): Promise<ResumeAnalysisResponse | null> => {
+  const analyzeResume = async (parsedResumeText: string): Promise<ResumeAnalysisResponse | null> => {
     if (!isAuthenticated || !user) {
       console.error('User not authenticated');
       toast({
@@ -193,16 +193,13 @@ export const useInterviewApi = () => {
     }
     
     try {
-      console.log("Analyzing resume...");
-      
-      if (!resumeBase64.includes('application/pdf')) {
-        throw new Error('Only PDF files are supported');
-      }
+      console.log("Analyzing resume with parsed text...");
+      console.log("Parsed text length:", parsedResumeText.length);
       
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: { 
           type: 'resume-analysis', 
-          prompt: { resume: resumeBase64 }
+          prompt: { resumeText: parsedResumeText }
         }
       });
 

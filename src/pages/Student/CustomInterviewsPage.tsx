@@ -180,7 +180,8 @@ const CustomInterviewsPage: React.FC = () => {
       const bulkEvaluation = await interviewService.bulkEvaluateAnswers(
         questions,
         data.answers,
-        idealAnswers
+        idealAnswers,
+        resumeAnalysis // Pass resume analysis for context
       );
       
       // Update session with results
