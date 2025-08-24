@@ -125,16 +125,19 @@ const CustomInterviewsPage: React.FC = () => {
       const { analysis, questions, ideal_answers } = generatedQuestions;
       
       // Create interview session with the questions and ideal answers from API Call 1
+      // Cap question count at 10 to respect database constraint (5-10 allowed)
+      const questionCount = Math.min(Math.max(questions.length, 5), 10);
       const session = await interviewService.createInterviewSession(
         'resume_based',
-        questions.length,
-        questions,
-        ideal_answers || questions.map(() => 'Ideal answer based on resume analysis'),
+        questionCount,
+        questions.slice(0, 10), // Use only first 10 questions for session
+        (ideal_answers || questions.map(() => 'Ideal answer based on resume analysis')).slice(0, 10),
         analysis?.suggested_role
       );
       
-      setQuestions(questions);
-      setIdealAnswers(ideal_answers || questions.map(() => 'Ideal answer based on resume analysis'));
+      // Use only first 10 questions to respect database constraint
+      setQuestions(questions.slice(0, 10));
+      setIdealAnswers((ideal_answers || questions.map(() => 'Ideal answer based on resume analysis')).slice(0, 10));
       setResumeAnalysis(analysis);
       setSessionId(session.id);
       setInterviewType('resume_based');
