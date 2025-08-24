@@ -66,6 +66,12 @@ serve(async (req) => {
       case 'bulk-evaluation':
         response = await bulkEvaluateAnswers(questions, answers, idealAnswers, apiKey, prompt?.resumeText)
         break
+      case 'generate-hr-technical':
+        response = await generateHRTechnicalQuestions(questionCount, apiKey)
+        break
+      case 'generate-interview-set':
+        response = await generateInterviewSet(interviewType, questionCount, jobRole, apiKey)
+        break
       default:
         throw new Error('Invalid request type')
     }
@@ -383,6 +389,201 @@ Important:
     
     console.log('Returning fallback evaluation result')
     return new Response(JSON.stringify(fallbackResult), {
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+}
+
+// Generate HR and Technical questions
+async function generateHRTechnicalQuestions(questionCount: number, apiKey: string) {
+  console.log('Generating HR and technical questions, count:', questionCount)
+  
+  const prompt = `Generate ${questionCount} professional interview questions that combine HR behavioral questions and basic technical concepts. 
+
+Return JSON in this EXACT format:
+{
+  "questions": [
+    "Question 1 text",
+    "Question 2 text",
+    "Question 3 text"
+  ],
+  "ideal_answers": [
+    "Ideal answer for question 1",
+    "Ideal answer for question 2", 
+    "Ideal answer for question 3"
+  ]
+}
+
+Requirements:
+- Mix of HR behavioral questions (teamwork, problem-solving, communication)
+- Basic technical concepts questions (not too advanced)
+- Questions should be suitable for any professional level
+- Ideal answers should be comprehensive but realistic
+- Total questions: ${questionCount}
+- Each ideal answer should be 2-3 sentences showing what a good response includes`
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 3000 }
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Gemini API error:', response.status, errorText)
+    throw new Error(`Gemini API error: ${response.statusText}`)
+  }
+
+  const data = await response.json()
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text
+  
+  if (!content) {
+    throw new Error('No content generated for HR technical questions')
+  }
+
+  try {
+    let cleanContent = content.trim()
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\n/, '').replace(/\n```$/, '')
+    }
+    if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\n/, '').replace(/\n```$/, '')
+    }
+    
+    const result = JSON.parse(cleanContent)
+    
+    if (result.questions && result.ideal_answers && Array.isArray(result.questions) && Array.isArray(result.ideal_answers)) {
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    
+    throw new Error('Invalid JSON structure for HR technical questions')
+  } catch (parseError) {
+    console.error('JSON parse error for HR technical:', parseError)
+    
+    // Fallback HR technical questions
+    const fallbackQuestions = [
+      "Tell me about a time when you had to work with a difficult team member. How did you handle it?",
+      "Describe a challenging problem you solved. What was your approach?",
+      "How do you prioritize tasks when you have multiple deadlines?",
+      "What programming languages or tools are you most comfortable with and why?",
+      "Explain the difference between a database and a spreadsheet to a non-technical person."
+    ].slice(0, questionCount)
+    
+    const fallbackAnswers = [
+      "A good answer uses the STAR method (Situation, Task, Action, Result) and shows conflict resolution skills and professionalism.",
+      "A strong response outlines a clear problem-solving process, demonstrates analytical thinking, and shows persistence in finding solutions.",
+      "An effective answer shows time management skills, the ability to assess urgency vs importance, and communication with stakeholders about priorities.",
+      "A comprehensive response mentions specific technologies, explains comfort level, and connects tools to practical applications or projects.",
+      "A clear answer uses simple analogies, avoids jargon, and demonstrates the ability to communicate technical concepts to non-technical audiences."
+    ].slice(0, questionCount)
+    
+    return new Response(JSON.stringify({
+      questions: fallbackQuestions,
+      ideal_answers: fallbackAnswers
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+}
+
+// Generate role-specific interview questions
+async function generateInterviewSet(interviewType: string, questionCount: number, jobRole: string, apiKey: string) {
+  console.log('Generating interview set for role:', jobRole, 'type:', interviewType, 'count:', questionCount)
+  
+  const prompt = `Generate ${questionCount} specialized interview questions for a ${jobRole} position.
+
+Return JSON in this EXACT format:
+{
+  "questions": [
+    "Question 1 specific to ${jobRole}",
+    "Question 2 technical for ${jobRole}",
+    "Question 3 behavioral for ${jobRole}"
+  ],
+  "ideal_answers": [
+    "Comprehensive ideal answer for question 1",
+    "Detailed ideal answer for question 2",
+    "Professional ideal answer for question 3"
+  ]
+}
+
+Requirements:
+- Questions must be specific to ${jobRole} responsibilities
+- Include technical skills relevant to ${jobRole}
+- Add behavioral questions suited for ${jobRole} environment
+- Mix of experience-based and scenario-based questions
+- Ideal answers should demonstrate expert-level knowledge
+- Total questions: ${questionCount}
+- Focus on real-world applications and problem-solving`
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 3000 }
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Gemini API error:', response.status, errorText)
+    throw new Error(`Gemini API error: ${response.statusText}`)
+  }
+
+  const data = await response.json()
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text
+  
+  if (!content) {
+    throw new Error('No content generated for role-based questions')
+  }
+
+  try {
+    let cleanContent = content.trim()
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\n/, '').replace(/\n```$/, '')
+    }
+    if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\n/, '').replace(/\n```$/, '')
+    }
+    
+    const result = JSON.parse(cleanContent)
+    
+    if (result.questions && result.ideal_answers && Array.isArray(result.questions) && Array.isArray(result.ideal_answers)) {
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    
+    throw new Error('Invalid JSON structure for role-based questions')
+  } catch (parseError) {
+    console.error('JSON parse error for role-based:', parseError)
+    
+    // Fallback role-based questions
+    const fallbackQuestions = [
+      `What specific experience do you have that makes you suitable for a ${jobRole} position?`,
+      `Describe the most challenging aspect of working as a ${jobRole} and how you would handle it.`,
+      `What tools, technologies, or methodologies are essential for success in ${jobRole}?`,
+      `How do you stay updated with the latest trends and developments in your field?`,
+      `Walk me through your approach to a typical project or task in ${jobRole}.`
+    ].slice(0, questionCount)
+    
+    const fallbackAnswers = [
+      `A strong answer highlights relevant experience, specific achievements, and transferable skills that directly apply to ${jobRole} responsibilities.`,
+      `An effective response identifies realistic challenges, shows problem-solving approach, and demonstrates resilience and adaptability.`,
+      `A comprehensive answer lists current industry-standard tools, explains their importance, and shows awareness of evolving technologies.`,
+      `A good response shows commitment to continuous learning through multiple channels like courses, publications, networking, and hands-on practice.`,
+      `A detailed answer outlines a systematic approach, shows planning skills, and demonstrates understanding of ${jobRole} workflows and best practices.`
+    ].slice(0, questionCount)
+    
+    return new Response(JSON.stringify({
+      questions: fallbackQuestions,
+      ideal_answers: fallbackAnswers
+    }), {
       headers: { 'Content-Type': 'application/json' }
     })
   }

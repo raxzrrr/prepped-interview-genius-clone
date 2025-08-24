@@ -77,36 +77,77 @@ const InterviewsPage: React.FC = () => {
     interviewId?: string 
   }) => {
     try {
-      // Perform bulk evaluation
+      console.log('Interview completed, starting evaluation...');
+      
+      // Validate inputs before evaluation
+      if (!questions.length || !data.answers.length || !idealAnswers.length) {
+        console.error('Validation failed: missing data for evaluation', {
+          q: questions.length, a: data.answers.length, i: idealAnswers.length
+        });
+      }
+
+      // Perform bulk evaluation with proper error handling
+      console.log('Starting bulk evaluation...');
       const bulkEvaluation = await interviewService.bulkEvaluateAnswers(
         questions,
         data.answers,
         idealAnswers
       );
       
-      // Update session with results
+      console.log('Bulk evaluation result:', bulkEvaluation);
+      
+      // Validate evaluation result
+      if (!bulkEvaluation || !bulkEvaluation.evaluations || !bulkEvaluation.overall_statistics) {
+        throw new Error('Invalid evaluation result received');
+      }
+
+      // Check if this is a fallback evaluation (all scores are 0 or very low)
+      const avgScore = bulkEvaluation.overall_statistics.average_score;
+      const isFallbackEvaluation = avgScore <= 1 || bulkEvaluation.evaluations.every(e => e.score <= 2);
+
+      // Update session with results (do not fail the flow if this errors)
       if (sessionId) {
-        await interviewService.updateInterviewSession(
-          sessionId,
-          data.answers,
-          bulkEvaluation.evaluations,
-          bulkEvaluation.overall_statistics.average_score
-        );
+        console.log('Updating interview session with results...');
+        try {
+          await interviewService.updateInterviewSession(
+            sessionId,
+            data.answers,
+            bulkEvaluation.evaluations,
+            avgScore
+          );
+        } catch (updateErr) {
+          console.error('Non-blocking: failed to update interview session', updateErr);
+        }
       }
       
       setUserAnswers(data.answers);
       setEvaluations(bulkEvaluation.evaluations);
       setCurrentStep('completed');
       
-      toast({
-        title: "Interview Completed",
-        description: `Overall Score: ${bulkEvaluation.overall_statistics.average_score.toFixed(1)}/10`,
-      });
+      if (isFallbackEvaluation) {
+        toast({
+          title: "Interview Completed",
+          description: "Evaluation service had issues, but your interview is saved with basic feedback.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Interview Completed",
+          description: `Overall Score: ${avgScore.toFixed(1)}/10`,
+        });
+      }
     } catch (error: any) {
       console.error('Error completing interview:', error);
+      console.error('Error details:', error.message);
+      
+      // Even if evaluation fails completely, show the report with answers
+      setUserAnswers(data.answers || []);
+      setEvaluations([]);
+      setCurrentStep('completed');
+      
       toast({
         title: "Evaluation Failed",
-        description: "Interview completed but evaluation failed. Please try again.",
+        description: "Please try again.",
         variant: "destructive",
       });
     }
