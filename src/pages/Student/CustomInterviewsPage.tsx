@@ -445,24 +445,16 @@ const CustomInterviewsPage: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="resumeQuestionCount">Number of Questions</Label>
-                    <Select 
-                      value={questionCount.toString()} 
-                      onValueChange={(value) => setQuestionCount(parseInt(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select question count" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5 Questions</SelectItem>
-                        <SelectItem value="6">6 Questions</SelectItem>
-                        <SelectItem value="7">7 Questions</SelectItem>
-                        <SelectItem value="8">8 Questions</SelectItem>
-                        <SelectItem value="9">9 Questions</SelectItem>
-                        <SelectItem value="10">10 Questions</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-green-800">10 Personalized Questions</h4>
+                        <p className="text-sm text-green-600">AI generates exactly 10 questions tailored to your resume</p>
+                      </div>
+                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                        Fixed: 10 Questions
+                      </Badge>
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -480,7 +472,7 @@ const CustomInterviewsPage: React.FC = () => {
                   <ResumeUpload
                     onAnalysisComplete={handleResumeAnalysisComplete}
                     onAnalysisResults={setResumeAnalysis}
-                    questionCount={questionCount}
+                    questionCount={10}
                   />
                 </CardContent>
               </Card>

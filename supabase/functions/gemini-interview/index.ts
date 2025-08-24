@@ -127,11 +127,26 @@ Return JSON in this exact format:
   "questions": [
     "Question 1 specific to resume content",
     "Question 2 based on skills mentioned",
-    "At least 10 total questions"
+    "Question 3 about projects and experience",
+    "Question 4 technical competency based",
+    "Question 5 career progression focused",
+    "Question 6 behavioral based on background",
+    "Question 7 industry-specific challenge",
+    "Question 8 leadership or teamwork example",  
+    "Question 9 problem-solving scenario",
+    "Question 10 future goals and aspirations"
   ],
   "ideal_answers": [
     "Ideal answer 1 based on background",
-    "Ideal answer 2 leveraging experience"
+    "Ideal answer 2 leveraging experience",
+    "Ideal answer 3 showcasing technical expertise",
+    "Ideal answer 4 demonstrating problem-solving skills",
+    "Ideal answer 5 highlighting career growth mindset",
+    "Ideal answer 6 showing behavioral competencies",
+    "Ideal answer 7 addressing industry challenges",
+    "Ideal answer 8 exhibiting leadership qualities",
+    "Ideal answer 9 presenting analytical approach",
+    "Ideal answer 10 expressing future aspirations"
   ]
 }`
 
@@ -190,18 +205,28 @@ Return JSON in this exact format:
         }]
       },
       questions: [
-        'Tell me about your professional background.',
-        'What are your key technical skills?',
-        'Describe a challenging project you worked on.',
-        'How do you handle working under pressure?',
-        'Where do you see yourself in 5 years?'
+        'Tell me about your professional background and key achievements.',
+        'What are your core technical skills and how have you applied them?',
+        'Describe the most challenging project you worked on and how you overcame obstacles.',
+        'How do you handle working under pressure and tight deadlines?',
+        'Where do you see yourself in 5 years and how does this role fit your goals?',
+        'What specific experience makes you a good fit for this type of role?',
+        'Describe a time when you had to learn a new technology or skill quickly.',
+        'How do you approach problem-solving when facing complex technical issues?',
+        'Tell me about a time you worked effectively in a team environment.',
+        'What motivates you most in your professional work and career development?'
       ],
       ideal_answers: [
-        'A comprehensive answer highlighting relevant experience and achievements.',
-        'A detailed response with specific technical expertise examples.',
-        'A structured STAR method answer with measurable results.',
-        'A thoughtful response showing stress management skills.',
-        'An ambitious yet realistic career growth plan.'
+        'A comprehensive answer highlighting relevant experience and quantifiable achievements.',
+        'A detailed response with specific technical expertise examples and practical applications.',
+        'A structured STAR method answer with measurable results and lessons learned.',
+        'A thoughtful response showing stress management skills and prioritization strategies.',
+        'An ambitious yet realistic career growth plan aligned with industry trends.',
+        'A targeted response connecting past experience to future role requirements.',
+        'A story demonstrating adaptability, learning agility, and proactive skill development.',
+        'A systematic approach showing analytical thinking and methodical troubleshooting.',
+        'An example demonstrating collaboration, communication, and collective success.',
+        'A genuine response showing passion, purpose, and alignment with career trajectory.'
       ]
     }
     
