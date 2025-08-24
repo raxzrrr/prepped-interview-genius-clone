@@ -36,51 +36,14 @@ export const adminUploadService = {
   },
 
   /**
-   * Delete a file using admin privileges
+   * Permanently delete a file from both storage and database
    */
-  async delete({ filePath, bucket, permanent = false }: DeleteOptions) {
+  async delete({ filePath, bucket }: Omit<DeleteOptions, 'permanent'>) {
     const { data, error } = await supabase.functions.invoke('admin-upload', {
       body: {
         action: 'delete',
         filePath,
-        bucket,
-        permanent
-      }
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  },
-
-  /**
-   * Mark a resource as inactive without deleting the file
-   */
-  async markInactive(resourceId: string) {
-    const { data, error } = await supabase.functions.invoke('admin-upload', {
-      body: {
-        action: 'deactivate',
-        resourceId
-      }
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  },
-
-  /**
-   * Reactivate a resource
-   */
-  async activate(resourceId: string) {
-    const { data, error } = await supabase.functions.invoke('admin-upload', {
-      body: {
-        action: 'activate',
-        resourceId
+        bucket
       }
     });
 

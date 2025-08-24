@@ -20,7 +20,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { action, fileData, filePath, bucket, metadata, permanent, resourceId } = await req.json();
+    const { action, fileData, filePath, bucket, metadata } = await req.json();
 
     if (action === 'upload') {
       // Convert base64 to blob
@@ -63,87 +63,29 @@ serve(async (req) => {
     }
 
     if (action === 'delete') {
-      if (permanent) {
-        // Delete from storage first
-        const { error: storageError } = await supabase.storage
-          .from(bucket)
-          .remove([filePath]);
+      // Always permanently delete - remove from both storage and database
+      const { error: storageError } = await supabase.storage
+        .from(bucket)
+        .remove([filePath]);
 
-        if (storageError) {
-          throw storageError;
-        }
-
-        // Permanently delete from database
-        const { error: dbError } = await supabase
-          .from('interview_resources')
-          .delete()
-          .eq('file_path', filePath);
-
-        if (dbError) {
-          throw dbError;
-        }
-
-        return new Response(
-          JSON.stringify({ success: true, message: 'Resource permanently deleted' }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
-        );
-      } else {
-        // Just mark as inactive without deleting the file
-        const { error: dbError } = await supabase
-          .from('interview_resources')
-          .update({ is_active: false })
-          .eq('file_path', filePath);
-
-        if (dbError) {
-          throw dbError;
-        }
-
-        return new Response(
-          JSON.stringify({ success: true, message: 'Resource marked as inactive' }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
-        );
+      if (storageError) {
+        console.error('Storage deletion error:', storageError);
+        throw storageError;
       }
-    }
 
-    if (action === 'deactivate') {
-      // Just mark as inactive without deleting the file
+      // Permanently delete from database
       const { error: dbError } = await supabase
         .from('interview_resources')
-        .update({ is_active: false })
-        .eq('id', resourceId);
+        .delete()
+        .eq('file_path', filePath);
 
       if (dbError) {
+        console.error('Database deletion error:', dbError);
         throw dbError;
       }
 
       return new Response(
-        JSON.stringify({ success: true }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
-    }
-
-    if (action === 'activate') {
-      // Reactivate the resource
-      const { error: dbError } = await supabase
-        .from('interview_resources')
-        .update({ is_active: true })
-        .eq('id', resourceId);
-
-      if (dbError) {
-        throw dbError;
-      }
-
-      return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, message: 'Resource permanently deleted' }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200 
