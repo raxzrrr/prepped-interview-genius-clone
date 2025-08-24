@@ -7,16 +7,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FileUploader } from '@/components/ui/file-uploader';
-import { Trash2, Download, FileText, Upload, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react';
+import { Trash2, FileText, Upload, ToggleLeft, ToggleRight, Filter } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { adminUploadService } from '@/services/adminUploadService';
+import { Badge } from '@/components/ui/badge';
 
 interface InterviewResource {
   id: string;
@@ -29,13 +37,15 @@ interface InterviewResource {
   is_active: boolean;
 }
 
+type FilterType = 'all' | 'active' | 'inactive';
+
 const InterviewResourcesPage: React.FC = () => {
   const { user, isAdmin, ensureSupabaseSession, getSupabaseUserId } = useAuth();
   const { toast } = useToast();
   const [resources, setResources] = useState<InterviewResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  const [filter, setFilter] = useState<FilterType>('all');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [fileData, setFileData] = useState<string | null>(null);
@@ -52,7 +62,7 @@ const InterviewResourcesPage: React.FC = () => {
 
   useEffect(() => {
     fetchResources();
-  }, [showAll]);
+  }, [filter]);
 
   const fetchResources = async () => {
     setLoading(true);
@@ -62,10 +72,13 @@ const InterviewResourcesPage: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Filter by active status unless showing all
-      if (!showAll) {
+      // Apply filter based on selection
+      if (filter === 'active') {
         query = query.eq('is_active', true);
+      } else if (filter === 'inactive') {
+        query = query.eq('is_active', false);
       }
+      // 'all' doesn't need filtering
 
       const { data, error } = await query;
 
@@ -128,14 +141,14 @@ const InterviewResourcesPage: React.FC = () => {
   };
 
   const handleResourceAction = async (resource: InterviewResource, action: 'activate' | 'deactivate' | 'delete') => {
-    const actionText = action === 'delete' ? 'permanently delete' : action === 'activate' ? 'reactivate' : 'deactivate';
+    const actionText = action === 'delete' ? 'permanently delete' : action === 'activate' ? 'activate' : 'deactivate';
     if (!confirm(`Are you sure you want to ${actionText} "${resource.title}"?`)) {
       return;
     }
 
     try {
       if (action === 'delete') {
-        // Permanently delete the resource
+        // Permanently delete the resource and file
         await adminUploadService.delete({
           filePath: resource.file_path,
           bucket: 'interview-resources',
@@ -145,21 +158,21 @@ const InterviewResourcesPage: React.FC = () => {
         // Reactivate the resource
         await adminUploadService.activate(resource.id);
       } else {
-        // Just mark as inactive
+        // Mark as inactive (doesn't delete the file)
         await adminUploadService.markInactive(resource.id);
       }
 
       toast({
         title: "Success",
-        description: `Interview resource ${action === 'delete' ? 'deleted permanently' : action === 'activate' ? 'reactivated' : 'deactivated'} successfully`,
+        description: `Resource ${action === 'delete' ? 'permanently deleted' : action === 'activate' ? 'activated' : 'deactivated'} successfully`,
       });
 
       fetchResources();
     } catch (error) {
       console.error(`Error ${actionText} resource:`, error);
       toast({
-        title: `${action === 'delete' ? 'Delete' : action === 'activate' ? 'Activate' : 'Deactivate'} Failed`,
-        description: `Failed to ${actionText} interview resource`,
+        title: `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
+        description: `Failed to ${actionText} the resource`,
         variant: "destructive",
       });
     }
@@ -237,17 +250,19 @@ const InterviewResourcesPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center">
                 <FileText className="mr-2 h-5 w-5" />
-                Current Resources ({resources.length})
+                Resources ({resources.length})
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAll(!showAll)}
-                className="flex items-center gap-2"
-              >
-                {showAll ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                {showAll ? 'Showing All' : 'Active Only'}
-              </Button>
+              <Select value={filter} onValueChange={(value: FilterType) => setFilter(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Resources</SelectItem>
+                  <SelectItem value="active">Active Resources</SelectItem>
+                  <SelectItem value="inactive">Inactive Resources</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent>
@@ -259,9 +274,13 @@ const InterviewResourcesPage: React.FC = () => {
             ) : resources.length === 0 ? (
               <div className="text-center py-8">
                 <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-2 text-sm font-medium">No resources uploaded</h3>
+                <h3 className="mt-2 text-sm font-medium">
+                  No {filter === 'all' ? '' : filter} resources found
+                </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Upload your first PDF resource to get started.
+                  {filter === 'all' 
+                    ? 'Upload your first PDF resource to get started.' 
+                    : `No ${filter} resources available.`}
                 </p>
               </div>
             ) : (
@@ -269,18 +288,14 @@ const InterviewResourcesPage: React.FC = () => {
                 {resources.map((resource) => (
                   <div
                     key={resource.id}
-                    className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
-                      resource.is_active ? 'hover:bg-muted/50' : 'bg-muted/20 opacity-75'
-                    }`}
+                    className="flex items-center justify-between p-4 border rounded-lg transition-colors hover:bg-muted/50"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium truncate">{resource.title}</h4>
-                        {!resource.is_active && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                            Inactive
-                          </span>
-                        )}
+                        <Badge variant={resource.is_active ? "default" : "secondary"}>
+                          {resource.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
                       </div>
                       {resource.description && (
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
@@ -296,59 +311,37 @@ const InterviewResourcesPage: React.FC = () => {
                     <div className="flex items-center gap-2 ml-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant={resource.is_active ? "destructive" : "secondary"}
-                            size="sm"
-                          >
-                            {resource.is_active ? (
-                              <>
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Actions
-                              </>
-                            ) : (
-                              <>
-                                <ToggleRight className="h-4 w-4 mr-1" />
-                                Actions
-                              </>
-                            )}
+                          <Button variant="outline" size="sm">
+                            Actions
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
+                        <DropdownMenuContent align="end">
                           {resource.is_active ? (
                             <>
                               <DropdownMenuItem
                                 onClick={() => handleResourceAction(resource, 'deactivate')}
-                                className="text-warning"
                               >
                                 <ToggleLeft className="mr-2 h-4 w-4" />
-                                Mark as Inactive
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleResourceAction(resource, 'delete')}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Permanently
+                                Deactivate
                               </DropdownMenuItem>
                             </>
                           ) : (
                             <>
                               <DropdownMenuItem
                                 onClick={() => handleResourceAction(resource, 'activate')}
-                                className="text-primary"
                               >
                                 <ToggleRight className="mr-2 h-4 w-4" />
-                                Reactivate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleResourceAction(resource, 'delete')}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Permanently
+                                Activate
                               </DropdownMenuItem>
                             </>
                           )}
+                          <DropdownMenuItem
+                            onClick={() => handleResourceAction(resource, 'delete')}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Permanently
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

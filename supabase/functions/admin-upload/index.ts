@@ -63,16 +63,16 @@ serve(async (req) => {
     }
 
     if (action === 'delete') {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from(bucket)
-        .remove([filePath]);
-
-      if (storageError) {
-        throw storageError;
-      }
-
       if (permanent) {
+        // Delete from storage first
+        const { error: storageError } = await supabase.storage
+          .from(bucket)
+          .remove([filePath]);
+
+        if (storageError) {
+          throw storageError;
+        }
+
         // Permanently delete from database
         const { error: dbError } = await supabase
           .from('interview_resources')
@@ -80,27 +80,35 @@ serve(async (req) => {
           .eq('file_path', filePath);
 
         if (dbError) {
-          console.error('Error deleting resource from database:', dbError);
+          throw dbError;
         }
+
+        return new Response(
+          JSON.stringify({ success: true, message: 'Resource permanently deleted' }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+          }
+        );
       } else {
-        // Mark the resource as inactive in the database
+        // Just mark as inactive without deleting the file
         const { error: dbError } = await supabase
           .from('interview_resources')
           .update({ is_active: false })
           .eq('file_path', filePath);
 
         if (dbError) {
-          console.error('Error marking resource as inactive:', dbError);
+          throw dbError;
         }
-      }
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
+        return new Response(
+          JSON.stringify({ success: true, message: 'Resource marked as inactive' }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+          }
+        );
+      }
     }
 
     if (action === 'deactivate') {
