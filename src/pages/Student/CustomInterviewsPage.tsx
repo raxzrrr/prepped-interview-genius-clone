@@ -16,6 +16,7 @@ import ResumeUpload from '@/components/Dashboard/ResumeUpload';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
 import ProFeatureGuard from '@/components/ProFeatureGuard';
+import LiveCameraPreview from '@/components/LiveCameraPreview';
 
 const CustomInterviewsPage: React.FC = () => {
   const { user, isStudent, getSupabaseUserId } = useAuth();
@@ -244,6 +245,7 @@ const CustomInterviewsPage: React.FC = () => {
           resumeAnalysis={resumeAnalysis}
           interviewType={interviewType}
         />
+        <LiveCameraPreview />
       </DashboardLayout>
     );
   }

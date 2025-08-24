@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/use-toast';
 import interviewService from '@/services/interviewService';
 import InterviewPrep from '@/components/Dashboard/InterviewPrep';
 import InterviewReport from '@/components/Dashboard/InterviewReport';
+import LiveCameraPreview from '@/components/LiveCameraPreview';
 
 const InterviewsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -132,6 +133,7 @@ const InterviewsPage: React.FC = () => {
           onComplete={handleInterviewComplete}
           interviewType="basic_hr_technical"
         />
+        <LiveCameraPreview />
       </DashboardLayout>
     );
   }
