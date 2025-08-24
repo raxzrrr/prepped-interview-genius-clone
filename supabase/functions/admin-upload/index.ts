@@ -20,7 +20,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { action, fileData, filePath, bucket, metadata } = await req.json();
+    const { action, fileData, filePath, bucket, metadata, permanent, resourceId } = await req.json();
 
     if (action === 'upload') {
       // Convert base64 to blob
@@ -72,15 +72,46 @@ serve(async (req) => {
         throw storageError;
       }
 
-      // Mark the resource as inactive in the database
+      if (permanent) {
+        // Permanently delete from database
+        const { error: dbError } = await supabase
+          .from('interview_resources')
+          .delete()
+          .eq('file_path', filePath);
+
+        if (dbError) {
+          console.error('Error deleting resource from database:', dbError);
+        }
+      } else {
+        // Mark the resource as inactive in the database
+        const { error: dbError } = await supabase
+          .from('interview_resources')
+          .update({ is_active: false })
+          .eq('file_path', filePath);
+
+        if (dbError) {
+          console.error('Error marking resource as inactive:', dbError);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+
+    if (action === 'deactivate') {
+      // Just mark as inactive without deleting the file
       const { error: dbError } = await supabase
         .from('interview_resources')
         .update({ is_active: false })
-        .eq('file_path', filePath);
+        .eq('id', resourceId);
 
       if (dbError) {
-        console.error('Error marking resource as inactive:', dbError);
-        // Don't throw here since file is already deleted from storage
+        throw dbError;
       }
 
       return new Response(

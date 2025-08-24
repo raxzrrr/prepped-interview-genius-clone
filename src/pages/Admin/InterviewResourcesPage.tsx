@@ -7,7 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FileUploader } from '@/components/ui/file-uploader';
-import { Trash2, Download, FileText, Upload } from 'lucide-react';
+import { Trash2, Download, FileText, Upload, ToggleLeft } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { adminUploadService } from '@/services/adminUploadService';
@@ -113,37 +119,36 @@ const InterviewResourcesPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (resource: InterviewResource) => {
-    if (!confirm(`Are you sure you want to delete "${resource.title}"?`)) {
+  const handleResourceAction = async (resource: InterviewResource, action: 'deactivate' | 'delete') => {
+    const actionText = action === 'delete' ? 'permanently delete' : 'deactivate';
+    if (!confirm(`Are you sure you want to ${actionText} "${resource.title}"?`)) {
       return;
     }
 
     try {
-      // Use admin service to delete (bypasses RLS)
-      await adminUploadService.delete({
-        filePath: resource.file_path,
-        bucket: 'interview-resources'
-      });
-
-      // Mark as inactive in database
-      const { error: dbError } = await supabase
-        .from('interview_resources')
-        .update({ is_active: false })
-        .eq('id', resource.id);
-
-      if (dbError) throw dbError;
+      if (action === 'delete') {
+        // Permanently delete the resource
+        await adminUploadService.delete({
+          filePath: resource.file_path,
+          bucket: 'interview-resources',
+          permanent: true
+        });
+      } else {
+        // Just mark as inactive
+        await adminUploadService.markInactive(resource.id);
+      }
 
       toast({
         title: "Success",
-        description: "Interview resource deleted successfully",
+        description: `Interview resource ${action === 'delete' ? 'deleted permanently' : 'deactivated'} successfully`,
       });
 
       fetchResources();
     } catch (error) {
-      console.error('Error deleting resource:', error);
+      console.error(`Error ${actionText} resource:`, error);
       toast({
-        title: "Delete Failed",
-        description: "Failed to delete interview resource",
+        title: `${action === 'delete' ? 'Delete' : 'Deactivate'} Failed`,
+        description: `Failed to ${actionText} interview resource`,
         variant: "destructive",
       });
     }
@@ -258,13 +263,33 @@ const InterviewResourcesPage: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(resource)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Actions
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onClick={() => handleResourceAction(resource, 'deactivate')}
+                            className="text-warning"
+                          >
+                            <ToggleLeft className="mr-2 h-4 w-4" />
+                            Mark as Inactive
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleResourceAction(resource, 'delete')}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Permanently
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 ))}
