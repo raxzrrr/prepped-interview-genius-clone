@@ -123,6 +123,26 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'activate') {
+      // Reactivate the resource
+      const { error: dbError } = await supabase
+        .from('interview_resources')
+        .update({ is_active: true })
+        .eq('id', resourceId);
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+
     throw new Error('Invalid action');
 
   } catch (error) {

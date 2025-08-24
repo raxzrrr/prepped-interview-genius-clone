@@ -74,6 +74,24 @@ export const adminUploadService = {
   },
 
   /**
+   * Reactivate a resource
+   */
+  async activate(resourceId: string) {
+    const { data, error } = await supabase.functions.invoke('admin-upload', {
+      body: {
+        action: 'activate',
+        resourceId
+      }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  },
+
+  /**
    * Upload interview resource with metadata
    */
   async uploadInterviewResource(

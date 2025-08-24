@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FileUploader } from '@/components/ui/file-uploader';
-import { Trash2, Download, FileText, Upload, ToggleLeft } from 'lucide-react';
+import { Trash2, Download, FileText, Upload, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +35,7 @@ const InterviewResourcesPage: React.FC = () => {
   const [resources, setResources] = useState<InterviewResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [fileData, setFileData] = useState<string | null>(null);
@@ -51,15 +52,21 @@ const InterviewResourcesPage: React.FC = () => {
 
   useEffect(() => {
     fetchResources();
-  }, []);
+  }, [showInactive]);
 
   const fetchResources = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('interview_resources')
         .select('*')
-        .eq('is_active', true)
         .order('created_at', { ascending: false });
+
+      // Optionally filter by active status
+      if (!showInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setResources(data || []);
@@ -119,8 +126,8 @@ const InterviewResourcesPage: React.FC = () => {
     }
   };
 
-  const handleResourceAction = async (resource: InterviewResource, action: 'deactivate' | 'delete') => {
-    const actionText = action === 'delete' ? 'permanently delete' : 'deactivate';
+  const handleResourceAction = async (resource: InterviewResource, action: 'activate' | 'deactivate' | 'delete') => {
+    const actionText = action === 'delete' ? 'permanently delete' : action === 'activate' ? 'reactivate' : 'deactivate';
     if (!confirm(`Are you sure you want to ${actionText} "${resource.title}"?`)) {
       return;
     }
@@ -133,6 +140,9 @@ const InterviewResourcesPage: React.FC = () => {
           bucket: 'interview-resources',
           permanent: true
         });
+      } else if (action === 'activate') {
+        // Reactivate the resource
+        await adminUploadService.activate(resource.id);
       } else {
         // Just mark as inactive
         await adminUploadService.markInactive(resource.id);
@@ -140,14 +150,14 @@ const InterviewResourcesPage: React.FC = () => {
 
       toast({
         title: "Success",
-        description: `Interview resource ${action === 'delete' ? 'deleted permanently' : 'deactivated'} successfully`,
+        description: `Interview resource ${action === 'delete' ? 'deleted permanently' : action === 'activate' ? 'reactivated' : 'deactivated'} successfully`,
       });
 
       fetchResources();
     } catch (error) {
       console.error(`Error ${actionText} resource:`, error);
       toast({
-        title: `${action === 'delete' ? 'Delete' : 'Deactivate'} Failed`,
+        title: `${action === 'delete' ? 'Delete' : action === 'activate' ? 'Activate' : 'Deactivate'} Failed`,
         description: `Failed to ${actionText} interview resource`,
         variant: "destructive",
       });
@@ -223,10 +233,21 @@ const InterviewResourcesPage: React.FC = () => {
         {/* Resources List */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="mr-2 h-5 w-5" />
-              Current Resources ({resources.length})
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Current Resources ({resources.length})
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowInactive(!showInactive)}
+                className="flex items-center gap-2"
+              >
+                {showInactive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                {showInactive ? 'Showing All' : 'Showing Active Only'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -247,10 +268,19 @@ const InterviewResourcesPage: React.FC = () => {
                 {resources.map((resource) => (
                   <div
                     key={resource.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                      resource.is_active ? 'hover:bg-muted/50' : 'bg-muted/20 opacity-75'
+                    }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium truncate">{resource.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium truncate">{resource.title}</h4>
+                        {!resource.is_active && (
+                          <span className="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
                       {resource.description && (
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                           {resource.description}
@@ -266,28 +296,58 @@ const InterviewResourcesPage: React.FC = () => {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="destructive"
+                            variant={resource.is_active ? "destructive" : "secondary"}
                             size="sm"
                           >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Actions
+                            {resource.is_active ? (
+                              <>
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Actions
+                              </>
+                            ) : (
+                              <>
+                                <ToggleRight className="h-4 w-4 mr-1" />
+                                Actions
+                              </>
+                            )}
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          <DropdownMenuItem
-                            onClick={() => handleResourceAction(resource, 'deactivate')}
-                            className="text-warning"
-                          >
-                            <ToggleLeft className="mr-2 h-4 w-4" />
-                            Mark as Inactive
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleResourceAction(resource, 'delete')}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Permanently
-                          </DropdownMenuItem>
+                          {resource.is_active ? (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => handleResourceAction(resource, 'deactivate')}
+                                className="text-warning"
+                              >
+                                <ToggleLeft className="mr-2 h-4 w-4" />
+                                Mark as Inactive
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleResourceAction(resource, 'delete')}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Permanently
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => handleResourceAction(resource, 'activate')}
+                                className="text-primary"
+                              >
+                                <ToggleRight className="mr-2 h-4 w-4" />
+                                Reactivate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleResourceAction(resource, 'delete')}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Permanently
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
