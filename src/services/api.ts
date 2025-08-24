@@ -29,11 +29,20 @@ interface QuestionEvaluation {
 }
 
 interface ResumeAnalysis {
-  skills: string[];
-  suggested_role: string;
-  strengths: string[];
-  areas_to_improve: string[];
-  suggestions: string;
+  skills?: string[];
+  suggested_role?: string;
+  strengths?: string[];
+  areas_to_improve?: string[];
+  suggestions?: string;
+  job_openings?: {
+    role: string;
+    locations: string[];
+  }[];
+}
+
+interface ResumeAnalysisResponse {
+  analysis: ResumeAnalysis;
+  interview_questions: string[];
 }
 
 export const useInterviewApi = () => {
@@ -172,7 +181,7 @@ export const useInterviewApi = () => {
     }
   };
 
-  const analyzeResume = async (resumeBase64: string): Promise<ResumeAnalysis | null> => {
+  const analyzeResume = async (resumeBase64: string): Promise<ResumeAnalysisResponse | null> => {
     if (!isAuthenticated || !user) {
       console.error('User not authenticated');
       toast({

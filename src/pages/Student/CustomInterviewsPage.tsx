@@ -105,7 +105,7 @@ const CustomInterviewsPage: React.FC = () => {
     }
   };
 
-  const handleResumeAnalysisComplete = async (generatedQuestions: string[], analysis: any) => {
+  const handleResumeAnalysisComplete = async (generatedQuestions: any, analysis: any) => {
     const supabaseUserId = getSupabaseUserId();
     if (!supabaseUserId) {
       toast({
@@ -119,35 +119,31 @@ const CustomInterviewsPage: React.FC = () => {
     try {
       setIsGenerating(true);
       
-      console.log("Generating resume-based questions for user:", supabaseUserId);
-      
-      // Generate resume-based questions with analysis
-      const questionSet = await interviewService.generateInterviewSet(
-        'resume_based',
-        questionCount,
-        analysis?.suggested_role || 'Software Developer'
-      );
-      
-      // Create interview session
-      const session = await interviewService.createInterviewSession(
-        'resume_based',
-        questionCount,
-        questionSet.questions,
-        questionSet.ideal_answers,
-        analysis?.suggested_role
-      );
-      
-      setQuestions(questionSet.questions);
-      setIdealAnswers(questionSet.ideal_answers);
-      setResumeAnalysis(analysis);
-      setSessionId(session.id);
-      setInterviewType('resume_based');
-      setCurrentStep('interview');
-      
-      toast({
+    console.log("Generating resume-based questions for user:", supabaseUserId);
+    
+    // Extract analysis and questions from the comprehensive response
+    const { analysis, interview_questions } = generatedQuestions;
+    
+    // Create interview session with the new question format
+    const session = await interviewService.createInterviewSession(
+      'resume_based',
+      questionCount,
+      interview_questions.slice(0, questionCount), // Use only the requested number of questions
+      interview_questions.slice(0, questionCount).map(() => 'Ideal answer based on resume analysis'), // Placeholder ideal answers
+      analysis?.suggested_role
+    );
+    
+    setQuestions(interview_questions.slice(0, questionCount));
+    setIdealAnswers(interview_questions.slice(0, questionCount).map(() => 'Ideal answer based on resume analysis')); // Placeholder
+    setResumeAnalysis(analysis);
+    setSessionId(session.id);
+    setInterviewType('resume_based');
+    setCurrentStep('interview');
+    
+    toast({
         title: "Resume Analysis Complete",
-        description: `Generated ${questionCount} personalized questions based on your resume`,
-      });
+        description: `Generated comprehensive analysis with ${Math.min(questionCount, interview_questions.length)} personalized interview questions and job opportunities`,
+    });
     } catch (error: any) {
       console.error('Error with resume-based interview:', error);
       toast({

@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/ClerkAuthContext';
 interface ResumeUploadProps {
   file?: string;
   isLoading?: boolean;
-  onAnalysisComplete?: (questions: string[], analysis: any) => void;
+  onAnalysisComplete?: (result: any, analysis: any) => void;
   onAnalysisResults?: (analysis: any) => void;
   questionCount?: number;
 }
@@ -73,40 +73,28 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({
         throw new Error('Only PDF files are supported');
       }
       
-      // Step 1: Analyze resume
+      // Perform analysis and get comprehensive response
       setProgress('Analyzing your resume...');
       console.log("Calling analyzeResume API...");
-      const analysis = await analyzeResume(uploadedFile);
+      const result = await analyzeResume(uploadedFile);
       
-      if (!analysis) {
+      if (!result) {
         throw new Error('Failed to analyze resume - no response from API. Please check your API configuration.');
       }
       
-      console.log("Resume analysis successful:", analysis);
+      console.log("Resume analysis successful:", result);
+      const { analysis, interview_questions } = result;
       onAnalysisResults?.(analysis);
       
-      // Step 2: Generate interview questions based on resume analysis
-      setProgress('Generating personalized interview questions...');
-      const suggestedRole = analysis.suggested_role || 'Software Engineer';
-      const skills = analysis.skills?.join(', ') || '';
-      const generationPrompt = `${suggestedRole} with skills in ${skills}`;
-      
-      console.log("Generating interview questions with prompt:", generationPrompt);
-      const questions = await generateInterviewQuestions(generationPrompt);
-      
-      if (!questions || questions.length === 0) {
-        throw new Error('Failed to generate interview questions');
-      }
-      
-      console.log("Generated questions:", questions);
-
       setProgress('Complete!');
       setSuccess(true);
-      onAnalysisComplete?.(questions.map(q => q.question), analysis);
+      
+      // Call the completion callback with the comprehensive result
+      onAnalysisComplete?.(result, analysis);
       
       toast({
         title: "Resume Analysis Complete",
-        description: "Your personalized interview questions are ready!",
+        description: "Your resume has been analyzed with personalized interview questions and job opportunities generated.",
       });
       
     } catch (error: any) {

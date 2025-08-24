@@ -11,6 +11,10 @@ interface ResumeAnalysisResultsProps {
     strengths?: string[];
     areas_to_improve?: string[];
     suggestions?: string;
+    job_openings?: {
+      role: string;
+      locations: string[];
+    }[];
   };
 }
 
@@ -21,7 +25,8 @@ const ResumeAnalysisResults: React.FC<ResumeAnalysisResultsProps> = ({ analysis 
     suggested_role = 'Not specified',
     strengths = [],
     areas_to_improve = [],
-    suggestions = 'No suggestions available'
+    suggestions = 'No suggestions available',
+    job_openings = []
   } = analysis || {};
 
   return (
@@ -89,6 +94,22 @@ const ResumeAnalysisResults: React.FC<ResumeAnalysisResultsProps> = ({ analysis 
             )}
           </ul>
         </div>
+
+        {job_openings && job_openings.length > 0 && (
+          <div>
+            <h3 className="text-lg font-medium mb-2">Relevant Job Opportunities</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {job_openings.map((job, index) => (
+                <div key={index} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="font-medium text-blue-900 mb-2">{job.role}</div>
+                  <div className="text-sm text-blue-700">
+                    <span className="font-medium">Locations:</span> {job.locations.join(' • ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div>
           <h3 className="text-lg font-medium mb-2">Suggestions</h3>

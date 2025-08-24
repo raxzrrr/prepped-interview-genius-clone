@@ -589,8 +589,64 @@ async function evaluateAnswer(question: string, answer: string, apiKey: string) 
 }
 
 async function analyzeResume(resumeBase64: string, apiKey: string) {
-  // For resume analysis, we would need to implement PDF parsing
-  // This is a simplified version
+  console.log('Analyzing resume with comprehensive analysis and interview questions')
+  
+  const prompt = `You are an expert career coach and technical interviewer. Analyze the provided resume (in PDF base64 format) and provide comprehensive analysis with interview questions.
+
+You must:
+
+1. **Resume Analysis** - Provide structured analysis in this exact JSON format:
+{
+  "analysis": {
+    "skills": ["skill1", "skill2", "skill3"],
+    "suggested_role": "Suggested job role based on experience",
+    "strengths": ["strength1", "strength2", "strength3"],
+    "areas_to_improve": ["area1", "area2", "area3"],
+    "suggestions": "Specific suggestions for improvement",
+    "job_openings": [
+      {
+        "role": "Matching role 1",
+        "locations": ["City1", "City2", "Remote"]
+      },
+      {
+        "role": "Matching role 2", 
+        "locations": ["City3", "City4", "Remote"]
+      },
+      {
+        "role": "Matching role 3",
+        "locations": ["Remote", "City5", "City6"]
+      }
+    ]
+  },
+  "interview_questions": [
+    "Question 1 specific to resume experience",
+    "Question 2 about specific projects mentioned",
+    "Question 3 about technical skills listed",
+    "Question 4 behavioral based on career progression",
+    "Question 5 about achievements and metrics",
+    "Question 6 technical depth question",
+    "Question 7 scenario-based on their background",
+    "Question 8 about specific technologies/tools",
+    "Question 9 leadership/teamwork based on experience",
+    "Question 10 future goals aligned with background"
+  ]
+}
+
+2. **Requirements for job_openings**: Suggest 3-5 relevant opportunities in different parts of the country (not tied to only one city), aligned with the candidate's suggested role.
+
+3. **Interview Questions Requirements**: Generate **at least 10 interview questions** that are:
+   - Highly specific to the candidate's resume (projects, skills, experience)
+   - Aligned with the "suggested_role"
+   - Mix of technical and behavioral questions
+   - Avoid generic filler questions
+   - Target evaluation for readiness for the suggested role
+   - Cover technical depth, problem-solving, role-specific scenarios
+   - Balanced difficulty (easy → medium → hard)
+
+Resume Data: ${resumeBase64}
+
+Return ONLY the JSON response in the exact format specified above.`
+
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -599,24 +655,19 @@ async function analyzeResume(resumeBase64: string, apiKey: string) {
     body: JSON.stringify({
       contents: [{
         parts: [{
-          text: `Analyze this resume and provide feedback in the following JSON format:
-                 {
-                   "skills": ["skill1", "skill2"],
-                   "suggested_role": "Suggested job role",
-                   "strengths": ["strength1", "strength2"],
-                   "areas_to_improve": ["area1", "area2"],
-                   "suggestions": "Specific suggestions for improvement"
-                 }`
+          text: prompt
         }]
       }],
       generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
+        temperature: 0.7,
+        maxOutputTokens: 4000,
       }
     }),
   })
 
   if (!response.ok) {
+    const errorData = await response.text()
+    console.error('Gemini API error:', response.status, errorData)
     throw new Error(`Gemini API error: ${response.statusText}`)
   }
 
@@ -627,20 +678,74 @@ async function analyzeResume(resumeBase64: string, apiKey: string) {
     throw new Error('No content generated')
   }
 
+  console.log('Generated resume analysis content:', content)
+
   try {
-    const analysis = JSON.parse(content)
-    return new Response(JSON.stringify(analysis), {
-      headers: { 'Content-Type': 'application/json' }
-    })
-  } catch {
-    // Fallback response
-    return new Response(JSON.stringify({
-      skills: ["Communication", "Problem Solving"],
-      suggested_role: "Software Developer",
-      strengths: ["Good experience", "Relevant skills"],
-      areas_to_improve: ["Add more details", "Include metrics"],
-      suggestions: "Consider adding quantifiable achievements"
-    }), {
+    // Clean the response by removing markdown formatting
+    let cleanContent = content.trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\n/, '').replace(/\n```$/, '');
+    }
+    
+    const result = JSON.parse(cleanContent)
+    
+    // Validate the structure matches requirements
+    if (result.analysis && result.interview_questions && 
+        Array.isArray(result.interview_questions) &&
+        result.interview_questions.length >= 10 &&
+        result.analysis.job_openings &&
+        Array.isArray(result.analysis.job_openings)) {
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    throw new Error('Invalid JSON structure - missing required fields')
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError)
+    // Comprehensive fallback response matching the exact requirements
+    const fallbackResponse = {
+      analysis: {
+        skills: ["Communication", "Problem Solving", "Technical Skills", "Project Management"],
+        suggested_role: "Software Developer",
+        strengths: ["Relevant technical experience", "Good project history", "Professional background"],
+        areas_to_improve: ["Add more quantifiable metrics", "Highlight leadership experience", "Include certification details"],
+        suggestions: "Consider adding specific achievements with metrics, highlight any leadership roles, and include relevant certifications or training.",
+        job_openings: [
+          {
+            role: "Software Developer",
+            locations: ["San Francisco", "New York", "Remote"]
+          },
+          {
+            role: "Full Stack Developer", 
+            locations: ["Austin", "Seattle", "Remote"]
+          },
+          {
+            role: "Frontend Developer",
+            locations: ["Remote", "Chicago", "Denver"]
+          },
+          {
+            role: "Backend Developer",
+            locations: ["Boston", "Atlanta", "Remote"]
+          }
+        ]
+      },
+      interview_questions: [
+        "Tell me about a specific project mentioned in your resume and the technical challenges you faced.",
+        "How did you approach problem-solving in your previous role?",
+        "Describe your experience with the technologies listed on your resume.",
+        "Walk me through your decision-making process for a recent technical implementation.",
+        "How do you stay updated with new technologies and industry trends?",
+        "Describe a time when you had to work with a difficult team member or stakeholder.",
+        "What methodologies have you used for project management in your experience?",
+        "How do you handle code reviews and ensure code quality in your team?",
+        "Tell me about a time when you had to learn a new technology quickly for a project.",
+        "Where do you see yourself in the next 3-5 years based on your current trajectory?",
+        "How do you approach debugging and troubleshooting complex technical issues?",
+        "Describe your experience with version control and collaborative development practices."
+      ]
+    }
+    
+    return new Response(JSON.stringify(fallbackResponse), {
       headers: { 'Content-Type': 'application/json' }
     })
   }
