@@ -185,13 +185,11 @@ const CustomInterviewsPage: React.FC = () => {
       
       // Validate inputs before evaluation
       if (!questions.length || !data.answers.length || !idealAnswers.length) {
-        throw new Error('Missing questions, answers, or ideal answers for evaluation');
+        console.error('Validation failed: missing data for evaluation', {
+          q: questions.length, a: data.answers.length, i: idealAnswers.length
+        });
       }
 
-      if (questions.length !== data.answers.length || questions.length !== idealAnswers.length) {
-        throw new Error('Mismatch between questions, answers, and ideal answers count');
-      }
-      
       // Perform bulk evaluation with proper error handling
       console.log('Starting bulk evaluation...');
       const bulkEvaluation = await interviewService.bulkEvaluateAnswers(
@@ -212,15 +210,19 @@ const CustomInterviewsPage: React.FC = () => {
       const avgScore = bulkEvaluation.overall_statistics.average_score;
       const isFallbackEvaluation = avgScore <= 1 || bulkEvaluation.evaluations.every(e => e.score <= 2);
 
-      // Update session with results
+      // Update session with results (do not fail the flow if this errors)
       if (sessionId) {
         console.log('Updating interview session with results...');
-        await interviewService.updateInterviewSession(
-          sessionId,
-          data.answers,
-          bulkEvaluation.evaluations,
-          avgScore
-        );
+        try {
+          await interviewService.updateInterviewSession(
+            sessionId,
+            data.answers,
+            bulkEvaluation.evaluations,
+            avgScore
+          );
+        } catch (updateErr) {
+          console.error('Non-blocking: failed to update interview session', updateErr);
+        }
       }
       
       setUserAnswers(data.answers);
@@ -249,9 +251,9 @@ const CustomInterviewsPage: React.FC = () => {
       setCurrentStep('completed');
       
       toast({
-        title: "Interview Completed",
-        description: "Your answers are saved. Evaluation service is temporarily unavailable.",
-        variant: "default",
+        title: "Evaluation Failed",
+        description: "Please try again.",
+        variant: "destructive",
       });
     }
   };
