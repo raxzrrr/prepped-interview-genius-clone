@@ -103,6 +103,26 @@ class InterviewService {
     resumeAnalysis?: any // Optional resume analysis for context
   ): Promise<BulkEvaluationResult> {
     try {
+      console.log('Starting bulk evaluation with:', {
+        questionsCount: questions.length,
+        answersCount: userAnswers.length,
+        idealAnswersCount: idealAnswers.length,
+        hasResumeAnalysis: !!resumeAnalysis
+      });
+
+      // Validate inputs
+      if (!questions.length || !userAnswers.length || !idealAnswers.length) {
+        throw new Error('Missing required data for evaluation');
+      }
+
+      if (questions.length !== userAnswers.length || questions.length !== idealAnswers.length) {
+        console.warn('Length mismatch detected, proceeding with minimum length');
+        const minLength = Math.min(questions.length, userAnswers.length, idealAnswers.length);
+        questions = questions.slice(0, minLength);
+        userAnswers = userAnswers.slice(0, minLength);
+        idealAnswers = idealAnswers.slice(0, minLength);
+      }
+
       const { data, error } = await supabase.functions.invoke('gemini-interview', {
         body: {
           type: 'bulk-evaluation',
@@ -113,11 +133,93 @@ class InterviewService {
         }
       });
 
-      if (error) throw error;
-      return data as BulkEvaluationResult;
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(`Evaluation service error: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('No evaluation data received');
+      }
+
+      console.log('Bulk evaluation completed successfully:', data);
+
+      // Validate and sanitize the response
+      const result = data as BulkEvaluationResult;
+      
+      // Ensure evaluations array exists and has proper structure
+      if (!result.evaluations || !Array.isArray(result.evaluations)) {
+        throw new Error('Invalid evaluation response structure');
+      }
+
+      // Ensure each evaluation has required fields
+      result.evaluations.forEach((evaluation, index) => {
+        if (!evaluation.score && evaluation.score !== 0) {
+          evaluation.score = 0;
+        }
+        if (!evaluation.score_breakdown) {
+          evaluation.score_breakdown = {
+            correctness: 0,
+            completeness: 0,
+            depth: 0,
+            clarity: 0
+          };
+        }
+        if (!evaluation.remarks) {
+          evaluation.remarks = 'No specific feedback provided';
+        }
+        if (!evaluation.improvement_tips || !Array.isArray(evaluation.improvement_tips)) {
+          evaluation.improvement_tips = ['Focus on providing more detailed and specific examples'];
+        }
+      });
+
+      // Ensure overall_statistics exists
+      if (!result.overall_statistics) {
+        const avgScore = result.evaluations.reduce((sum, evaluation) => sum + (evaluation.score || 0), 0) / result.evaluations.length;
+        result.overall_statistics = {
+          average_score: avgScore,
+          total_questions: questions.length,
+          strengths: ['Completed the interview'],
+          critical_weaknesses: ['Need more specific examples'],
+          overall_grade: avgScore >= 8 ? 'A' : avgScore >= 6 ? 'B' : avgScore >= 4 ? 'C' : 'D',
+          harsh_but_helpful_feedback: 'Focus on providing more detailed responses',
+          recommendation: 'Practice with specific examples and metrics'
+        };
+      }
+
+      return result;
     } catch (error) {
       console.error('Error in bulk evaluation:', error);
-      throw error;
+      
+      // Create fallback evaluation result instead of throwing
+      const fallbackResult: BulkEvaluationResult = {
+        evaluations: questions.map((question, index) => ({
+          question_number: index + 1,
+          user_answer: userAnswers[index] || 'No answer provided',
+          ideal_answer: idealAnswers[index] || 'No ideal answer available',
+          score: 0,
+          remarks: 'Evaluation failed. Please try again.',
+          score_breakdown: {
+            correctness: 0,
+            completeness: 0,
+            depth: 0,
+            clarity: 0
+          },
+          improvement_tips: ['Evaluation service temporarily unavailable. Please try again.']
+        })),
+        overall_statistics: {
+          average_score: 0,
+          total_questions: questions.length,
+          strengths: ['Completed the interview'],
+          critical_weaknesses: ['Evaluation failed'],
+          overall_grade: 'N/A',
+          harsh_but_helpful_feedback: 'Evaluation failed. Please try again.',
+          recommendation: 'Please retry the evaluation process.'
+        }
+      };
+      
+      console.log('Returning fallback evaluation result');
+      return fallbackResult;
     }
   }
 

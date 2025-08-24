@@ -178,8 +178,22 @@ const CustomInterviewsPage: React.FC = () => {
 
     try {
       console.log('Interview completed for user:', supabaseUserId, 'Session:', sessionId);
+      console.log('Questions:', questions);
+      console.log('User answers:', data.answers);
+      console.log('Ideal answers:', idealAnswers);
+      console.log('Resume analysis:', resumeAnalysis);
       
-      // Perform bulk evaluation
+      // Validate inputs before evaluation
+      if (!questions.length || !data.answers.length || !idealAnswers.length) {
+        throw new Error('Missing questions, answers, or ideal answers for evaluation');
+      }
+
+      if (questions.length !== data.answers.length || questions.length !== idealAnswers.length) {
+        throw new Error('Mismatch between questions, answers, and ideal answers count');
+      }
+      
+      // Perform bulk evaluation with proper error handling
+      console.log('Starting bulk evaluation...');
       const bulkEvaluation = await interviewService.bulkEvaluateAnswers(
         questions,
         data.answers,
@@ -187,8 +201,16 @@ const CustomInterviewsPage: React.FC = () => {
         resumeAnalysis // Pass resume analysis for context
       );
       
+      console.log('Bulk evaluation result:', bulkEvaluation);
+      
+      // Validate evaluation result
+      if (!bulkEvaluation || !bulkEvaluation.evaluations || !bulkEvaluation.overall_statistics) {
+        throw new Error('Invalid evaluation result received');
+      }
+
       // Update session with results
       if (sessionId) {
+        console.log('Updating interview session with results...');
         await interviewService.updateInterviewSession(
           sessionId,
           data.answers,
@@ -207,11 +229,18 @@ const CustomInterviewsPage: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error completing interview:', error);
+      console.error('Error details:', error.message);
+      
       toast({
         title: "Evaluation Failed",
-        description: "Interview completed but evaluation failed. Please try again.",
+        description: "Please try again.",
         variant: "destructive",
       });
+      
+      // Set empty evaluations so the report can still be shown
+      setUserAnswers(data.answers || []);
+      setEvaluations([]);
+      setCurrentStep('completed');
     }
   };
 

@@ -397,60 +397,147 @@ const InterviewReport: React.FC<InterviewReportProps> = ({
                 <div>
                   <h4 className="font-medium text-green-700 mb-3">Strengths</h4>
                   <ul className="space-y-2 text-sm">
-                    <li className="flex items-start space-x-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>Completed all questions in the interview</span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>Demonstrated willingness to participate and learn</span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>Engaged with the interview process</span>
-                    </li>
+                    {resumeAnalysis?.strengths ? (
+                      resumeAnalysis.strengths.map((strength: string, index: number) => (
+                        <li key={index} className="flex items-start space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span>{strength}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <>
+                        <li className="flex items-start space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span>Completed all questions in the interview</span>
+                        </li>
+                        <li className="flex items-start space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span>Demonstrated willingness to participate and learn</span>
+                        </li>
+                      </>
+                    )}
                   </ul>
                 </div>
                 
                 <div>
                   <h4 className="font-medium text-red-700 mb-3">Areas to Improve</h4>
                   <ul className="space-y-2 text-sm">
-                    <li className="flex items-start space-x-2">
-                      <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <span>Provide more detailed and specific examples</span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <span>Structure answers using the STAR method</span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <span>Include quantifiable results and achievements</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                <h4 className="font-medium text-purple-900 mb-2">Next Steps</h4>
-                <div className="space-y-2 text-sm text-purple-800">
-                  <p>• Practice describing your projects with specific metrics and outcomes</p>
-                  <p>• Prepare examples that demonstrate leadership and problem-solving skills</p>
-                  <p>• Research common interview questions for your target role</p>
-                  <p>• Practice mock interviews with peers or mentors</p>
-                </div>
-              </div>
-              
-              {resumeAnalysis && (
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <h4 className="font-medium text-blue-900 mb-2">Based on Your Resume</h4>
-                  <p className="text-sm text-blue-800">
-                    Your background in <strong>{resumeAnalysis.suggested_role}</strong> shows promise. 
-                    Focus on highlighting your experience with {resumeAnalysis.skills?.slice(0, 2).join(' and ')} 
-                    in future interviews and provide concrete examples of how you've applied these skills.
-                  </p>
-                </div>
-              )}
+                    {resumeAnalysis?.areas_to_improve ? (
+                      resumeAnalysis.areas_to_improve.map((area: string, index: number) => (
+                        <li key={index} className="flex items-start space-x-2">
+                          <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                          <span>{area}</span>
+                        </li>
+                      ))
+                     ) : (
+                       <>
+                         <li className="flex items-start space-x-2">
+                           <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                           <span>Provide more detailed and specific examples</span>
+                         </li>
+                         <li className="flex items-start space-x-2">
+                           <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                           <span>Structure answers using the STAR method</span>
+                         </li>
+                         <li className="flex items-start space-x-2">
+                           <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                           <span>Include quantifiable results and achievements</span>
+                         </li>
+                       </>
+                     )}
+                   </ul>
+                 </div>
+               </div>
+               
+               {/* Job Opportunities Section for Resume-based Interviews */}
+               {resumeAnalysis?.job_openings && resumeAnalysis.job_openings.length > 0 && (
+                 <Card>
+                   <CardHeader>
+                     <CardTitle>Job Opportunities</CardTitle>
+                     <CardDescription>
+                       Relevant job openings in India based on your skills and experience
+                     </CardDescription>
+                   </CardHeader>
+                   <CardContent>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                       {resumeAnalysis.job_openings.map((job: any, index: number) => (
+                         <Card key={index} className="border border-gray-200 hover:border-blue-300 transition-colors">
+                           <CardHeader className="pb-3">
+                             <CardTitle className="text-lg">{job.role}</CardTitle>
+                             <CardDescription className="text-sm">
+                               {job.company || 'Various Companies'}
+                             </CardDescription>
+                           </CardHeader>
+                           <CardContent className="space-y-3">
+                             <div className="flex flex-wrap gap-1">
+                               {job.locations?.slice(0, 3).map((location: string, locIndex: number) => (
+                                 <Badge key={locIndex} variant="outline" className="text-xs">
+                                   {location}
+                                 </Badge>
+                               ))}
+                               {job.locations?.length > 3 && (
+                                 <Badge variant="outline" className="text-xs">
+                                   +{job.locations.length - 3} more
+                                 </Badge>
+                               )}
+                             </div>
+                             
+                             {job.global && job.global.length > 0 && (
+                               <div className="flex flex-wrap gap-1">
+                                 <span className="text-xs text-gray-500 mr-1">Global:</span>
+                                 {job.global.slice(0, 2).map((location: string, locIndex: number) => (
+                                   <Badge key={locIndex} variant="secondary" className="text-xs">
+                                     {location}
+                                   </Badge>
+                                 ))}
+                               </div>
+                             )}
+                             
+                             <Button 
+                               size="sm" 
+                               className="w-full"
+                               onClick={() => {
+                                 // Open job search with the role name
+                                 const searchQuery = encodeURIComponent(job.role);
+                                 window.open(`https://www.linkedin.com/jobs/search/?keywords=${searchQuery}&location=India`, '_blank');
+                               }}
+                             >
+                               Apply Now
+                             </Button>
+                           </CardContent>
+                         </Card>
+                       ))}
+                     </div>
+                     
+                     <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                       <p className="text-sm text-gray-600 text-center">
+                         💡 Tip: Customize your resume for each role and highlight relevant skills mentioned in your analysis.
+                       </p>
+                     </div>
+                   </CardContent>
+                 </Card>
+               )}
+               
+               <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                 <h4 className="font-medium text-purple-900 mb-2">Next Steps</h4>
+                 <div className="space-y-2 text-sm text-purple-800">
+                   <p>• Practice describing your projects with specific metrics and outcomes</p>
+                   <p>• Prepare examples that demonstrate leadership and problem-solving skills</p>
+                   <p>• Research common interview questions for your target role</p>
+                   <p>• Practice mock interviews with peers or mentors</p>
+                 </div>
+               </div>
+               
+               {resumeAnalysis && (
+                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                   <h4 className="font-medium text-blue-900 mb-2">Based on Your Resume</h4>
+                   <p className="text-sm text-blue-800">
+                     Your background in <strong>{resumeAnalysis.suggested_role}</strong> shows promise. 
+                     Focus on highlighting your experience with {resumeAnalysis.skills?.slice(0, 2).join(' and ')} 
+                     in future interviews and provide concrete examples of how you've applied these skills.
+                   </p>
+                 </div>
+               )}
             </CardContent>
           </Card>
         </TabsContent>
