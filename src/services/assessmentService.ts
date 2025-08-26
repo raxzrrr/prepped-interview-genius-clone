@@ -55,74 +55,87 @@ export const assessmentService = {
     }
   },
 
-  // Calculate assessment results
+  // Calculate assessment results using learning-service
   async calculateResults(courseId: string, userAnswers: AssessmentAnswer[]): Promise<AssessmentResult> {
-    // Fetch questions from backend
-    const questions = await questionService.fetchQuestionsByCourse(courseId);
-    
-    if (questions.length === 0) {
-      throw new Error('No questions found for this course');
-    }
-
-    let pointsEarned = 0;
-    
-    // Evaluate each question
-    questions.forEach(question => {
-      const userAnswer = userAnswers.find(answer => answer.questionId === question.id);
-      
-      // Check if answer is valid and correct
-      if (userAnswer && 
-          userAnswer.selectedAnswer >= 1 && 
-          userAnswer.selectedAnswer <= 4 && 
-          userAnswer.selectedAnswer === question.correct_answer) {
-        pointsEarned++;
-      }
-      // Skipped or invalid answers count as incorrect (0 points)
-    });
-
-    const score = Math.round((pointsEarned / questions.length) * 100);
-    const passed = score >= 70; // 70% passing threshold
-
-    return {
-      totalQuestions: questions.length,
-      correctAnswers: pointsEarned,
-      score,
-      passed,
-      answers: userAnswers
-    };
-  },
-
-  // Save assessment results to database using learning-service  
-  async saveAssessmentResults(
-    userId: string, 
-    courseId: string, 
-    result: AssessmentResult
-  ): Promise<void> {
     try {
-      // Call learning-service edge function to save assessment results
+      // Call learning-service to evaluate assessment
       const { data, error } = await supabase.functions.invoke('learning-service', {
         body: {
-          action: 'updateAssessment',
-          clerkUserId: userId,
+          action: 'evaluateAssessment',
+          clerkUserId: 'temp-user-id', // This will be replaced with actual user ID when called
           data: {
-            course_id: courseId,
-            assessment_attempted: true,
-            assessment_passed: result.passed,
-            assessment_score: result.score,
-            last_assessment_score: result.score,
-            assessment_completed_at: new Date().toISOString()
-          }
+            courseId: courseId
+          },
+          questions: [], // Will be fetched by the service
+          answers: userAnswers
         }
       });
 
       if (error) {
-        console.error('Error calling learning-service for assessment:', error);
+        console.error('Error evaluating assessment:', error);
         throw error;
       }
 
-      console.log('Assessment results saved successfully via learning-service');
+      if (!data.success) {
+        throw new Error(data.error || 'Assessment evaluation failed');
+      }
+
+      return {
+        totalQuestions: data.data.totalQuestions,
+        correctAnswers: data.data.correctAnswers,
+        score: data.data.score,
+        passed: data.data.passed,
+        answers: userAnswers
+      };
     } catch (error) {
-      console.error('Error in saveAssessmentResults:', error);
+      console.error('Error in calculateResults:', error);
+      throw error;
+    }
+  },
+
+  // Evaluate and save assessment results using learning-service  
+  async evaluateAndSaveAssessment(
+    userId: string, 
+    courseId: string, 
+    courseName: string,
+    userAnswers: AssessmentAnswer[]
+  ): Promise<AssessmentResult> {
+    try {
+      // Call learning-service edge function to evaluate and save assessment
+      const { data, error } = await supabase.functions.invoke('learning-service', {
+        body: {
+          action: 'evaluateAssessment',
+          clerkUserId: userId,
+          data: {
+            courseId: courseId,
+            courseName: courseName
+          },
+          questions: [], // Will be fetched by the service
+          answers: userAnswers
+        }
+      });
+
+      if (error) {
+        console.error('Error calling learning-service for assessment evaluation:', error);
+        throw error;
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Assessment evaluation failed');
+      }
+
+      const result = {
+        totalQuestions: data.data.totalQuestions,
+        correctAnswers: data.data.correctAnswers,
+        score: data.data.score,
+        passed: data.data.passed,
+        answers: userAnswers
+      };
+
+      console.log('Assessment evaluated and saved successfully via learning-service');
+      return result;
+    } catch (error) {
+      console.error('Error in evaluateAndSaveAssessment:', error);
       throw error;
     }
   },

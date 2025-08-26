@@ -7,22 +7,30 @@ const corsHeaders = {
 }
 
 interface LearningServiceRequest {
-  action: 'create' | 'update' | 'fetch' | 'updateAssessment';
+  action: 'create' | 'update' | 'fetch' | 'updateAssessment' | 'evaluateAssessment';
   clerkUserId: string;
   data?: any;
   totalModules?: number;
+  questions?: any[];
+  answers?: any[];
 }
 
-// Get real Supabase Auth user ID from Clerk user ID
-const getSupabaseUserId = async (supabase: any, clerkUserId: string): Promise<string> => {
-  // Try to get user from Supabase Auth using admin client
-  const { data: { user }, error: authError } = await supabase.auth.admin.getUserById(clerkUserId);
+// Generate consistent UUID from Clerk User ID for database operations
+const generateConsistentUUID = (clerkUserId: string): string => {
+  // Remove any prefix like "user_" if present
+  const cleanId = clerkUserId.replace(/^user_/, '');
   
-  if (authError || !user) {
-    throw new Error(`User not found in Supabase Auth: ${clerkUserId}`);
-  }
+  // Pad or truncate to 32 characters
+  const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
   
-  return user.id;
+  // Format as UUID
+  return [
+    paddedId.substring(0, 8),
+    paddedId.substring(8, 12),
+    paddedId.substring(12, 16),
+    paddedId.substring(16, 20),
+    paddedId.substring(20, 32)
+  ].join('-');
 };
 
 // Certificate generation function
@@ -108,15 +116,15 @@ Deno.serve(async (req) => {
       }
     );
 
-    const { action, clerkUserId, data, totalModules }: LearningServiceRequest = await req.json();
+    const { action, clerkUserId, data, totalModules, questions, answers }: LearningServiceRequest = await req.json();
     console.log('Request received:', { action, clerkUserId, hasData: !!data, totalModules });
     
     if (!clerkUserId) {
       throw new Error('Clerk user ID is required');
     }
 
-    // Get real Supabase user ID from Clerk user ID
-    const supabaseUserId = await getSupabaseUserId(supabase, clerkUserId);
+    // Generate consistent UUID from Clerk user ID
+    const supabaseUserId = generateConsistentUUID(clerkUserId);
     console.log('Processing request for Clerk user:', clerkUserId, 'as UUID:', supabaseUserId);
 
     let result;
@@ -327,6 +335,141 @@ Deno.serve(async (req) => {
             }
           }
         }
+        break;
+
+      case 'evaluateAssessment':
+        console.log('Evaluating assessment...');
+        
+        if (!questions || !answers || !data?.courseId) {
+          throw new Error('Questions, answers, and courseId are required for assessment evaluation');
+        }
+
+        // Fetch course questions from database
+        const { data: courseQuestions, error: questionsError } = await supabase
+          .from('course_questions')
+          .select('*')
+          .eq('course_id', data.courseId)
+          .eq('is_active', true)
+          .order('order_index');
+
+        if (questionsError) {
+          throw new Error(`Failed to fetch course questions: ${questionsError.message}`);
+        }
+
+        if (!courseQuestions || courseQuestions.length === 0) {
+          throw new Error('No questions found for this course');
+        }
+
+        // Calculate score
+        let correctAnswers = 0;
+        const evaluatedAnswers = answers.map((answer: any) => {
+          const question = courseQuestions.find(q => q.id === answer.questionId);
+          const isCorrect = question && answer.selectedAnswer === question.correct_answer;
+          
+          if (isCorrect) {
+            correctAnswers++;
+          }
+
+          return {
+            questionId: answer.questionId,
+            selectedAnswer: answer.selectedAnswer,
+            isCorrect: isCorrect,
+            correctAnswer: question?.correct_answer || null
+          };
+        });
+
+        const totalQuestions = courseQuestions.length;
+        const score = Math.round((correctAnswers / totalQuestions) * 100);
+        const passed = score >= 70;
+
+        const assessmentResult = {
+          totalQuestions,
+          correctAnswers,
+          score,
+          passed,
+          answers: evaluatedAnswers
+        };
+
+        // Save assessment results to user_learning table
+        const assessmentData = {
+          assessment_attempted: true,
+          assessment_passed: passed,
+          assessment_score: score,
+          last_assessment_score: score,
+          assessment_completed_at: new Date().toISOString()
+        };
+
+        // Check if user_learning record exists
+        const { data: existingLearning } = await supabase
+          .from('user_learning')
+          .select('id')
+          .eq('user_id', supabaseUserId)
+          .eq('course_id', data.courseId)
+          .maybeSingle();
+
+        if (existingLearning) {
+          // Update existing record
+          const { error: updateError } = await supabase
+            .from('user_learning')
+            .update({
+              ...assessmentData,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', supabaseUserId)
+            .eq('course_id', data.courseId);
+
+          if (updateError) {
+            throw new Error(`Failed to update assessment results: ${updateError.message}`);
+          }
+        } else {
+          // Create new record
+          const { error: insertError } = await supabase
+            .from('user_learning')
+            .insert({
+              user_id: supabaseUserId,
+              course_id: data.courseId,
+              progress: {},
+              completed_modules_count: 0,
+              total_modules_count: 0,
+              is_completed: false,
+              ...assessmentData
+            });
+
+          if (insertError) {
+            throw new Error(`Failed to save assessment results: ${insertError.message}`);
+          }
+        }
+
+        // Generate certificate if passed
+        if (passed && data.courseName) {
+          try {
+            // Get user profile for certificate
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', supabaseUserId)
+              .maybeSingle();
+
+            if (profileData?.full_name) {
+              await generateCertificate(supabase, {
+                userId: supabaseUserId,
+                name: profileData.full_name,
+                courseId: data.courseId,
+                courseName: data.courseName,
+                score: score
+              });
+            }
+          } catch (certError) {
+            console.error('Certificate generation failed:', certError);
+            // Don't throw - assessment should still be saved even if certificate fails
+          }
+        }
+
+        result = {
+          ...assessmentResult,
+          saved: true,
+          certificateGenerated: passed
+        };
         break;
 
       default:

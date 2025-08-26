@@ -102,31 +102,32 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
     setLoading(true);
     
     try {
-      // Calculate results using courseId and answers
-      const result = await assessmentService.calculateResults(courseId, finalAnswers);
-      setAssessmentResult(result);
-
       // Get user ID
       const userId = getSupabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
 
-      // Save results to database
-      await assessmentService.saveAssessmentResults(userId, courseId, result);
+      // Evaluate and save assessment using the learning service
+      const result = await assessmentService.evaluateAndSaveAssessment(
+        userId, 
+        courseId, 
+        courseName, 
+        finalAnswers
+      );
+      
+      setAssessmentResult(result);
 
-      // Generate certificate if passed
+      // Show appropriate toast message
       if (result.passed) {
-        await assessmentService.generateCertificateIfPassed(userId, courseId, courseName, result.score);
-        
         toast({
           title: "Congratulations!",
           description: `You passed with ${result.score}%! Your certificate has been generated.`,
         });
       } else {
         toast({
-          title: "Assessment Not Passed",
-          description: `You scored ${result.score}%. You need 80% or higher to pass.`,
+          title: "Assessment Complete",
+          description: `You scored ${result.score}%. You need 70% or higher to pass. You can try again!`,
           variant: "destructive"
         });
       }
@@ -137,10 +138,29 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
     } catch (error) {
       console.error('Error finishing assessment:', error);
       toast({
-        title: "Error",
-        description: "Failed to save assessment results. Please try again.",
+        title: "Evaluation Failed",
+        description: "Unable to evaluate your assessment. Please try again.",
         variant: "destructive"
       });
+      
+      // Still show results even if saving failed
+      if (finalAnswers.length > 0) {
+        try {
+          // Fallback: calculate results locally
+          const fallbackResult = await assessmentService.calculateResults(courseId, finalAnswers);
+          setAssessmentResult(fallbackResult);
+          setShowResults(true);
+          onComplete(fallbackResult.passed, fallbackResult.score);
+          
+          toast({
+            title: "Results Calculated",
+            description: "Your results are shown below, but may not be saved. Please contact support if this persists.",
+            variant: "destructive"
+          });
+        } catch (fallbackError) {
+          console.error('Fallback calculation also failed:', fallbackError);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -253,18 +273,31 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
                         Your answer: {userAnswer ? question[`option_${userAnswer.selectedAnswer}` as keyof AssessmentQuestion] as string : 'Not answered'}
                       </p>
                       {!isCorrect && (
-                        <p className="text-sm text-green-600">
-                          Correct answer: {question[`option_${question.correct_answer}` as keyof AssessmentQuestion] as string}
-                        </p>
-                      )}
-                      {question.explanation && (
-                        <p className="text-xs text-gray-500">{question.explanation}</p>
-                      )}
+                         <p className="text-sm text-green-600">
+                           Correct answer: {question[`option_${question.correct_answer}` as keyof AssessmentQuestion] as string}
+                         </p>
+                       )}
+                       {question.explanation && (
+                         <p className="text-xs text-gray-500 bg-gray-50 p-2 rounded mt-2">
+                           <strong>Explanation:</strong> {question.explanation}
+                         </p>
+                       )}
                     </div>
                   </div>
                 </Card>
               );
             })}
+          </div>
+
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <span className="font-medium text-green-800">Results Saved Successfully</span>
+            </div>
+            <p className="text-sm text-green-700">
+              Your assessment results have been saved to your profile.
+              {assessmentResult.passed && " Your certificate has been generated and is available in your certificates section."}
+            </p>
           </div>
 
           <div className="flex gap-4 justify-center">
