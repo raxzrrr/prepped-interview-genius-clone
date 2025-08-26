@@ -120,7 +120,9 @@ export class VoiceToTextService {
 
       if (error) {
         console.error('Transcription error:', error);
-        throw error;
+        // Extract meaningful error message from Supabase error
+        const errorMessage = error.message || 'Edge Function returned a non-2xx status code';
+        throw new Error(errorMessage);
       }
 
       if (!data || !data.text) {
@@ -130,9 +132,14 @@ export class VoiceToTextService {
       console.log('Transcription successful:', data.text);
       return data.text;
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in transcription service:', error);
-      throw new Error(`Transcription failed: ${error.message}`);
+      // Provide more specific error messages
+      const errorMessage = error.message || 'Unknown error occurred';
+      if (errorMessage.includes('status code')) {
+        throw new Error('Voice-to-text service temporarily unavailable. Please try again.');
+      }
+      throw new Error(`Transcription failed: ${errorMessage}`);
     }
   }
 

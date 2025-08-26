@@ -8,6 +8,7 @@ import { AlertCircle, CheckCircle, XCircle, Award } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { questionService, CourseQuestion } from '@/services/questionService';
 import { assessmentService, AssessmentAnswer } from '@/services/assessmentService';
+import { certificateDownloadService } from '@/services/certificateDownloadService';
 import { useAuth } from '@/contexts/ClerkAuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -37,6 +38,7 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingCert, setDownloadingCert] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load questions on mount
@@ -129,6 +131,33 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDownloadCertificate = async () => {
+    if (!user) return;
+    
+    try {
+      setDownloadingCert(true);
+      await certificateDownloadService.downloadCertificateForCourse(
+        user.id,
+        courseId,
+        courseName
+      );
+      
+      toast({
+        title: 'Certificate Downloaded',
+        description: 'Your certificate has been downloaded successfully'
+      });
+    } catch (error: any) {
+      console.error('Error downloading certificate:', error);
+      toast({
+        title: 'Download Failed',
+        description: 'Failed to download certificate. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setDownloadingCert(false);
     }
   };
 
@@ -246,10 +275,29 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
             })}
           </div>
 
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center flex-wrap">
             <Button onClick={onCancel} variant="outline">
               Back to Course
             </Button>
+            {results.passed && (
+              <Button 
+                onClick={handleDownloadCertificate}
+                disabled={downloadingCert}
+                variant="secondary"
+              >
+                {downloadingCert ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Award className="h-4 w-4 mr-2" />
+                    Download Certificate
+                  </>
+                )}
+              </Button>
+            )}
             <Button onClick={handleComplete}>
               Continue
             </Button>

@@ -61,7 +61,7 @@ const LearningPage: React.FC = () => {
   const handleAssessmentComplete = (passed: boolean, score: number) => {
     setShowAssessment(false);
     setAssessmentCourse(null);
-    // Force a refresh of learning data after assessment completion
+    // Trigger data refresh without full page reload
     window.location.reload();
   };
 

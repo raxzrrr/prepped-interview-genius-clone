@@ -106,13 +106,13 @@ const generateCertificate = async (supabase: any, params: {
     // Generate verification code
     const verificationCode = `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     
-    // Save to user_certificates table with course_id
+    // Use upsert to handle duplicates gracefully
     const { data: newCert, error: saveError } = await supabase
       .from('user_certificates')
-      .insert({
+      .upsert({
         user_id: params.userId,
         certificate_id: defaultCertificate.id,
-        course_id: params.courseId, // Now linking to the specific course
+        course_id: params.courseId,
         verification_code: verificationCode,
         score: params.score,
         completion_data: {
@@ -124,6 +124,8 @@ const generateCertificate = async (supabase: any, params: {
           user_name: params.name
         },
         is_active: true
+      }, {
+        onConflict: 'user_id,course_id,certificate_id'
       })
       .select('id')
       .single();
@@ -488,6 +490,8 @@ Deno.serve(async (req) => {
           total_modules_count: totalModules || 0 // Use provided totalModules
         };
 
+        let certificateId = null;
+
         // Check if user_learning record exists
         const { data: existingLearning } = await supabase
           .from('user_learning')
@@ -573,13 +577,22 @@ Deno.serve(async (req) => {
             }
 
             if (profileData?.full_name) {
-              certificateResult = await generateCertificate(supabase, {
-                userId: supabaseUserId,
-                name: profileData.full_name,
-                courseId: data.courseId,
-                courseName: data.courseName,
-                score: score
-              });
+              try {
+                const certResult = await generateCertificate(supabase, {
+                  userId: supabaseUserId,
+                  name: profileData.full_name,
+                  courseId: data.courseId,
+                  courseName: data.courseName,
+                  score: score
+                });
+                
+                if (certResult.success && certResult.certificateId) {
+                  certificateResult = { success: true, certificateId: certResult.certificateId };
+                }
+              } catch (certError) {
+                console.error('Certificate generation failed:', certError);
+                certificateResult = { success: false, message: 'Certificate generation failed' };
+              }
             }
           } catch (certError) {
             console.error('Certificate generation failed:', certError);
@@ -590,7 +603,8 @@ Deno.serve(async (req) => {
         result = {
           ...assessmentResult,
           saved: true,
-          certificateGenerated: certificateResult.success
+          certificateGenerated: certificateResult.success,
+          certificateId: certificateResult.certificateId || null
         };
         break;
 
