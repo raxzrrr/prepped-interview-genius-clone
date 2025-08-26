@@ -1,45 +1,39 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import { useAuth } from '@/contexts/ClerkAuthContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import VideoPlayer from '@/components/Learning/VideoPlayer';
-import AssessmentQuiz from '@/components/Learning/AssessmentQuiz';
-import CategoryVideoList from '@/components/Learning/CategoryVideoList';
-import CourseCard from '@/components/Learning/CourseCard';
-import CourseAssessmentTab from '@/components/Learning/CourseAssessmentTab';
-import { useToast } from '@/components/ui/use-toast';
-import { AlertCircle, Loader2, Award } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Play, CheckCircle, Award, Video, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import ProFeatureGuard from '@/components/ProFeatureGuard';
-import { useCourseData } from '@/hooks/useCourseData';
+import SimpleAssessment from '@/components/Learning/SimpleAssessment';
+import { useSimpleLearning } from '@/hooks/useSimpleLearning';
 import { Course, CourseVideo } from '@/services/courseService';
 
 const LearningPage: React.FC = () => {
   const { user, isStudent, loading: authLoading } = useAuth();
-  const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('courses');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<CourseVideo | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
-  
+  const [assessmentCourse, setAssessmentCourse] = useState<{ id: string; name: string } | null>(null);
+
   const {
-    coursesWithVideos,
-    coursesWithQuestions,
+    courses,
     videos,
-    userLearningData,
-    loading: courseLoading,
-    error: courseError,
+    loading,
+    error,
+    toggleVideoCompletion,
     getCourseProgress,
-    getCourseVideoCount,
-    updateVideoCompletion,
-    removeVideoCompletion
-  } = useCourseData();
-  
-  if (authLoading) {
+    isCourseCompleted,
+    isVideoCompleted,
+    courseHasQuestions
+  } = useSimpleLearning();
+
+  if (authLoading || loading) {
     return (
       <DashboardLayout>
         <div className="flex justify-center items-center py-12">
@@ -49,18 +43,36 @@ const LearningPage: React.FC = () => {
       </DashboardLayout>
     );
   }
-  
+
   if (!user || !isStudent()) {
     return <Navigate to="/login" />;
   }
 
-  const handleCourseSelect = (course: Course) => {
-    setSelectedCourse(course);
-    setSelectedVideo(null);
+  const handleStartAssessment = async (course: Course) => {
+    const hasQuestions = await courseHasQuestions(course.id);
+    if (!hasQuestions) {
+      return;
+    }
+    
+    setAssessmentCourse({ id: course.id, name: course.name });
+    setShowAssessment(true);
   };
 
-  const handleVideoSelect = (video: CourseVideo) => {
+  const handleAssessmentComplete = (passed: boolean, score: number) => {
+    setShowAssessment(false);
+    setAssessmentCourse(null);
+    // Force refresh to show new certificates
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
+
+  const handleVideoClick = (video: CourseVideo) => {
     setSelectedVideo(video);
+  };
+
+  const handleBackToCourse = () => {
+    setSelectedVideo(null);
   };
 
   const handleBackToCourses = () => {
@@ -68,134 +80,30 @@ const LearningPage: React.FC = () => {
     setSelectedVideo(null);
   };
 
-  const handleBackToVideoList = () => {
-    setSelectedVideo(null);
-  };
-
-  const handleStartCourse = (courseId: string) => {
-    const course = coursesWithVideos.find(c => c.id === courseId);
-    if (course) {
-      handleCourseSelect(course);
-    }
-  };
-
-  const handleMarkAsCompleted = async (videoId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (!selectedCourse) return;
-    
-    const success = await updateVideoCompletion(videoId, selectedCourse.id);
-    if (success) {
-      toast({
-        title: "Video Completed",
-        description: "Great job! Keep up the learning momentum.",
-      });
-    }
-  };
-
-  const handleMarkAsIncomplete = async (videoId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (!selectedCourse) return;
-    
-    const success = await removeVideoCompletion(videoId, selectedCourse.id);
-    if (success) {
-      toast({
-        title: "Video Marked Incomplete",
-        description: "Video has been unmarked as completed.",
-      });
-    }
-  };
-
-  const handleVideoProgress = async (videoId: string, progress: number) => {
-    if (progress >= 100 && selectedCourse) {
-      await updateVideoCompletion(videoId, selectedCourse.id);
-    }
-  };
-
-  const handleVideoCompleted = async (videoId: string) => {
-    if (selectedCourse) {
-      await updateVideoCompletion(videoId, selectedCourse.id);
-    }
-  };
-
-  const getVideoProgress = (videoId: string): boolean => {
-    if (!selectedCourse || !userLearningData?.course_progress_new) return false;
-    const courseProgress = userLearningData.course_progress_new[selectedCourse.id] || {};
-    return courseProgress[videoId] === true;
-  };
-
-  const handleAdvanceToNext = () => {
-    if (!selectedVideo || !selectedCourse) return;
-    
-    const courseVideos = videos[selectedCourse.id] || [];
-    const currentIndex = courseVideos.findIndex(v => v.id === selectedVideo.id);
-    
-    if (currentIndex >= 0 && currentIndex < courseVideos.length - 1) {
-      const nextVideo = courseVideos[currentIndex + 1];
-      setSelectedVideo(nextVideo);
-      toast({
-        title: "Video Completed",
-        description: "Moving to the next video...",
-      });
-    } else {
-      toast({
-        title: "Video Completed",
-        description: "You've completed the last video in this course!",
-      });
-    }
-  };
-
-  const handleGlobalAssessmentComplete = async (score: number) => {
-    setShowAssessment(false);
-    toast({
-      title: "Assessment Completed!",
-      description: `You scored ${score}%! ${score >= 80 ? 'Excellent work!' : 'Keep practicing to improve your score.'}`,
-    });
-  };
-
-  // Safe progress calculation with proper bounds checking
-  const calculateCourseProgress = (courseId: string): number => {
-    const courseVideos = videos[courseId] || [];
-    if (courseVideos.length === 0) return 0;
-    
-    const completedVideos = courseVideos.filter(video => {
-      if (!userLearningData?.course_progress_new) return false;
-      const courseProgress = userLearningData.course_progress_new[courseId] || {};
-      return courseProgress[video.id] === true;
-    }).length;
-    
-    const progress = (completedVideos / courseVideos.length) * 100;
-    return Math.min(Math.max(Math.round(progress), 0), 100);
-  };
-
-  if (courseLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading courses...</span>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (showAssessment) {
+  // Show assessment if active
+  if (showAssessment && assessmentCourse) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Technical Assessment</h1>
-            <p className="mt-2 text-gray-600">
-              Test your knowledge and earn your certificate
+            <h1 className="text-3xl font-bold tracking-tight">Assessment</h1>
+            <p className="mt-2 text-muted-foreground">
+              Complete the assessment for {assessmentCourse.name}
             </p>
           </div>
           
           <ProFeatureGuard 
-            featureName="Assessment & Certification"
-            description="Take our comprehensive technical assessment and earn your professional certificate. This feature is available to Pro subscribers only."
+            featureName="Course Assessment"
+            description="Take assessments to earn certificates and validate your learning."
           >
-            <AssessmentQuiz
-              onComplete={handleGlobalAssessmentComplete}
-              onClose={() => setShowAssessment(false)}
+            <SimpleAssessment
+              courseId={assessmentCourse.id}
+              courseName={assessmentCourse.name}
+              onComplete={handleAssessmentComplete}
+              onCancel={() => {
+                setShowAssessment(false);
+                setAssessmentCourse(null);
+              }}
             />
           </ProFeatureGuard>
         </div>
@@ -203,102 +111,243 @@ const LearningPage: React.FC = () => {
     );
   }
 
+  // Show video player if video selected
+  if (selectedVideo && selectedCourse) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">{selectedVideo.title}</h1>
+              <p className="text-muted-foreground">{selectedCourse.name}</p>
+            </div>
+            <Button variant="outline" onClick={handleBackToCourse}>
+              Back to Course
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="aspect-video bg-black rounded-lg mb-4 flex items-center justify-center">
+                {selectedVideo.video_url ? (
+                  <video 
+                    controls 
+                    className="w-full h-full rounded-lg"
+                    src={selectedVideo.video_url}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                ) : (
+                  <div className="text-white text-center">
+                    <Video className="h-12 w-12 mx-auto mb-2" />
+                    <p>Video not available</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedVideo.title}</h3>
+                  <p className="text-muted-foreground">{selectedVideo.description}</p>
+                </div>
+                <Button
+                  onClick={() => toggleVideoCompletion(selectedCourse.id, selectedVideo.id)}
+                  variant={isVideoCompleted(selectedCourse.id, selectedVideo.id) ? "default" : "outline"}
+                >
+                  {isVideoCompleted(selectedCourse.id, selectedVideo.id) ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Completed
+                    </>
+                  ) : (
+                    "Mark Complete"
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show course videos if course selected
+  if (selectedCourse) {
+    const courseVideos = videos[selectedCourse.id] || [];
+    const progress = getCourseProgress(selectedCourse.id);
+    const completed = isCourseCompleted(selectedCourse.id);
+
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">{selectedCourse.name}</h1>
+              <p className="text-muted-foreground">{selectedCourse.description}</p>
+            </div>
+            <Button variant="outline" onClick={handleBackToCourses}>
+              Back to Courses
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Course Progress</CardTitle>
+                <Badge variant={completed ? "default" : "secondary"}>
+                  {progress}% Complete
+                </Badge>
+              </div>
+              <Progress value={progress} className="mt-2" />
+            </CardHeader>
+            <CardContent>
+              {completed && (
+                <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <Award className="w-5 h-5" />
+                    <span className="font-medium">Course Completed!</span>
+                  </div>
+                  <p className="text-green-600 text-sm mt-1">
+                    You can now take the assessment to earn your certificate.
+                  </p>
+                  <Button 
+                    onClick={() => handleStartAssessment(selectedCourse)}
+                    className="mt-2"
+                    size="sm"
+                  >
+                    Start Assessment
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4">
+            <h2 className="text-xl font-semibold">Course Videos</h2>
+            {courseVideos.map((video, index) => (
+              <Card key={video.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {index + 1}.
+                        </span>
+                        <Play className="w-4 h-4 text-primary" />
+                      </div>
+                      <div onClick={() => handleVideoClick(video)}>
+                        <h3 className="font-medium">{video.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {video.description}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleVideoCompletion(selectedCourse.id, video.id);
+                      }}
+                      variant={isVideoCompleted(selectedCourse.id, video.id) ? "default" : "outline"}
+                      size="sm"
+                    >
+                      {isVideoCompleted(selectedCourse.id, video.id) ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Complete
+                        </>
+                      ) : (
+                        "Mark Complete"
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show courses list (main view)
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Learning Hub</h1>
-          <p className="mt-2 text-gray-600">
-            Access courses and certifications to enhance your skills
+          <p className="mt-2 text-muted-foreground">
+            Choose a course to start learning and earn certificates
           </p>
         </div>
         
         <ProFeatureGuard 
           featureName="Learning Hub"
-          description="Access our comprehensive library of courses, video tutorials, and earn professional certificates. Upgrade to Pro to unlock the full learning experience."
+          description="Access our comprehensive library of courses and earn professional certificates."
         >
-          {courseError && (
+          {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {courseError}. Some features may be limited.
-              </AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           
-          {selectedVideo ? (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">{selectedVideo.title}</h2>
-                <Button 
-                  variant="outline"
-                  onClick={handleBackToVideoList}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {courses.map((course) => {
+              const progress = getCourseProgress(course.id);
+              const videoCount = videos[course.id]?.length || 0;
+              const completed = isCourseCompleted(course.id);
+
+              return (
+                <Card 
+                  key={course.id} 
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => setSelectedCourse(course)}
                 >
-                  Back to Videos
-                </Button>
-              </div>
-              
-              <div className="bg-white rounded-lg border p-6">
-                <VideoPlayer 
-                  videoUrl={selectedVideo.video_url}
-                  onProgress={(progress) => handleVideoProgress(selectedVideo.id, progress)}
-                  initialProgress={getVideoProgress(selectedVideo.id) ? 100 : 0}
-                  moduleId={selectedVideo.id}
-                  onCompleted={handleVideoCompleted}
-                  onAdvanceToNext={handleAdvanceToNext}
-                />
-                
-                <div className="mt-6 space-y-4">
-                  <h3 className="text-xl font-semibold">{selectedVideo.title}</h3>
-                  <p className="text-gray-600">{selectedVideo.description}</p>
-                </div>
-              </div>
-            </div>
-          ) : selectedCourse ? (
-            <CategoryVideoList
-              category={selectedCourse}
-              videos={videos[selectedCourse.id] || []}
-              onVideoSelect={handleVideoSelect}
-              onMarkAsCompleted={handleMarkAsCompleted}
-              onMarkAsIncomplete={handleMarkAsIncomplete}
-              onBackToCategories={handleBackToCourses}
-              getVideoProgress={getVideoProgress}
-            />
-          ) : (
-            <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-4">
-                <TabsTrigger value="courses">Courses</TabsTrigger>
-                <TabsTrigger value="assessment">Assessment</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="courses">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {coursesWithVideos.map((course) => {
-                    const courseProgress = calculateCourseProgress(course.id);
-                    const videoCount = getCourseVideoCount(course.id);
-                    
-                    return (
-                      <CourseCard
-                        key={course.id}
-                        course={course}
-                        progress={courseProgress}
-                        videoCount={videoCount}
-                        onStartCourse={handleStartCourse}
-                        showAssessmentButton={false}
-                      />
-                    );
-                  })}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="assessment">
-                <CourseAssessmentTab
-                  courses={coursesWithQuestions}
-                  calculateCourseProgress={calculateCourseProgress}
-                  userLearningData={userLearningData}
-                />
-              </TabsContent>
-            </Tabs>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{course.name}</CardTitle>
+                      <Badge variant={completed ? "default" : "secondary"}>
+                        {progress}%
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      {course.description}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <Progress value={progress} className="h-2" />
+                      <div className="flex justify-between items-center text-sm text-muted-foreground">
+                        <span>{videoCount} videos</span>
+                        {completed && (
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            <Award className="w-3 h-3 mr-1" />
+                            Ready for Assessment
+                          </Badge>
+                        )}
+                      </div>
+                      <Button 
+                        className="w-full" 
+                        variant={completed ? "default" : "outline"}
+                      >
+                        {progress === 0 ? "Start Course" : completed ? "Take Assessment" : "Continue"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {courses.length === 0 && !loading && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <h3 className="text-lg font-medium mb-2">No courses available</h3>
+                <p className="text-muted-foreground">
+                  Check back later for new learning content.
+                </p>
+              </CardContent>
+            </Card>
           )}
         </ProFeatureGuard>
       </div>
