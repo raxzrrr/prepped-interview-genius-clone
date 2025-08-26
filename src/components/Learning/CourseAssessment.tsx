@@ -35,7 +35,7 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   
   const { toast } = useToast();
-  const { getSupabaseUserId } = useAuth();
+  const { user, getSupabaseUserId } = useAuth();
 
   // Load questions when component mounts
   useEffect(() => {
@@ -102,17 +102,16 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
     setLoading(true);
     
     try {
-      // Get user ID
-      const userId = getSupabaseUserId();
-      if (!userId) {
+      // Get raw Clerk user ID (not the converted UUID)
+      if (!user?.id) {
         throw new Error('User not authenticated');
       }
 
-      console.log('Starting assessment evaluation for user:', userId);
+      console.log('Starting assessment evaluation for user:', user.id);
 
-      // Evaluate and save assessment using the learning service
+      // Pass raw Clerk user ID to the service, not the converted UUID
       const result = await assessmentService.evaluateAndSaveAssessment(
-        userId, 
+        user.id, 
         courseId, 
         courseName, 
         finalAnswers

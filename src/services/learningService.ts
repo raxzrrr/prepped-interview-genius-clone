@@ -33,6 +33,7 @@ export const learningService = {
         .from('user_learning')
         .select('*')
         .eq('user_id', userId)
+        .eq('course_id', courseId)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -103,6 +104,7 @@ export const learningService = {
         .from('user_learning')
         .update(updateData)
         .eq('user_id', userId)
+        .eq('course_id', courseId)
         .select()
         .maybeSingle();
 
@@ -159,6 +161,7 @@ export const learningService = {
         .from('user_learning')
         .update(updateData)
         .eq('user_id', userId)
+        .eq('course_id', courseId)
         .select()
         .maybeSingle();
 

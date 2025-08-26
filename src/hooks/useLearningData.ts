@@ -39,7 +39,7 @@ export const useLearningData = (totalModules: number) => {
       setError(null);
       console.log('Fetching learning data using service for user:', user.id);
       
-      const data = await learningService.fetchUserLearningData(user.id, totalModules);
+      const data = await learningService.fetchUserLearningData(user.id, totalModules, 'interview-mastery');
       
       if (data) {
         console.log('Successfully fetched learning data:', data);

@@ -314,16 +314,48 @@ Deno.serve(async (req) => {
         if (data.assessment_passed) {
           console.log('User passed assessment, generating certificate...');
           
-          // Get user profile for certificate
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', supabaseUserId)
-            .maybeSingle();
+        // Get user profile for certificate, create if not exists
+        let { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', supabaseUserId)
+          .maybeSingle();
 
-          if (profileError || !profileData) {
-            console.error('Could not fetch user profile for certificate:', profileError);
-          } else {
+        if (profileError || !profileData) {
+          console.log('Profile not found, attempting to find by email or create one...');
+          
+          // Try to find profile by email (for Clerk users)
+          const { data: clerkUser } = await supabase.auth.admin.getUserById(clerkUserId);
+          if (clerkUser?.user?.email) {
+            let { data: emailProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('email', clerkUser.user.email)
+              .maybeSingle();
+              
+            if (emailProfile) {
+              profileData = emailProfile;
+            } else {
+              // Create new profile
+              const { data: newProfile, error: createError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: supabaseUserId,
+                  email: clerkUser.user.email,
+                  full_name: clerkUser.user.user_metadata?.full_name || 'Student',
+                  role: 'student'
+                })
+                .select('full_name, email')
+                .single();
+                
+              if (!createError && newProfile) {
+                profileData = newProfile;
+              }
+            }
+          }
+        }
+
+        if (profileData) {
             // Get course name for certificate
             const { data: courseData, error: courseError } = await supabase
               .from('courses')
@@ -455,12 +487,46 @@ Deno.serve(async (req) => {
         // Generate certificate if passed
         if (passed && data.courseName) {
           try {
-            // Get user profile for certificate
-            const { data: profileData, error: profileError } = await supabase
+            // Get user profile for certificate, create if not exists
+            let { data: profileData, error: profileError } = await supabase
               .from('profiles')
-              .select('full_name')
+              .select('full_name, email')
               .eq('id', supabaseUserId)
               .maybeSingle();
+
+            if (profileError || !profileData) {
+              console.log('Profile not found for certificate, attempting to create one...');
+              
+              // Try to find profile by email or create one
+              const { data: clerkUser } = await supabase.auth.admin.getUserById(clerkUserId);
+              if (clerkUser?.user?.email) {
+                let { data: emailProfile } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('email', clerkUser.user.email)
+                  .maybeSingle();
+                  
+                if (emailProfile) {
+                  profileData = emailProfile;
+                } else {
+                  // Create new profile
+                  const { data: newProfile, error: createError } = await supabase
+                    .from('profiles')
+                    .insert({
+                      id: supabaseUserId,
+                      email: clerkUser.user.email,
+                      full_name: clerkUser.user.user_metadata?.full_name || 'Student',
+                      role: 'student'
+                    })
+                    .select('full_name, email')
+                    .single();
+                    
+                  if (!createError && newProfile) {
+                    profileData = newProfile;
+                  }
+                }
+              }
+            }
 
             if (profileData?.full_name) {
               await generateCertificate(supabase, {
