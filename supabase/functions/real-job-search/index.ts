@@ -147,15 +147,29 @@ async function fetchArbeitnowJobs(roles: string[], locations: string[]): Promise
 async function verifyUrl(url: string): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     
-    const response = await fetch(url, {
-      method: 'HEAD',
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    return response.ok;
+    // Try HEAD request first
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch (headError) {
+      // If HEAD fails, try GET request
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 5000);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller2.signal,
+      });
+      
+      clearTimeout(timeoutId2);
+      return response.ok;
+    }
   } catch (error) {
     console.log(`URL verification failed for ${url}:`, error);
     return false;
@@ -204,12 +218,25 @@ serve(async (req) => {
 
     // Combine and remove duplicates
     let allJobs = [...remotiveJobs, ...arbeitnowJobs];
+    console.log(`Combined ${allJobs.length} jobs from all sources`);
+    
+    if (allJobs.length === 0) {
+      console.log('No jobs found from any source');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          jobs: [],
+          message: 'No jobs found for the specified criteria'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     allJobs = removeDuplicates(allJobs);
+    console.log(`After deduplication: ${allJobs.length} unique jobs`);
 
-    console.log(`Found ${allJobs.length} jobs before URL verification`);
-
-    // Verify URLs in parallel (limit to first 20 for performance)
-    const jobsToVerify = allJobs.slice(0, 20);
+    // Verify URLs in parallel (limit to first 15 for performance)
+    const jobsToVerify = allJobs.slice(0, 15);
     const verificationResults = await Promise.all(
       jobsToVerify.map(async (job) => ({
         job,
@@ -221,12 +248,16 @@ serve(async (req) => {
     const verifiedJobs = verificationResults
       .filter(result => result.isValid)
       .map(result => result.job)
-      .slice(0, 15); // Limit to 15 jobs
+      .slice(0, 10); // Limit to 10 jobs for faster response
 
     console.log(`Returning ${verifiedJobs.length} verified jobs`);
 
     return new Response(
-      JSON.stringify({ jobs: verifiedJobs }),
+      JSON.stringify({ 
+        success: true,
+        jobs: verifiedJobs,
+        total: allJobs.length
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
@@ -236,9 +267,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in real-job-search function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', jobs: [] }),
+      JSON.stringify({ 
+        success: false,
+        jobs: [],
+        error: 'Failed to fetch job listings',
+        message: 'Please try again later or use different search criteria'
+      }),
       { 
-        status: 500,
+        status: 200, // Return 200 to avoid throwing errors in frontend
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

@@ -11,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Public Pages
 import HomePage from "@/pages/HomePage";
+import AboutPage from "@/pages/AboutPage";
+import PricingPage from "@/pages/PricingPage";
 import LoginPage from "@/pages/AuthPages/LoginPage";
 import RegisterPage from "@/pages/AuthPages/RegisterPage";
 import NotFound from "@/pages/NotFound";
@@ -52,6 +54,8 @@ const App = () => (
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<HomePage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               

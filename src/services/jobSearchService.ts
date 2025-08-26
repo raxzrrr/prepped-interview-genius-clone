@@ -35,8 +35,14 @@ class JobSearchService {
         throw new Error(`Job search failed: ${error.message}`);
       }
 
-      if (data && data.jobs && Array.isArray(data.jobs)) {
-        return data.jobs;
+      if (data) {
+        if (data.success === false) {
+          throw new Error(data.message || 'Failed to fetch job listings');
+        }
+        
+        if (data.jobs && Array.isArray(data.jobs)) {
+          return data.jobs;
+        }
       }
 
       return [];

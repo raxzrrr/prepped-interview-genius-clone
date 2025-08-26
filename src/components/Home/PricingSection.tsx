@@ -103,7 +103,7 @@ const PricingSection: React.FC = () => {
   };
 
   return (
-    <section className="py-20 bg-white">
+    <section id="pricing" className="py-20 bg-white">
       <div className="container px-4 mx-auto">
         <div className="max-w-3xl mx-auto mb-16 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">

@@ -108,9 +108,10 @@ const JobsPage: React.FC = () => {
       });
     } catch (error) {
       console.error('Job search error:', error);
+      setHasSearched(true);
       toast({
-        title: "Search failed",
-        description: "Unable to fetch job listings. Please try again.",
+        title: "Search Failed",
+        description: error instanceof Error ? error.message : "Unable to fetch job listings. Please check your connection and try again.",
         variant: "destructive",
       });
     } finally {
