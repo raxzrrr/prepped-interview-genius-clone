@@ -1,15 +1,13 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { generateConsistentUUID } from '@/utils/userUtils';
 
 export interface UserLearningData {
   id?: string;
   user_id?: string;
+  course_id?: string;
   progress?: Record<string, any>;
-  course_progress?: Record<string, any>; // For backwards compatibility
-  course_progress_new?: Record<string, any>;
-  completed_modules?: number; // For backwards compatibility
   completed_modules_count?: number;
-  total_modules?: number; // For backwards compatibility
   total_modules_count?: number;
   last_assessment_score?: number;
   is_completed?: boolean;
@@ -19,13 +17,11 @@ export interface UserLearningData {
   assessment_passed?: boolean;
   assessment_score?: number;
   assessment_completed_at?: string;
-  course_score?: number; // For backwards compatibility
-  course_completed_at?: string; // For backwards compatibility
+  completed_and_passed?: boolean; // New computed column
 }
 
-
 export const learningService = {
-  async fetchUserLearningData(clerkUserId: string, totalModules: number, courseId?: string): Promise<UserLearningData | null> {
+  async fetchUserLearningData(clerkUserId: string, totalModules: number, courseId: string): Promise<UserLearningData | null> {
     try {
       const userId = generateConsistentUUID(clerkUserId);
       
@@ -42,11 +38,7 @@ export const learningService = {
       }
 
       if (!data) {
-        // Create new record if it doesn't exist (only if courseId is provided)
-        if (!courseId) {
-          return null; // Cannot create without courseId
-        }
-        
+        // Create new record if it doesn't exist
         const newRecord = {
           user_id: userId,
           course_id: courseId,
@@ -146,12 +138,14 @@ export const learningService = {
   async updateAssessmentScore(clerkUserId: string, courseId: string, score: number): Promise<UserLearningData> {
     try {
       const userId = generateConsistentUUID(clerkUserId);
+      const passed = score >= 70;
       
       const updateData = {
         assessment_attempted: true,
-        assessment_passed: score >= 70,
+        assessment_passed: passed,
         assessment_score: score,
-        assessment_completed_at: score >= 70 ? new Date().toISOString() : null,
+        assessment_completed_at: passed ? new Date().toISOString() : null,
+        is_completed: passed, // Mark course as completed if assessment passed
         last_assessment_score: score,
         updated_at: new Date().toISOString()
       };
@@ -173,7 +167,6 @@ export const learningService = {
           progress: {},
           completed_modules_count: 0,
           total_modules_count: 0,
-          is_completed: false,
           ...updateData
         };
 

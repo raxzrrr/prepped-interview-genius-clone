@@ -57,6 +57,20 @@ const generateCertificate = async (supabase: any, params: {
   }
 
   try {
+    // Check if certificate already exists for this user and course
+    const { data: existingCert } = await supabase
+      .from('user_certificates')
+      .select('id')
+      .eq('user_id', params.userId)
+      .eq('course_id', params.courseId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (existingCert) {
+      console.log('Certificate already exists for user:', params.userId, 'course:', params.courseId);
+      return { success: true, certificateId: existingCert.id, message: 'Certificate already exists' };
+    }
+
     // Get default certificate from certificates table
     const { data: defaultCertificate, error: certError } = await supabase
       .from('certificates')
@@ -66,32 +80,39 @@ const generateCertificate = async (supabase: any, params: {
       .single();
 
     if (certError || !defaultCertificate) {
-      console.warn('No default certificate found');
-      return { success: false, message: 'No certificate template available' };
-    }
+      console.warn('No default certificate found, creating generic one');
+      
+      // Create a generic certificate entry if none exists
+      const { data: newCertificate, error: createCertError } = await supabase
+        .from('certificates')
+        .insert({
+          title: 'Course Completion Certificate',
+          description: 'Certificate of successful course completion',
+          certificate_type: 'completion',
+          is_active: true,
+          auto_issue: true,
+          requirements: { min_score: PASSING_SCORE }
+        })
+        .select()
+        .single();
 
-    // Check if certificate already exists
-    const { data: existingCert } = await supabase
-      .from('user_certificates')
-      .select('id')
-      .eq('user_id', params.userId)
-      .eq('certificate_id', defaultCertificate.id)
-      .maybeSingle();
-
-    if (existingCert) {
-      console.log('Certificate already exists for user:', params.userId);
-      return { success: true, certificateId: existingCert.id, message: 'Certificate already exists' };
+      if (createCertError || !newCertificate) {
+        return { success: false, message: 'Failed to create certificate template' };
+      }
+      
+      defaultCertificate = newCertificate;
     }
 
     // Generate verification code
     const verificationCode = `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     
-    // Save to user_certificates table
+    // Save to user_certificates table with course_id
     const { data: newCert, error: saveError } = await supabase
       .from('user_certificates')
       .insert({
         user_id: params.userId,
         certificate_id: defaultCertificate.id,
+        course_id: params.courseId, // Now linking to the specific course
         verification_code: verificationCode,
         score: params.score,
         completion_data: {
@@ -108,10 +129,11 @@ const generateCertificate = async (supabase: any, params: {
       .single();
 
     if (saveError) {
+      console.error('Error saving certificate:', saveError);
       throw saveError;
     }
 
-    console.log('Certificate generated successfully for user:', params.userId);
+    console.log('Certificate generated successfully for user:', params.userId, 'course:', params.courseId);
     return { success: true, certificateId: newCert.id, message: 'Certificate generated successfully' };
   } catch (error) {
     console.error('Error generating certificate:', error);
@@ -162,6 +184,7 @@ Deno.serve(async (req) => {
           .from('user_learning')
           .select('*')
           .eq('user_id', supabaseUserId)
+          .eq('course_id', data?.courseId)
           .maybeSingle();
         
         if (fetchError) {
@@ -169,7 +192,7 @@ Deno.serve(async (req) => {
           throw fetchError;
         }
         
-        if (!existingData && totalModules) {
+        if (!existingData && totalModules && data?.courseId) {
           console.log('Creating new learning record...');
           // Create new record if none exists
           const newRecord = {
@@ -213,6 +236,7 @@ Deno.serve(async (req) => {
           .from('user_learning')
           .select('id')
           .eq('user_id', supabaseUserId)
+          .eq('course_id', data.courseId)
           .maybeSingle();
         
         if (!checkData) {
@@ -220,9 +244,9 @@ Deno.serve(async (req) => {
           const newRecord = {
             user_id: supabaseUserId,
             course_id: data.courseId,
-            progress: data.course_progress || {},
-            completed_modules_count: data.completed_modules || 0,
-            total_modules_count: data.total_modules || 0,
+            progress: data.progress || data.course_progress || {},
+            completed_modules_count: data.completed_modules_count || data.completed_modules || 0,
+            total_modules_count: data.total_modules_count || data.total_modules || 0,
             assessment_attempted: false,
             assessment_score: null,
             last_assessment_score: 0,
@@ -244,13 +268,18 @@ Deno.serve(async (req) => {
           result = createdData;
           console.log('Created new learning record during update:', result.id);
         } else {
+          const updatePayload = {
+            progress: data.progress || data.course_progress || {},
+            completed_modules_count: data.completed_modules_count || data.completed_modules || 0,
+            total_modules_count: data.total_modules_count || data.total_modules || 0,
+            updated_at: new Date().toISOString()
+          };
+
           const { data: updateData, error: updateError } = await supabase
             .from('user_learning')
-            .update({
-              ...data,
-              updated_at: new Date().toISOString()
-            })
+            .update(updatePayload)
             .eq('user_id', supabaseUserId)
+            .eq('course_id', data.courseId)
             .select('*')
             .single();
           
@@ -274,6 +303,16 @@ Deno.serve(async (req) => {
           .eq('course_id', data.course_id)
           .maybeSingle();
         
+        const assessmentUpdateData = {
+          assessment_attempted: data.assessment_attempted,
+          assessment_passed: data.assessment_passed,
+          assessment_score: data.assessment_score,
+          last_assessment_score: data.last_assessment_score,
+          assessment_completed_at: data.assessment_completed_at,
+          is_completed: data.assessment_passed, // Mark as completed if passed
+          updated_at: new Date().toISOString()
+        };
+        
         if (!assessmentCheckData) {
           // Create record if it doesn't exist
           const newRecord = {
@@ -282,12 +321,7 @@ Deno.serve(async (req) => {
             progress: {},
             completed_modules_count: 0,
             total_modules_count: 0,
-            assessment_attempted: data.assessment_attempted,
-            assessment_passed: data.assessment_passed,
-            assessment_score: data.assessment_score,
-            last_assessment_score: data.last_assessment_score,
-            assessment_completed_at: data.assessment_completed_at,
-            is_completed: false
+            ...assessmentUpdateData
           };
 
           const { data: createdData, error: createError } = await supabase
@@ -305,14 +339,7 @@ Deno.serve(async (req) => {
         } else {
           const { data: assessmentData, error: assessmentError } = await supabase
             .from('user_learning')
-            .update({
-              assessment_attempted: data.assessment_attempted,
-              assessment_passed: data.assessment_passed,
-              assessment_score: data.assessment_score,
-              last_assessment_score: data.last_assessment_score,
-              assessment_completed_at: data.assessment_completed_at,
-              updated_at: new Date().toISOString()
-            })
+            .update(assessmentUpdateData)
             .eq('user_id', supabaseUserId)
             .eq('course_id', data.course_id)
             .select('*')
@@ -330,48 +357,48 @@ Deno.serve(async (req) => {
         if (data.assessment_passed) {
           console.log('User passed assessment, generating certificate...');
           
-        // Get user profile for certificate, create if not exists
-        let { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('full_name, email')
-          .eq('id', supabaseUserId)
-          .maybeSingle();
+          // Get user profile for certificate, create if not exists
+          let { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', supabaseUserId)
+            .maybeSingle();
 
-        if (profileError || !profileData) {
-          console.log('Profile not found, attempting to find by email or create one...');
-          
-          // Try to find profile by email (for Clerk users)
-          const { data: clerkUser } = await supabase.auth.admin.getUserById(clerkUserId);
-          if (clerkUser?.user?.email) {
-            let { data: emailProfile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('email', clerkUser.user.email)
-              .maybeSingle();
-              
-            if (emailProfile) {
-              profileData = emailProfile;
-            } else {
-              // Create new profile
-              const { data: newProfile, error: createError } = await supabase
+          if (profileError || !profileData) {
+            console.log('Profile not found, attempting to find by email or create one...');
+            
+            // Try to find profile by email (for Clerk users)
+            const { data: clerkUser } = await supabase.auth.admin.getUserById(clerkUserId);
+            if (clerkUser?.user?.email) {
+              let { data: emailProfile } = await supabase
                 .from('profiles')
-                .insert({
-                  id: supabaseUserId,
-                  email: clerkUser.user.email,
-                  full_name: clerkUser.user.user_metadata?.full_name || 'Student',
-                  role: 'student'
-                })
-                .select('full_name, email')
-                .single();
+                .select('*')
+                .eq('email', clerkUser.user.email)
+                .maybeSingle();
                 
-              if (!createError && newProfile) {
-                profileData = newProfile;
+              if (emailProfile) {
+                profileData = emailProfile;
+              } else {
+                // Create new profile
+                const { data: newProfile, error: createError } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: supabaseUserId,
+                    email: clerkUser.user.email,
+                    full_name: clerkUser.user.user_metadata?.full_name || 'Student',
+                    role: 'student'
+                  })
+                  .select('full_name, email')
+                  .single();
+                  
+                if (!createError && newProfile) {
+                  profileData = newProfile;
+                }
               }
             }
           }
-        }
 
-        if (profileData) {
+          if (profileData) {
             // Get course name for certificate
             const { data: courseData, error: courseError } = await supabase
               .from('courses')

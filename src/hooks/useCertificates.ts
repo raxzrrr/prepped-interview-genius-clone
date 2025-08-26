@@ -20,6 +20,7 @@ interface UserCertificate {
   id: string;
   user_id: string;
   certificate_id: string;
+  course_id: string | null;
   issued_date: string;
   completion_data: any;
   certificate_url: string | null;
@@ -28,7 +29,10 @@ interface UserCertificate {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  certificates: Certificate;
+  certificate_title: string;
+  certificate_description: string | null;
+  certificate_type: string;
+  certificate_is_active: boolean;
 }
 
 export const useCertificates = () => {
@@ -61,13 +65,10 @@ export const useCertificates = () => {
 
         console.log('useCertificates - Fetching certificates for user:', supabaseUserId);
         
-        // Fetch user's certificates with embedded certificate details
+        // Fetch user's certificates using the new view
         const { data: userCerts, error: userError } = await supabase
-          .from('user_certificates')
-          .select(`
-            *,
-            certificates (*)
-          `)
+          .from('v_user_certificates')
+          .select('*')
           .eq('user_id', supabaseUserId)
           .eq('is_active', true)
           .order('created_at', { ascending: false });
@@ -78,36 +79,13 @@ export const useCertificates = () => {
         } else {
           console.log('useCertificates - Found user certificates:', userCerts);
           
-          // Handle cases where the join might not work perfectly
-          const processedCerts = await Promise.all(
-            (userCerts || []).map(async (cert) => {
-              if (!cert.certificates) {
-                // Fallback: fetch certificate details separately
-                const { data: certDetails } = await supabase
-                  .from('certificates')
-                  .select('*')
-                  .eq('id', cert.certificate_id)
-                  .single();
-                
-                return {
-                  ...cert,
-                  certificates: certDetails || {
-                    id: cert.certificate_id,
-                    title: 'Certificate',
-                    description: 'Course completion certificate',
-                    certificate_type: 'completion',
-                    template_data: {},
-                    requirements: {},
-                    is_active: true,
-                    auto_issue: false,
-                    created_at: cert.created_at,
-                    updated_at: cert.updated_at
-                  }
-                };
-              }
-              return cert;
-            })
-          );
+          // Process certificates to ensure they have required fields
+          const processedCerts = (userCerts || []).map((cert) => ({
+            ...cert,
+            // Provide fallback values if certificate data is missing
+            certificate_title: cert.certificate_title || 'Course Completion Certificate',
+            certificate_description: cert.certificate_description || 'Certificate of successful course completion'
+          }));
           
           setUserCertificates(processedCerts);
         }
@@ -151,7 +129,7 @@ export const useCertificates = () => {
 
   const refetch = () => {
     setLoading(true);
-    // Trigger useEffect to run again
+    // Trigger useEffect to run again by updating a state that's watched
     const event = new Event('refetch-certificates');
     window.dispatchEvent(event);
   };

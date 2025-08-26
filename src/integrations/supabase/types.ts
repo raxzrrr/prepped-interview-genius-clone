@@ -535,6 +535,7 @@ export type Database = {
           certificate_id: string
           certificate_url: string | null
           completion_data: Json | null
+          course_id: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -551,6 +552,7 @@ export type Database = {
           certificate_id: string
           certificate_url?: string | null
           completion_data?: Json | null
+          course_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -567,6 +569,7 @@ export type Database = {
           certificate_id?: string
           certificate_url?: string | null
           completion_data?: Json | null
+          course_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -591,6 +594,13 @@ export type Database = {
             columns: ["certificate_id"]
             isOneToOne: false
             referencedRelation: "certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_certificates_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
           {
@@ -646,6 +656,7 @@ export type Database = {
           assessment_completed_at: string | null
           assessment_passed: boolean | null
           assessment_score: number | null
+          completed_and_passed: boolean | null
           completed_modules_count: number | null
           course_id: string
           created_at: string | null
@@ -662,6 +673,7 @@ export type Database = {
           assessment_completed_at?: string | null
           assessment_passed?: boolean | null
           assessment_score?: number | null
+          completed_and_passed?: boolean | null
           completed_modules_count?: number | null
           course_id: string
           created_at?: string | null
@@ -678,6 +690,7 @@ export type Database = {
           assessment_completed_at?: string | null
           assessment_passed?: boolean | null
           assessment_score?: number | null
+          completed_and_passed?: boolean | null
           completed_modules_count?: number | null
           course_id?: string
           created_at?: string | null
@@ -796,7 +809,58 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_user_certificates: {
+        Row: {
+          certificate_description: string | null
+          certificate_id: string | null
+          certificate_is_active: boolean | null
+          certificate_title: string | null
+          certificate_type: string | null
+          certificate_url: string | null
+          completion_data: Json | null
+          course_id: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          issued_date: string | null
+          populated_html: string | null
+          score: number | null
+          template_id: string | null
+          updated_at: string | null
+          user_id: string | null
+          verification_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_user_certificates_profiles"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_certificates_certificate_id_fkey"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_certificates_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_certificates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "certificate_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       authenticate_admin: {

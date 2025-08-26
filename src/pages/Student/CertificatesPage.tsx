@@ -20,10 +20,9 @@ const CertificatesPage: React.FC = () => {
 
   const handleDownload = (certificate: any) => {
     const userName = user?.fullName || user?.firstName || 'Student';
-    const certificateData = certificate.certificates || { title: 'Certificate', description: 'Course completion certificate' };
     downloadCertificate({
       userName,
-      certificateTitle: certificateData.title || 'Certificate',
+      certificateTitle: certificate.certificate_title || 'Certificate',
       completionDate: new Date(certificate.issued_date).toLocaleDateString(),
       score: certificate.completion_data?.score || certificate.score,
       verificationCode: certificate.verification_code
@@ -86,70 +85,64 @@ const CertificatesPage: React.FC = () => {
           <CardContent>
             {userCertificates.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userCertificates.map((cert) => {
-                  const certificateInfo = cert.certificates || { 
-                    title: 'Course Completion Certificate', 
-                    description: 'Certificate of successful course completion' 
-                  };
-                  return (
-                    <Card key={cert.id} className="border-green-200 bg-green-50/50">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <Award className="h-5 w-5 text-green-600" />
-                            <Badge className="bg-green-100 text-green-800">Earned</Badge>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleView(cert)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleDownload(cert)}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              Download
-                            </Button>
-                          </div>
+                {userCertificates.map((cert) => (
+                  <Card key={cert.id} className="border-green-200 bg-green-50/50">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <Award className="h-5 w-5 text-green-600" />
+                          <Badge className="bg-green-100 text-green-800">Earned</Badge>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <h3 className="font-semibold text-lg mb-2">
-                          {certificateInfo.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {certificateInfo.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            <span>{new Date(cert.issued_date).toLocaleDateString()}</span>
-                          </div>
-                          {(cert.completion_data?.score || cert.score) && (
-                            <Badge variant="outline" className="text-green-600 border-green-600">
-                              {cert.completion_data?.score || cert.score}%
-                            </Badge>
-                          )}
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleView(cert)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleDownload(cert)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-2">
-                          ID: {cert.verification_code}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <h3 className="font-semibold text-lg mb-2">
+                        {cert.certificate_title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {cert.certificate_description}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{new Date(cert.issued_date).toLocaleDateString()}</span>
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                        {cert.score && (
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            {cert.score}%
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        ID: {cert.verification_code}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : (
               <div className="text-center py-12">
                 <Award className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No certificates earned yet</h3>
                 <p className="text-muted-foreground mb-4">
-                  Complete interviews and courses to earn your first certificate!
+                  Complete courses and pass assessments to earn your first certificate!
                 </p>
                 <Button onClick={() => window.location.href = '/learning'}>
                   Start Learning
@@ -239,7 +232,7 @@ const CertificatesPage: React.FC = () => {
         <CertificateViewer
           certificate={{
             id: selectedCertificate.verification_code,
-            title: selectedCertificate.certificates?.title || 'Certificate',
+            title: selectedCertificate.certificate_title || 'Certificate',
             completedDate: new Date(selectedCertificate.issued_date).toLocaleDateString(),
             score: selectedCertificate.completion_data?.score || selectedCertificate.score || 0
           }}
