@@ -61,10 +61,7 @@ const LearningPage: React.FC = () => {
   const handleAssessmentComplete = (passed: boolean, score: number) => {
     setShowAssessment(false);
     setAssessmentCourse(null);
-    // Force refresh to show new certificates
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
+    // No need to reload, data will be refreshed automatically
   };
 
   const handleVideoClick = (video: CourseVideo) => {
@@ -99,6 +96,7 @@ const LearningPage: React.FC = () => {
             <SimpleAssessment
               courseId={assessmentCourse.id}
               courseName={assessmentCourse.name}
+              totalModules={videos[assessmentCourse.id]?.length || 0}
               onComplete={handleAssessmentComplete}
               onCancel={() => {
                 setShowAssessment(false);
@@ -130,13 +128,14 @@ const LearningPage: React.FC = () => {
             <CardContent className="p-6">
               <div className="aspect-video bg-black rounded-lg mb-4 flex items-center justify-center">
                 {selectedVideo.video_url ? (
-                  <video 
-                    controls 
-                    className="w-full h-full rounded-lg"
-                    src={selectedVideo.video_url}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                <video 
+                  controls 
+                  preload="metadata"
+                  className="w-full h-full rounded-lg"
+                  src={selectedVideo.video_url}
+                >
+                  Your browser does not support the video tag.
+                </video>
                 ) : (
                   <div className="text-white text-center">
                     <Video className="h-12 w-12 mx-auto mb-2" />

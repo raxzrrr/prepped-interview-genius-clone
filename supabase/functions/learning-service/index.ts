@@ -48,12 +48,12 @@ const generateCertificate = async (supabase: any, params: {
   courseId: string;
   courseName: string;
   score: number;
-}): Promise<void> => {
+}): Promise<{ success: boolean; certificateId?: string; message?: string }> => {
   const PASSING_SCORE = 70;
   
   if (params.score < PASSING_SCORE) {
     console.log('Score below passing threshold, no certificate generated');
-    return;
+    return { success: false, message: 'Score below passing threshold' };
   }
 
   try {
@@ -67,14 +67,27 @@ const generateCertificate = async (supabase: any, params: {
 
     if (certError || !defaultCertificate) {
       console.warn('No default certificate found');
-      return;
+      return { success: false, message: 'No certificate template available' };
+    }
+
+    // Check if certificate already exists
+    const { data: existingCert } = await supabase
+      .from('user_certificates')
+      .select('id')
+      .eq('user_id', params.userId)
+      .eq('certificate_id', defaultCertificate.id)
+      .maybeSingle();
+
+    if (existingCert) {
+      console.log('Certificate already exists for user:', params.userId);
+      return { success: true, certificateId: existingCert.id, message: 'Certificate already exists' };
     }
 
     // Generate verification code
     const verificationCode = `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     
     // Save to user_certificates table
-    const { error: saveError } = await supabase
+    const { data: newCert, error: saveError } = await supabase
       .from('user_certificates')
       .insert({
         user_id: params.userId,
@@ -90,16 +103,19 @@ const generateCertificate = async (supabase: any, params: {
           user_name: params.name
         },
         is_active: true
-      });
+      })
+      .select('id')
+      .single();
 
     if (saveError) {
       throw saveError;
     }
 
     console.log('Certificate generated successfully for user:', params.userId);
+    return { success: true, certificateId: newCert.id, message: 'Certificate generated successfully' };
   } catch (error) {
     console.error('Error generating certificate:', error);
-    throw error;
+    return { success: false, message: error.message || 'Certificate generation failed' };
   }
 };
 
@@ -440,7 +456,9 @@ Deno.serve(async (req) => {
           assessment_passed: passed,
           assessment_score: score,
           last_assessment_score: score,
-          assessment_completed_at: new Date().toISOString()
+          assessment_completed_at: new Date().toISOString(),
+          is_completed: passed, // Mark course as completed if assessment is passed
+          total_modules_count: totalModules || 0 // Use provided totalModules
         };
 
         // Check if user_learning record exists
@@ -474,8 +492,6 @@ Deno.serve(async (req) => {
               course_id: data.courseId,
               progress: {},
               completed_modules_count: 0,
-              total_modules_count: 0,
-              is_completed: false,
               ...assessmentData
             });
 
@@ -485,6 +501,7 @@ Deno.serve(async (req) => {
         }
 
         // Generate certificate if passed
+        let certificateResult = { success: false, message: 'Not applicable' };
         if (passed && data.courseName) {
           try {
             // Get user profile for certificate, create if not exists
@@ -529,7 +546,7 @@ Deno.serve(async (req) => {
             }
 
             if (profileData?.full_name) {
-              await generateCertificate(supabase, {
+              certificateResult = await generateCertificate(supabase, {
                 userId: supabaseUserId,
                 name: profileData.full_name,
                 courseId: data.courseId,
@@ -539,14 +556,14 @@ Deno.serve(async (req) => {
             }
           } catch (certError) {
             console.error('Certificate generation failed:', certError);
-            // Don't throw - assessment should still be saved even if certificate fails
+            certificateResult = { success: false, message: 'Certificate generation failed' };
           }
         }
 
         result = {
           ...assessmentResult,
           saved: true,
-          certificateGenerated: passed
+          certificateGenerated: certificateResult.success
         };
         break;
 

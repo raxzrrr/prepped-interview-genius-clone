@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 interface SimpleAssessmentProps {
   courseId: string;
   courseName: string;
+  totalModules: number;
   onComplete: (passed: boolean, score: number) => void;
   onCancel: () => void;
 }
@@ -21,6 +22,7 @@ interface SimpleAssessmentProps {
 const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
   courseId,
   courseName,
+  totalModules,
   onComplete,
   onCancel
 }) => {
@@ -102,12 +104,13 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
         selectedAnswer: answer
       }));
 
-      // Submit to assessment service
+      // Submit to assessment service with totalModules
       const result = await assessmentService.evaluateAndSaveAssessment(
         user.id,
         courseId,
         courseName,
-        assessmentAnswers
+        assessmentAnswers,
+        totalModules
       );
 
       setResults(result);
@@ -200,7 +203,7 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
             </p>
             {results.passed && (
               <p className="text-green-600 font-medium mt-2">
-                Certificate will be generated for you!
+                {results.certificateGenerated ? 'Certificate generated!' : 'Generating certificate...'}
               </p>
             )}
           </div>

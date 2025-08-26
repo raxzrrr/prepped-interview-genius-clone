@@ -99,8 +99,9 @@ export const assessmentService = {
     userId: string, 
     courseId: string, 
     courseName: string,
-    userAnswers: AssessmentAnswer[]
-  ): Promise<AssessmentResult> {
+    userAnswers: AssessmentAnswer[],
+    totalModules?: number
+  ): Promise<AssessmentResult & { certificateGenerated?: boolean }> {
     try {
       console.log('Evaluating assessment for user:', userId, 'course:', courseId);
       
@@ -113,6 +114,7 @@ export const assessmentService = {
             courseId: courseId,
             courseName: courseName
           },
+          totalModules,
           questions: [], // Will be fetched by the service
           answers: userAnswers
         }
@@ -132,6 +134,7 @@ export const assessmentService = {
         correctAnswers: data.data.correctAnswers,
         score: data.data.score,
         passed: data.data.passed,
+        certificateGenerated: data.data.certificateGenerated || false,
         answers: userAnswers
       };
 
