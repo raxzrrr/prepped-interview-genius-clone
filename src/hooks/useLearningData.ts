@@ -46,7 +46,7 @@ export const useLearningData = (totalModules: number) => {
         setUserLearningData(data);
         
         // Sync local storage with server data
-        saveLocalProgress(data.progress || data.course_progress || {});
+        saveLocalProgress(data.progress || {});
       } else {
         // If no server data, use local fallback
         const localProgress = getLocalProgress();
@@ -63,11 +63,8 @@ export const useLearningData = (totalModules: number) => {
           id: 'local-' + user.id,
           user_id: user.id,
           progress: localProgress,
-          course_progress: localProgress,
           completed_modules_count: completedCount,
           total_modules_count: totalModules,
-          course_score: null,
-          course_completed_at: completedCount === totalModules ? new Date().toISOString() : null,
           assessment_attempted: false,
           assessment_score: null,
           assessment_completed_at: null,
@@ -96,11 +93,8 @@ export const useLearningData = (totalModules: number) => {
         id: 'local-' + user.id,
         user_id: user.id,
         progress: localProgress,
-        course_progress: localProgress,
         completed_modules_count: completedCount,
         total_modules_count: totalModules,
-        course_score: null,
-        course_completed_at: completedCount === totalModules ? new Date().toISOString() : null,
         assessment_attempted: false,
         assessment_score: null,
         assessment_completed_at: null,
@@ -129,7 +123,7 @@ export const useLearningData = (totalModules: number) => {
     try {
       console.log('Updating module completion for user:', user.id, 'module:', moduleId, 'course:', courseId);
       
-      const currentProgress = userLearningData?.progress || userLearningData?.course_progress || getLocalProgress();
+      const currentProgress = userLearningData?.progress || getLocalProgress();
       
       const courseProgress = { ...currentProgress };
       
@@ -159,11 +153,8 @@ export const useLearningData = (totalModules: number) => {
             id: 'local-' + user.id,
             user_id: user.id,
             progress: courseProgress,
-            course_progress: courseProgress,
             completed_modules_count: completedModulesCount,
             total_modules_count: totalModules,
-            course_score: isInterviewCourseComplete ? 85 : null,
-            course_completed_at: isInterviewCourseComplete ? new Date().toISOString() : null,
             assessment_attempted: false,
             assessment_score: null,
             assessment_completed_at: null,
@@ -174,10 +165,7 @@ export const useLearningData = (totalModules: number) => {
         return {
           ...prevData,
           progress: courseProgress,
-          course_progress: courseProgress,
           completed_modules_count: completedModulesCount,
-          course_score: isInterviewCourseComplete ? 85 : prevData.course_score,
-          course_completed_at: isInterviewCourseComplete ? new Date().toISOString() : prevData.course_completed_at,
           updated_at: new Date().toISOString()
         };
       });

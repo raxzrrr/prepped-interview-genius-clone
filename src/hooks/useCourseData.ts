@@ -82,23 +82,35 @@ export const useCourseData = () => {
       if (user?.id) {
         try {
           const totalVideos = Object.values(videosData).reduce((sum, vids) => sum + vids.length, 0);
-          const learningData = await learningService.fetchUserLearningData(user.id, totalVideos);
+          // Get learning data for each course separately since it's per-course now
+          const allLearningData: Record<string, UserLearningData> = {};
           
-          if (learningData) {
-            setUserLearningData(learningData);
-            saveLocalProgress(learningData.course_progress_new || {});
+          for (const course of coursesWithVideos) {
+            try {
+              const learningData = await learningService.fetchUserLearningData(user.id, videosData[course.id].length, course.id);
+              if (learningData) {
+                allLearningData[course.id] = learningData;
+              }
+            } catch (err) {
+              console.warn(`Failed to load learning data for course ${course.id}:`, err);
+            }
+          }
+          
+          // For backward compatibility, use the first course's data as primary
+          const primaryLearningData = Object.values(allLearningData)[0] || null;
+          setUserLearningData(primaryLearningData);
+          
+          if (primaryLearningData) {
+            saveLocalProgress(primaryLearningData.progress || {});
           } else {
             // Create fallback with local data
             const localProgress = getLocalProgress();
             const fallbackData: UserLearningData = {
               id: 'local-' + user.id,
               user_id: user.id,
-              course_progress: {},
-              course_progress_new: localProgress,
-              completed_modules: 0,
-              total_modules: totalVideos,
-              course_score: null,
-              course_completed_at: null,
+              progress: localProgress,
+              completed_modules_count: 0,
+              total_modules_count: totalVideos,
               assessment_attempted: false,
               assessment_score: null,
               assessment_completed_at: null,
@@ -115,12 +127,9 @@ export const useCourseData = () => {
           const fallbackData: UserLearningData = {
             id: 'local-' + user.id,
             user_id: user.id,
-            course_progress: {},
-            course_progress_new: localProgress,
-            completed_modules: 0,
-            total_modules: totalVideos,
-            course_score: null,
-            course_completed_at: null,
+            progress: localProgress,
+            completed_modules_count: 0,
+            total_modules_count: totalVideos,
             assessment_attempted: false,
             assessment_score: null,
             assessment_completed_at: null,
@@ -145,15 +154,15 @@ export const useCourseData = () => {
   }, [user?.id, toast]);
 
   const getCourseProgress = useCallback((courseId: string): number => {
-    if (!userLearningData?.course_progress_new) return 0;
+    if (!userLearningData || userLearningData.course_id !== courseId) return 0;
     
-    const courseProgress = userLearningData.course_progress_new[courseId] || {};
     const courseVideos = videos[courseId] || [];
-    
     if (courseVideos.length === 0) return 0;
     
-    const completedCount = Object.values(courseProgress).filter(completed => completed === true).length;
-    return Math.round((completedCount / courseVideos.length) * 100);
+    const completedCount = userLearningData.completed_modules_count || 0;
+    const totalCount = userLearningData.total_modules_count || courseVideos.length;
+    
+    return Math.round((completedCount / totalCount) * 100);
   }, [userLearningData, videos]);
 
   const getCourseVideoCount = useCallback((courseId: string): number => {
@@ -164,7 +173,7 @@ export const useCourseData = () => {
     if (!user?.id) return false;
 
     try {
-      const currentProgress = userLearningData?.course_progress_new || getLocalProgress();
+      const currentProgress = userLearningData?.progress || getLocalProgress();
       const updatedProgress = { ...currentProgress };
       
       if (!updatedProgress[courseId]) {
@@ -173,12 +182,17 @@ export const useCourseData = () => {
       
       updatedProgress[courseId][videoId] = true;
       
+      // Calculate new completion count
+      const courseVideos = videos[courseId] || [];
+      const completedCount = Object.values(updatedProgress[courseId] || {}).filter(Boolean).length;
+      
       // Update local state immediately
       setUserLearningData(prev => {
         if (!prev) return null;
         return {
           ...prev,
-          course_progress_new: updatedProgress,
+          progress: updatedProgress,
+          completed_modules_count: completedCount,
           updated_at: new Date().toISOString()
         };
       });
@@ -197,19 +211,23 @@ export const useCourseData = () => {
     if (!user?.id) return false;
 
     try {
-      const currentProgress = userLearningData?.course_progress_new || getLocalProgress();
+      const currentProgress = userLearningData?.progress || getLocalProgress();
       const updatedProgress = { ...currentProgress };
       
       if (updatedProgress[courseId] && updatedProgress[courseId][videoId]) {
         delete updatedProgress[courseId][videoId];
       }
       
+      // Calculate new completion count
+      const completedCount = Object.values(updatedProgress[courseId] || {}).filter(Boolean).length;
+      
       // Update local state immediately
       setUserLearningData(prev => {
         if (!prev) return null;
         return {
           ...prev,
-          course_progress_new: updatedProgress,
+          progress: updatedProgress,
+          completed_modules_count: completedCount,
           updated_at: new Date().toISOString()
         };
       });

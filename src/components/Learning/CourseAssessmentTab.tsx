@@ -24,22 +24,18 @@ const CourseAssessmentTab: React.FC<CourseAssessmentTabProps> = ({
   const [selectedAssessment, setSelectedAssessment] = useState<Course | null>(null);
 
   const getCourseAssessmentStatus = (courseId: string) => {
-    if (!userLearningData?.course_progress_new) return 'not_started';
+    if (!userLearningData || userLearningData.course_id !== courseId) return 'not_started';
     
-    const courseProgressData = userLearningData.course_progress_new[courseId];
-    if (!courseProgressData) return 'not_started';
-    
-    if (courseProgressData.assessment_passed) return 'passed';
-    if (courseProgressData.assessment_attempted) return 'failed';
+    if (userLearningData.assessment_passed) return 'passed';
+    if (userLearningData.assessment_attempted) return 'failed';
     
     return 'not_started';
   };
 
   const getAssessmentScore = (courseId: string): number | null => {
-    if (!userLearningData?.course_progress_new) return null;
+    if (!userLearningData || userLearningData.course_id !== courseId) return null;
     
-    const courseProgressData = userLearningData.course_progress_new[courseId];
-    return courseProgressData?.assessment_score || null;
+    return userLearningData.assessment_score || null;
   };
 
   const handleAssessmentComplete = (courseId: string, passed: boolean, score: number) => {

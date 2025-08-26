@@ -30,8 +30,7 @@ const LearningPage: React.FC = () => {
     getCourseProgress,
     isCourseCompleted,
     isVideoCompleted,
-    courseHasQuestions,
-    getCourseLearningData
+    courseHasQuestions
   } = useSimpleLearning();
 
   if (authLoading || loading) {
@@ -177,7 +176,6 @@ const LearningPage: React.FC = () => {
     const courseVideos = videos[selectedCourse.id] || [];
     const progress = getCourseProgress(selectedCourse.id);
     const completed = isCourseCompleted(selectedCourse.id);
-    const learningData = getCourseLearningData(selectedCourse.id);
 
     return (
       <DashboardLayout>
@@ -200,31 +198,12 @@ const LearningPage: React.FC = () => {
                   <Badge variant={completed ? "default" : "secondary"}>
                     {progress}% Complete
                   </Badge>
-                  {learningData?.completed_and_passed && (
-                    <Badge className="bg-green-100 text-green-800 border-green-600">
-                      <Award className="w-3 h-3 mr-1" />
-                      Completed & Passed
-                    </Badge>
-                  )}
                 </div>
               </div>
               <Progress value={progress} className="mt-2" />
             </CardHeader>
             <CardContent>
-              {learningData?.completed_and_passed ? (
-                <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 text-green-700">
-                    <Award className="w-5 h-5" />
-                    <span className="font-medium">Course Completed & Certificate Earned!</span>
-                  </div>
-                  <p className="text-green-600 text-sm mt-1">
-                    Congratulations! You have successfully completed this course and earned your certificate.
-                  </p>
-                  <div className="mt-2 text-sm text-green-600">
-                    Assessment Score: {learningData.assessment_score}%
-                  </div>
-                </div>
-              ) : completed ? (
+              {completed ? (
                 <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center gap-2 text-blue-700">
                     <Award className="w-5 h-5" />
@@ -319,7 +298,6 @@ const LearningPage: React.FC = () => {
               const progress = getCourseProgress(course.id);
               const videoCount = videos[course.id]?.length || 0;
               const completed = isCourseCompleted(course.id);
-              const learningData = getCourseLearningData(course.id);
 
               return (
                 <Card 
@@ -334,12 +312,6 @@ const LearningPage: React.FC = () => {
                         <Badge variant={completed ? "default" : "secondary"}>
                           {progress}%
                         </Badge>
-                        {learningData?.completed_and_passed && (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            <Award className="w-3 h-3 mr-1" />
-                            Certified
-                          </Badge>
-                        )}
                       </div>
                     </div>
                     <p className="text-muted-foreground text-sm">
@@ -349,14 +321,9 @@ const LearningPage: React.FC = () => {
                   <CardContent>
                     <div className="space-y-3">
                       <Progress value={progress} className="h-2" />
-                      <div className="flex justify-between items-center text-sm text-muted-foreground">
+                       <div className="flex justify-between items-center text-sm text-muted-foreground">
                         <span>{videoCount} videos</span>
-                        {learningData?.completed_and_passed ? (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            <Award className="w-3 h-3 mr-1" />
-                            Certificate Earned
-                          </Badge>
-                        ) : completed ? (
+                        {completed ? (
                           <Badge variant="outline" className="text-blue-600 border-blue-600">
                             <Award className="w-3 h-3 mr-1" />
                             Ready for Assessment
@@ -365,15 +332,13 @@ const LearningPage: React.FC = () => {
                       </div>
                       <Button 
                         className="w-full" 
-                        variant={learningData?.completed_and_passed ? "default" : completed ? "default" : "outline"}
+                        variant={completed ? "default" : "outline"}
                       >
-                        {learningData?.completed_and_passed 
-                          ? "View Certificate" 
-                          : progress === 0 
-                            ? "Start Course" 
-                            : completed 
-                              ? "Take Assessment" 
-                              : "Continue"
+                        {progress === 0 
+                          ? "Start Course" 
+                          : completed 
+                            ? "Take Assessment" 
+                            : "Continue"
                         }
                       </Button>
                     </div>
