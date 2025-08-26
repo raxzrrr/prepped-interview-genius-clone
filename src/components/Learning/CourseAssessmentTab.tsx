@@ -43,9 +43,12 @@ const CourseAssessmentTab: React.FC<CourseAssessmentTabProps> = ({
   };
 
   const handleAssessmentComplete = (courseId: string, passed: boolean, score: number) => {
+    console.log('Assessment completed:', { courseId, passed, score });
     setSelectedAssessment(null);
-    // Refresh the page to reflect updated assessment status
-    window.location.reload();
+    // Force refresh user data to show new certificates and updated assessment status
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   // Get completed courses and user skills for job recommendations
