@@ -49,6 +49,8 @@ export const useCertificates = () => {
       }
 
       try {
+        console.log('useCertificates - Fetching certificates for user:', supabaseUserId);
+        
         // Fetch user's certificates
         const { data: userCerts, error: userError } = await supabase
           .from('user_certificates')
@@ -61,6 +63,7 @@ export const useCertificates = () => {
         if (userError) {
           console.error('Error fetching user certificates:', userError);
         } else {
+          console.log('useCertificates - Found user certificates:', userCerts);
           setUserCertificates(userCerts || []);
         }
 

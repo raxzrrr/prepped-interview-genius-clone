@@ -580,6 +580,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_user_certificates_profiles"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_certificates_certificate_id_fkey"
             columns: ["certificate_id"]
             isOneToOne: false
@@ -683,6 +690,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_user_learning_profiles"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_learning_course_id_fkey"
             columns: ["course_id"]
@@ -819,6 +833,14 @@ export type Database = {
       is_current_user_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      is_owner_by_email: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
+      jwt_email: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       populate_certificate_template: {
         Args: {
