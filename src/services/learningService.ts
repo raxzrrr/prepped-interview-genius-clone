@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { generateConsistentUUID } from '@/utils/userUtils';
 
 export interface UserLearningData {
   id?: string;
@@ -22,23 +23,6 @@ export interface UserLearningData {
   course_completed_at?: string; // For backwards compatibility
 }
 
-// Generate a consistent UUID from Clerk User ID
-const generateConsistentUUID = (clerkUserId: string): string => {
-  // Remove any prefix like "user_" if present
-  const cleanId = clerkUserId.replace(/^user_/, '');
-  
-  // Pad or truncate to 32 characters
-  const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
-  
-  // Format as UUID
-  return [
-    paddedId.substring(0, 8),
-    paddedId.substring(8, 12),
-    paddedId.substring(12, 16),
-    paddedId.substring(16, 20),
-    paddedId.substring(20, 32)
-  ].join('-');
-};
 
 export const learningService = {
   async fetchUserLearningData(clerkUserId: string, totalModules: number, courseId?: string): Promise<UserLearningData | null> {
@@ -66,7 +50,6 @@ export const learningService = {
           user_id: userId,
           course_id: courseId,
           progress: {},
-          course_progress_new: {},
           completed_modules_count: 0,
           total_modules_count: totalModules,
           last_assessment_score: 0,
@@ -109,7 +92,7 @@ export const learningService = {
       const userId = generateConsistentUUID(clerkUserId);
       
       const updateData = {
-        course_progress_new: courseProgress,
+        progress: courseProgress,
         completed_modules_count: completedModulesCount,
         total_modules_count: totalModules,
         updated_at: new Date().toISOString()
@@ -128,7 +111,6 @@ export const learningService = {
         const newRecord = {
           user_id: userId,
           course_id: courseId,
-          progress: {},
           ...updateData,
           last_assessment_score: 0,
           is_completed: false,
@@ -186,7 +168,6 @@ export const learningService = {
           user_id: userId,
           course_id: courseId,
           progress: {},
-          course_progress_new: {},
           completed_modules_count: 0,
           total_modules_count: 0,
           is_completed: false,

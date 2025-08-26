@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { questionService } from './questionService';
 import { certificateTemplateService } from './certificateTemplateService';
+import { generateConsistentUUID } from '@/utils/userUtils';
 
 export interface AssessmentQuestion {
   id: string;
@@ -153,19 +154,6 @@ export const assessmentService = {
     
     if (score >= PASSING_SCORE) {
       try {
-        // Generate consistent UUID for Supabase
-        const generateConsistentUUID = (clerkUserId: string): string => {
-          const cleanId = clerkUserId.replace(/^user_/, '');
-          const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
-          return [
-            paddedId.substring(0, 8),
-            paddedId.substring(8, 12),
-            paddedId.substring(12, 16),
-            paddedId.substring(16, 20),
-            paddedId.substring(20, 32)
-          ].join('-');
-        };
-
         const supabaseUserId = generateConsistentUUID(userId);
 
         // Get default certificate from certificates table

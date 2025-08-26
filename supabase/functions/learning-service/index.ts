@@ -158,13 +158,15 @@ Deno.serve(async (req) => {
           // Create new record if none exists
           const newRecord = {
             user_id: supabaseUserId,
-            course_progress: {},
-            completed_modules: 0,
-            total_modules: totalModules,
+            course_id: data.courseId,
+            progress: {},
+            completed_modules_count: 0,
+            total_modules_count: totalModules,
             assessment_attempted: false,
             assessment_score: null,
-            course_score: null,
-            course_completed_at: null,
+            last_assessment_score: 0,
+            is_completed: false,
+            assessment_passed: false,
             assessment_completed_at: null
           };
 
@@ -201,13 +203,15 @@ Deno.serve(async (req) => {
           console.log('No existing record found, creating one first...');
           const newRecord = {
             user_id: supabaseUserId,
-            course_progress: data.course_progress || {},
-            completed_modules: data.completed_modules || 0,
-            total_modules: data.total_modules || 0,
+            course_id: data.courseId,
+            progress: data.course_progress || {},
+            completed_modules_count: data.completed_modules || 0,
+            total_modules_count: data.total_modules || 0,
             assessment_attempted: false,
             assessment_score: null,
-            course_score: data.course_score || null,
-            course_completed_at: data.course_completed_at || null,
+            last_assessment_score: 0,
+            is_completed: false,
+            assessment_passed: false,
             assessment_completed_at: null
           };
 
