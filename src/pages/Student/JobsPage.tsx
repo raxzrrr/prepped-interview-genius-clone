@@ -30,6 +30,7 @@ interface JobResult {
   type?: string;
   experience?: string;
   salary?: string;
+  source?: string;
 }
 
 const JobsPage: React.FC = () => {
@@ -258,30 +259,40 @@ const JobsPage: React.FC = () => {
               </div>
             )}
 
-            {!isSearching && jobResults.length === 0 && hasSearched && (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No jobs found</h3>
-                  <p className="text-muted-foreground">
-                    Try different roles or locations to find more opportunities
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+             {!isSearching && jobResults.length === 0 && hasSearched && (
+               <Card>
+                 <CardContent className="text-center py-12">
+                   <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                   <h3 className="text-lg font-medium mb-2">No jobs found</h3>
+                   <p className="text-muted-foreground">
+                     No real job listings match your search criteria.
+                   </p>
+                   <p className="text-sm text-muted-foreground mt-2">
+                     Try broader search terms or add "Remote" as a location.
+                   </p>
+                 </CardContent>
+               </Card>
+             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {jobResults.map((job) => (
                   <Card key={job.id} className="p-6">
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="font-semibold text-lg">{job.title}</h3>
-                        <p className="text-muted-foreground">{job.company}</p>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {job.location}
-                        </p>
-                      </div>
+                     <div className="space-y-4">
+                       <div>
+                         <div className="flex items-start justify-between mb-2">
+                           <h3 className="font-semibold text-lg">{job.title}</h3>
+                           {job.source && (
+                             <Badge variant="secondary" className="text-xs">
+                               {job.source}
+                             </Badge>
+                           )}
+                         </div>
+                         <p className="text-muted-foreground">{job.company}</p>
+                         <p className="text-sm text-muted-foreground flex items-center gap-1">
+                           <MapPin className="w-4 h-4" />
+                           {job.location}
+                         </p>
+                       </div>
                       
                       <p className="text-sm line-clamp-3">{job.description}</p>
                       

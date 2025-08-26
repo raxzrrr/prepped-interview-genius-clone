@@ -9,6 +9,7 @@ interface JobResult {
   type?: string;
   experience?: string;
   salary?: string;
+  source?: string;
 }
 
 interface WebSearchResult {
@@ -20,34 +21,30 @@ interface WebSearchResult {
 class JobSearchService {
   async searchJobs(roles: string[], locations: string[]): Promise<JobResult[]> {
     try {
-      const response = await fetch('/api/functions/v1/gemini-job-search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      const { data, error } = await supabase.functions.invoke('real-job-search', {
+        body: {
           roles,
           locations
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(`Job search failed: ${error.message}`);
       }
 
-      const data = await response.json();
-      
-      if (data.jobs && Array.isArray(data.jobs)) {
+      if (data && data.jobs && Array.isArray(data.jobs)) {
         return data.jobs;
       }
 
-      throw new Error('Invalid response format from job search API');
+      return [];
     } catch (error) {
       console.error('Error in job search:', error);
       throw error;
     }
   }
-
 }
 
 export const websearch = new JobSearchService();
