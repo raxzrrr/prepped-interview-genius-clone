@@ -101,6 +101,8 @@ export const assessmentService = {
     userAnswers: AssessmentAnswer[]
   ): Promise<AssessmentResult> {
     try {
+      console.log('Evaluating assessment for user:', userId, 'course:', courseId);
+      
       // Call learning-service edge function to evaluate and save assessment
       const { data, error } = await supabase.functions.invoke('learning-service', {
         body: {

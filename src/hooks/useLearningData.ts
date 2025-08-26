@@ -127,7 +127,7 @@ export const useLearningData = (totalModules: number) => {
     }
 
     try {
-      console.log('Updating module completion using service:', { moduleId, courseId });
+      console.log('Updating module completion for user:', user.id, 'module:', moduleId, 'course:', courseId);
       
       const currentProgress = userLearningData?.course_progress || getLocalProgress();
       
@@ -148,10 +148,7 @@ export const useLearningData = (totalModules: number) => {
         }
       });
 
-      // Always save to localStorage first for immediate feedback
-      saveLocalProgress(courseProgress);
-
-      // Update local state immediately
+      // Update local state immediately for responsive UI
       const isInterviewCourseComplete = Object.keys(courseProgress['interview-mastery'] || {}).filter(
         key => courseProgress['interview-mastery'][key] === true
       ).length >= 5;
@@ -185,7 +182,7 @@ export const useLearningData = (totalModules: number) => {
         };
       });
 
-      // Try to update via service (async, don't block UI)
+      // Save progress to Supabase (primary storage) - don't use localStorage as main storage
       try {
         const updatedData = await learningService.updateModuleProgress(
           user.id,
@@ -195,23 +192,32 @@ export const useLearningData = (totalModules: number) => {
           totalModules
         );
         
-        console.log('Successfully updated learning progress via service');
+        console.log('Successfully saved progress to Supabase');
         setUserLearningData(updatedData);
+        
+        // Only save to localStorage as backup after successful Supabase save
+        saveLocalProgress(courseProgress);
         
         toast({
           title: "Progress Saved",
-          description: "Your learning progress has been updated.",
+          description: "Your learning progress has been saved to your profile.",
         });
       } catch (serviceError: any) {
-        console.error('Service update error (continuing with local state):', serviceError);
-        // Don't show error toast for service failures - user progress is still saved locally
+        console.error('Failed to save progress to Supabase:', serviceError);
+        // Save to localStorage as fallback
+        saveLocalProgress(courseProgress);
+        
+        toast({
+          title: "Progress Saved Locally",
+          description: "Progress saved offline. Will sync when connection is restored.",
+          variant: "default"
+        });
       }
 
       return true;
     } catch (err: any) {
       console.error('Error updating module completion:', err);
-      // Still return true since local state was updated
-      return true;
+      return false;
     }
   }, [userLearningData, user?.id, toast, totalModules]);
 

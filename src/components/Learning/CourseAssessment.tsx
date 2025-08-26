@@ -108,6 +108,8 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
         throw new Error('User not authenticated');
       }
 
+      console.log('Starting assessment evaluation for user:', userId);
+
       // Evaluate and save assessment using the learning service
       const result = await assessmentService.evaluateAndSaveAssessment(
         userId, 
@@ -122,13 +124,12 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
       if (result.passed) {
         toast({
           title: "Congratulations!",
-          description: `You passed with ${result.score}%! Your certificate has been generated.`,
+          description: `You passed with ${result.score}%! Results saved successfully.`,
         });
       } else {
         toast({
           title: "Assessment Complete",
-          description: `You scored ${result.score}%. You need 70% or higher to pass. You can try again!`,
-          variant: "destructive"
+          description: `You scored ${result.score}%. You need 70% or higher to pass. Results saved.`,
         });
       }
 
@@ -137,30 +138,32 @@ const CourseAssessment: React.FC<CourseAssessmentProps> = ({
 
     } catch (error) {
       console.error('Error finishing assessment:', error);
-      toast({
-        title: "Evaluation Failed",
-        description: "Unable to evaluate your assessment. Please try again.",
-        variant: "destructive"
-      });
       
-      // Still show results even if saving failed
+      // Try fallback evaluation before showing error
       if (finalAnswers.length > 0) {
         try {
-          // Fallback: calculate results locally
+          console.log('Attempting fallback evaluation...');
           const fallbackResult = await assessmentService.calculateResults(courseId, finalAnswers);
           setAssessmentResult(fallbackResult);
           setShowResults(true);
           onComplete(fallbackResult.passed, fallbackResult.score);
           
           toast({
-            title: "Results Calculated",
-            description: "Your results are shown below, but may not be saved. Please contact support if this persists.",
-            variant: "destructive"
+            title: "Assessment Complete",
+            description: "Results calculated but may not be saved permanently. Please try again if this persists.",
+            variant: "default"
           });
+          return;
         } catch (fallbackError) {
           console.error('Fallback calculation also failed:', fallbackError);
         }
       }
+      
+      toast({
+        title: "Unable to evaluate your assessment, please try again.",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }

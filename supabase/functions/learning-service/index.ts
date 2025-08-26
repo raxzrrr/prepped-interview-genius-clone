@@ -15,22 +15,30 @@ interface LearningServiceRequest {
   answers?: any[];
 }
 
-// Generate consistent UUID from Clerk User ID for database operations
-const generateConsistentUUID = (clerkUserId: string): string => {
-  // Remove any prefix like "user_" if present
-  const cleanId = clerkUserId.replace(/^user_/, '');
-  
-  // Pad or truncate to 32 characters
-  const paddedId = cleanId.padEnd(32, '0').substring(0, 32);
-  
-  // Format as UUID
-  return [
-    paddedId.substring(0, 8),
-    paddedId.substring(8, 12),
-    paddedId.substring(12, 16),
-    paddedId.substring(16, 20),
-    paddedId.substring(20, 32)
-  ].join('-');
+// Fixed namespace UUID for consistent generation
+const NAMESPACE_UUID = '1b671a64-40d5-491e-99b0-da01ff1f3341';
+
+// Generate consistent UUID from Clerk User ID for database operations (matches client-side utility)
+const generateConsistentUUID = (userId: string): string => {
+  try {
+    // Simple hash function to create deterministic UUID (matches client logic)
+    let hash = 0;
+    const input = userId + NAMESPACE_UUID;
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert hash to hex and pad to create UUID format
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    return `${hex.slice(0, 8)}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-a${hex.slice(0, 3)}-${hex.slice(0, 12).padEnd(12, '0')}`;
+  } catch (error) {
+    console.error("Error generating consistent UUID:", error);
+    // Fallback to a simple UUID-like format
+    const randomHex = Math.random().toString(16).substring(2, 10);
+    return `${randomHex}-0000-4000-a000-000000000000`;
+  }
 };
 
 // Certificate generation function
