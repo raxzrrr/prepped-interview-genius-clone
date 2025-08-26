@@ -21,10 +21,10 @@ const GetStarted = () => {
         <div className="flex flex-col items-center space-y-4 text-center">
           <div className="space-y-2">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
-              Ready to Ace Your Next Interview?
+              Start Your Interview Success Journey Today
             </h2>
             <p className="mx-auto max-w-3xl text-gray-600 md:text-xl/relaxed">
-              Start practicing with our AI interview platform and gain the confidence you need to succeed.
+              Join thousands who've already improved their interview skills with MockInvi's AI-powered platform and smart job discovery.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">

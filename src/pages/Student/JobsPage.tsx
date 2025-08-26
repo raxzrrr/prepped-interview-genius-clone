@@ -104,7 +104,7 @@ const JobsPage: React.FC = () => {
       
       toast({
         title: `Found ${results.length} job opportunities`,
-        description: "Results from various job platforms",
+        description: "Results from web crawling multiple job sites",
       });
     } catch (error) {
       console.error('Job search error:', error);
@@ -261,19 +261,19 @@ const JobsPage: React.FC = () => {
             )}
 
              {!isSearching && jobResults.length === 0 && hasSearched && (
-               <Card>
-                 <CardContent className="text-center py-12">
-                   <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                   <h3 className="text-lg font-medium mb-2">No jobs found</h3>
-                   <p className="text-muted-foreground">
-                     No real job listings match your search criteria.
-                   </p>
-                   <p className="text-sm text-muted-foreground mt-2">
-                     Try broader search terms or add "Remote" as a location.
-                   </p>
-                 </CardContent>
-               </Card>
-             )}
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No jobs found</h3>
+                    <p className="text-muted-foreground">
+                      No job listings found through web crawling that match your search criteria.
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Try broader search terms like "Software Engineer" or add "Remote" as a location.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {jobResults.map((job) => (

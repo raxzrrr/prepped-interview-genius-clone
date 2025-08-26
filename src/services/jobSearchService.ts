@@ -1,3 +1,5 @@
+import { WebCrawlService } from '@/utils/WebCrawlService';
+
 interface JobResult {
   id: string;
   title: string;
@@ -9,47 +11,27 @@ interface JobResult {
   type?: string;
   experience?: string;
   salary?: string;
-  source?: string;
-}
-
-interface WebSearchResult {
-  title: string;
-  content: string;
-  url: string;
+  source: string;
 }
 
 class JobSearchService {
   async searchJobs(roles: string[], locations: string[]): Promise<JobResult[]> {
     try {
-      const { supabase } = await import('@/integrations/supabase/client');
+      console.log('Starting web crawl job search for roles:', roles, 'locations:', locations);
       
-      const { data, error } = await supabase.functions.invoke('real-job-search', {
-        body: {
-          roles,
-          locations
-        }
-      });
-
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(`Job search failed: ${error.message}`);
-      }
-
-      if (data) {
-        if (data.success === false) {
-          throw new Error(data.message || 'Failed to fetch job listings');
-        }
-        
-        if (data.jobs && Array.isArray(data.jobs)) {
-          return data.jobs;
-        }
-      }
-
-      return [];
+      // Use web crawling service instead of API calls
+      const results = await WebCrawlService.searchJobs(roles, locations);
+      
+      console.log(`Web crawl found ${results.length} jobs`);
+      return results;
     } catch (error) {
-      console.error('Error in job search:', error);
-      throw error;
+      console.error('Error in web crawl job search:', error);
+      throw new Error('Failed to search for jobs through web crawling. Please try again with different search terms.');
     }
+  }
+
+  async verifyJobUrl(url: string): Promise<boolean> {
+    return WebCrawlService.verifyJobUrl(url);
   }
 }
 

@@ -29,8 +29,8 @@ const Header: React.FC = () => {
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
       <div className="container flex items-center justify-between h-16 px-4 mx-auto">
         <Link to="/" className="flex items-center space-x-2">
-          <span className="text-2xl font-bold bg-gradient-to-r from-brand-purple to-brand-blue bg-clip-text text-transparent">
-            Interview Genius
+          <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            MockInvi
           </span>
         </Link>
 
@@ -47,6 +47,9 @@ const Header: React.FC = () => {
               <Link to="/pricing" className="text-gray-600 hover:text-brand-purple transition-colors">
                 Pricing
               </Link>
+              <Link to="/contact" className="text-gray-600 hover:text-brand-purple transition-colors">
+                Contact
+              </Link>
             </>
           )}
           
@@ -61,8 +64,11 @@ const Header: React.FC = () => {
               <Link to="/interviews" className="text-gray-600 hover:text-brand-purple transition-colors">
                 My Interviews
               </Link>
-              <Link to="/custom-interviews" className="text-gray-600 hover:text-brand-purple transition-colors">
-                Custom Interviews
+              <Link to="/jobs" className="text-gray-600 hover:text-brand-purple transition-colors">
+                Jobs
+              </Link>
+              <Link to="/interview-resources" className="text-gray-600 hover:text-brand-purple transition-colors">
+                Interview Guides
               </Link>
             </>
           )}

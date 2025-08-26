@@ -89,7 +89,7 @@ const RazorpayButton: React.FC<RazorpayButtonProps> = ({
         key: paymentSettings.razorpay_key_id,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: 'Interview Genius',
+        name: 'MockInvi',
         description: `${planName} Plan Subscription`,
         order_id: orderData.id,
         handler: async (response: any) => {

@@ -93,7 +93,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 z-10 bg-brand-darkBlue text-white">
         <div className="flex items-center justify-center h-16 px-4 border-b border-gray-700">
           <Link to="/" className="text-xl font-bold text-white hover:text-gray-200 transition-colors">
-            Interview Genius
+            MockInvi
           </Link>
         </div>
         
@@ -155,7 +155,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <div className="flex flex-col flex-1 md:ml-64 overflow-hidden">
         <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-6 bg-white border-b border-gray-200 shadow-sm md:hidden">
           <Link to="/" className="text-xl font-bold text-gray-900">
-            Interview Genius
+            MockInvi
           </Link>
           <Button variant="ghost" size="icon" onClick={() => {}}>
             <span className="sr-only">Open menu</span>

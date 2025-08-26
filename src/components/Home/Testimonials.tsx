@@ -6,13 +6,13 @@ const Testimonials: React.FC = () => {
     {
       name: "Sarah Johnson",
       role: "Software Engineer at Google",
-      content: "Interview Genius was a game-changer for my job search. The AI-generated questions were spot-on for my technical interviews, and the facial expression analysis helped me become more aware of my non-verbal communication.",
+      content: "MockInvi was a game-changer for my job search. The AI-generated questions were spot-on for my technical interviews, and the facial expression analysis helped me become more aware of my non-verbal communication.",
       avatar: "https://randomuser.me/api/portraits/women/32.jpg"
     },
     {
       name: "David Chen",
       role: "Product Manager at Amazon",
-      content: "I was skeptical at first, but the personalized feedback from Interview Genius helped me land my dream job. The comprehensive reports after each practice session were incredibly insightful.",
+      content: "I was skeptical at first, but the personalized feedback from MockInvi helped me land my dream job. The comprehensive reports after each practice session were incredibly insightful.",
       avatar: "https://randomuser.me/api/portraits/men/46.jpg"
     },
     {
@@ -31,7 +31,7 @@ const Testimonials: React.FC = () => {
             What Our Users Say
           </h2>
           <p className="mt-4 text-xl text-gray-600">
-            Join thousands of professionals who have transformed their interview skills with Interview Genius.
+            Join thousands of professionals who have transformed their interview skills with MockInvi.
           </p>
         </div>
         

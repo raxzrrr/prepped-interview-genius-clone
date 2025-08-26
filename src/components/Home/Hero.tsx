@@ -18,15 +18,14 @@ const Hero: React.FC = () => {
         <div className="grid items-center grid-cols-1 gap-12 lg:grid-cols-2">
           <div className="space-y-8 animate-fadeIn">
             <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 md:text-5xl lg:text-6xl">
-              <span className="block">Master Your</span>
-              <span className="block text-brand-purple">Interview Skills</span>
-              <span className="block">With AI</span>
+              <span className="block">Ace Your Next</span>
+              <span className="block text-brand-purple">Interview</span>
+              <span className="block">With MockInvi</span>
             </h1>
             
             <p className="max-w-lg text-xl text-gray-600">
-              Revolutionize your interview preparation with our AI-powered platform. 
-              Upload your resume, practice with personalized questions, and get real-time 
-              feedback on your performance.
+              The ultimate AI-powered interview preparation platform. Practice with mock interviews, 
+              get intelligent feedback, and discover your next job opportunity with our smart crawling technology.
             </p>
             
             <div className="flex flex-wrap gap-4">

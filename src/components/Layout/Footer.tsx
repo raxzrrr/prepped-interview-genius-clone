@@ -15,10 +15,10 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-4 md:grid-cols-2">
           <div>
             <h3 className="mb-4 text-sm font-semibold tracking-wider text-gray-900 uppercase">
-              Interview Genius
+              MockInvi
             </h3>
             <p className="text-gray-600">
-              Your AI-powered interview training platform for career success.
+              AI-powered mock interviews and career preparation platform.
             </p>
           </div>
           
@@ -33,12 +33,12 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/blog" className="text-gray-600 hover:text-brand-purple transition-colors">
-                  Blog
+                <Link to="/contact" className="text-gray-600 hover:text-brand-purple transition-colors">
+                  Contact
                 </Link>
               </li>
               <li>
-                <Link to="/guides" className="text-gray-600 hover:text-brand-purple transition-colors">
+                <Link to="/interview-resources" className="text-gray-600 hover:text-brand-purple transition-colors">
                   Interview Guides
                 </Link>
               </li>
@@ -90,7 +90,7 @@ const Footer: React.FC = () => {
         <div className="pt-8 mt-8 border-t border-gray-200">
           <div className="flex flex-col items-center justify-between space-y-4 md:flex-row md:space-y-0">
             <p className="text-sm text-center text-gray-600">
-              &copy; {new Date().getFullYear()} Interview Genius. All rights reserved.
+              &copy; {new Date().getFullYear()} MockInvi. All rights reserved.
             </p>
             <Button 
               variant="ghost" 
