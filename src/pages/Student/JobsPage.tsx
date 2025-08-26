@@ -28,6 +28,8 @@ interface JobResult {
   url?: string;
   posted?: string;
   type?: string;
+  experience?: string;
+  salary?: string;
 }
 
 const JobsPage: React.FC = () => {
@@ -268,52 +270,48 @@ const JobsPage: React.FC = () => {
               </Card>
             )}
 
-            <div className="grid gap-4">
-              {jobResults.map((job) => (
-                <Card key={job.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold text-primary">{job.title}</h3>
-                        <div className="flex items-center gap-4 text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Building2 className="h-4 w-4" />
-                            <span>{job.company}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            <span>{job.location}</span>
-                          </div>
-                          {job.posted && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              <span>{job.posted}</span>
-                            </div>
-                          )}
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {jobResults.map((job) => (
+                  <Card key={job.id} className="p-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold text-lg">{job.title}</h3>
+                        <p className="text-muted-foreground">{job.company}</p>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {job.location}
+                        </p>
                       </div>
                       
-                      <div className="flex gap-2">
-                        {job.type && (
-                          <Badge variant="outline">{job.type}</Badge>
-                        )}
+                      <p className="text-sm line-clamp-3">{job.description}</p>
+                      
+                       <div className="space-y-2">
+                         {job.experience && (
+                           <Badge variant="outline">{job.experience}</Badge>
+                         )}
+                         {job.salary && (
+                           <p className="text-sm font-medium text-primary">{job.salary}</p>
+                         )}
+                       </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary">{job.type}</Badge>
                         {job.url && (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={job.url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Apply
-                            </a>
+                          <Button 
+                            size="sm"
+                            onClick={() => window.open(job.url, '_blank')}
+                          >
+                            Apply
                           </Button>
                         )}
                       </div>
+                      
+                      {job.posted && (
+                        <p className="text-xs text-muted-foreground">{job.posted}</p>
+                      )}
                     </div>
-                    
-                    <p className="text-muted-foreground line-clamp-3">
-                      {job.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                  </Card>
+                ))}
             </div>
           </div>
         )}
