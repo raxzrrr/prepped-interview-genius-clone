@@ -20,7 +20,7 @@ const CertificatesPage: React.FC = () => {
 
   const handleDownload = (certificate: any) => {
     const userName = user?.fullName || user?.firstName || 'Student';
-    const certificateData = certificate.certificates || {};
+    const certificateData = certificate.certificates || { title: 'Certificate', description: 'Course completion certificate' };
     downloadCertificate({
       userName,
       certificateTitle: certificateData.title || 'Certificate',
@@ -87,7 +87,10 @@ const CertificatesPage: React.FC = () => {
             {userCertificates.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {userCertificates.map((cert) => {
-                  const certificateInfo = cert.certificates || {};
+                  const certificateInfo = cert.certificates || { 
+                    title: 'Course Completion Certificate', 
+                    description: 'Certificate of successful course completion' 
+                  };
                   return (
                     <Card key={cert.id} className="border-green-200 bg-green-50/50">
                       <CardHeader className="pb-3">
@@ -117,10 +120,10 @@ const CertificatesPage: React.FC = () => {
                       </CardHeader>
                       <CardContent>
                         <h3 className="font-semibold text-lg mb-2">
-                          {certificateInfo.title || 'Course Completion Certificate'}
+                          {certificateInfo.title}
                         </h3>
                         <p className="text-sm text-muted-foreground mb-3">
-                          {certificateInfo.description || 'Certificate of successful course completion'}
+                          {certificateInfo.description}
                         </p>
                         <div className="flex items-center gap-4 text-sm">
                           <div className="flex items-center gap-1">
