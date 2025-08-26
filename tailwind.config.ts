@@ -64,12 +64,18 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 				brand: {
-					purple: '#7C4DFF',
-					lightPurple: '#A176FF',
-					blue: '#4285f4',
-					darkBlue: '#2D3748',
-					gray: '#718096',
-					lightGray: '#E2E8F0',
+					purple: 'hsl(214 84% 56%)',
+					lightPurple: 'hsl(214 70% 70%)',
+					blue: 'hsl(214 84% 56%)',
+					darkBlue: 'hsl(220 30% 20%)',
+					gray: 'hsl(220 13% 46%)',
+					lightGray: 'hsl(220 14% 96%)',
+				},
+				gradient: {
+					primary: 'var(--gradient-primary)',
+					background: 'var(--gradient-background)',
+					hero: 'var(--gradient-hero)',
+					card: 'var(--gradient-card)',
 				},
 			},
 			borderRadius: {

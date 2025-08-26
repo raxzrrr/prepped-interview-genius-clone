@@ -9,9 +9,9 @@ const Hero: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="relative overflow-hidden bg-gray-50">
+    <div className="relative overflow-hidden bg-gradient-hero">
       <div className="absolute inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-brand-purple to-brand-blue" />
+        <div className="absolute inset-0 opacity-20 bg-gradient-primary" />
       </div>
       
       <div className="relative px-4 py-24 mx-auto max-w-7xl sm:px-6 lg:px-8">
