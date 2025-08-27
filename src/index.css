@@ -5,94 +5,104 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 13% 18%;
+    --background: 220 20% 98%;
+    --foreground: 220 13% 15%;
 
-    --card: 0 0% 100%;
+    --card: 0 0% 100% / 85%;
     --card-foreground: 220 13% 18%;
 
-    --popover: 0 0% 100%;
+    --popover: 0 0% 100% / 95%;
     --popover-foreground: 220 13% 18%;
 
     --primary: 214 84% 56%;
     --primary-foreground: 0 0% 98%;
 
-    --secondary: 220 14% 96%;
+    --secondary: 220 14% 96% / 80%;
     --secondary-foreground: 220 13% 26%;
 
-    --muted: 220 14% 96%;
+    --muted: 220 14% 96% / 60%;
     --muted-foreground: 220 13% 46%;
 
-    --accent: 214 32% 91%;
+    --accent: 214 32% 91% / 70%;
     --accent-foreground: 220 13% 26%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --border: 220 13% 91% / 40%;
+    --input: 220 13% 91% / 60%;
     --ring: 214 84% 56%;
 
-    --radius: 0.75rem;
+    --radius: 1.25rem;
 
-    /* Sophisticated gradients */
-    --gradient-primary: linear-gradient(135deg, 214 84% 56%, 220 30% 70%);
-    --gradient-background: linear-gradient(135deg, 220 20% 97%, 214 20% 93%);
-    --gradient-hero: linear-gradient(135deg, 220 25% 95%, 214 25% 88%, 210 30% 82%);
-    --gradient-card: linear-gradient(145deg, 0 0% 100%, 220 15% 98%);
+    /* Glassy iOS-like gradients and effects */
+    --gradient-primary: linear-gradient(135deg, 214 84% 56% / 90%, 220 60% 75% / 80%);
+    --gradient-background: linear-gradient(135deg, 220 20% 98%, 214 25% 95%, 210 30% 92%);
+    --gradient-hero: linear-gradient(135deg, 220 30% 96% / 70%, 214 35% 88% / 60%, 210 40% 82% / 50%);
+    --gradient-card: linear-gradient(145deg, 0 0% 100% / 85%, 220 20% 98% / 75%);
+    --gradient-glass: linear-gradient(145deg, 0 0% 100% / 25%, 220 30% 90% / 10%);
     
-    --sidebar-background: 220 15% 98%;
+    --glass-bg: 0 0% 100% / 70%;
+    --glass-border: 0 0% 100% / 20%;
+    --glass-shadow: 0 8px 32px 0 hsl(220 20% 50% / 37%);
+    
+    --sidebar-background: 220 25% 95% / 80%;
     --sidebar-foreground: 220 13% 26%;
     --sidebar-primary: 214 84% 56%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 220 14% 95%;
+    --sidebar-accent: 220 14% 95% / 60%;
     --sidebar-accent-foreground: 220 13% 26%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 220 13% 91% / 30%;
     --sidebar-ring: 214 84% 56%;
   }
 
   .dark {
-    --background: 220 30% 8%;
+    --background: 220 30% 6%;
     --foreground: 220 15% 92%;
 
-    --card: 220 25% 12%;
+    --card: 220 25% 12% / 85%;
     --card-foreground: 220 15% 92%;
 
-    --popover: 220 25% 12%;
+    --popover: 220 25% 12% / 95%;
     --popover-foreground: 220 15% 92%;
 
     --primary: 214 84% 56%;
     --primary-foreground: 220 30% 8%;
 
-    --secondary: 220 20% 16%;
+    --secondary: 220 20% 16% / 80%;
     --secondary-foreground: 220 15% 92%;
 
-    --muted: 220 20% 16%;
+    --muted: 220 20% 16% / 60%;
     --muted-foreground: 220 15% 65%;
 
-    --accent: 214 30% 25%;
+    --accent: 214 30% 25% / 70%;
     --accent-foreground: 220 15% 92%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 20% 18%;
-    --input: 220 20% 18%;
+    --border: 220 20% 18% / 40%;
+    --input: 220 20% 18% / 60%;
     --ring: 214 84% 56%;
 
-    /* Dark mode gradients */
-    --gradient-primary: linear-gradient(135deg, 214 84% 56%, 220 40% 40%);
-    --gradient-background: linear-gradient(135deg, 220 30% 8%, 214 25% 12%);
-    --gradient-hero: linear-gradient(135deg, 220 25% 10%, 214 25% 15%, 210 30% 20%);
-    --gradient-card: linear-gradient(145deg, 220 25% 12%, 220 20% 16%);
+    /* Dark mode glassy gradients */
+    --gradient-primary: linear-gradient(135deg, 214 84% 56% / 90%, 220 50% 40% / 80%);
+    --gradient-background: linear-gradient(135deg, 220 30% 6%, 214 25% 10%, 210 30% 15%);
+    --gradient-hero: linear-gradient(135deg, 220 25% 8% / 70%, 214 25% 12% / 60%, 210 30% 18% / 50%);
+    --gradient-card: linear-gradient(145deg, 220 25% 12% / 85%, 220 20% 16% / 75%);
+    --gradient-glass: linear-gradient(145deg, 220 30% 15% / 25%, 220 20% 8% / 10%);
 
-    --sidebar-background: 220 25% 10%;
+    --glass-bg: 220 25% 15% / 70%;
+    --glass-border: 220 30% 25% / 20%;
+    --glass-shadow: 0 8px 32px 0 hsl(220 50% 5% / 50%);
+
+    --sidebar-background: 220 25% 8% / 80%;
     --sidebar-foreground: 220 15% 85%;
     --sidebar-primary: 214 84% 56%;
     --sidebar-primary-foreground: 220 30% 8%;
-    --sidebar-accent: 220 20% 15%;
+    --sidebar-accent: 220 20% 15% / 60%;
     --sidebar-accent-foreground: 220 15% 85%;
-    --sidebar-border: 220 20% 18%;
+    --sidebar-border: 220 20% 18% / 30%;
     --sidebar-ring: 214 84% 56%;
   }
 }
@@ -136,9 +146,23 @@
   animation: pulse-light 2s infinite;
 }
 
-/* Gradient utilities */
+/* Glassy iOS-like utilities */
+.glass-card {
+  background: hsl(var(--glass-bg));
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid hsl(var(--glass-border));
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-morphism {
+  background: var(--gradient-glass);
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid hsl(var(--glass-border));
+}
+
 .bg-gradient-hero {
   background: var(--gradient-hero);
+  backdrop-filter: blur(20px);
 }
 
 .bg-gradient-primary {
@@ -151,4 +175,37 @@
 
 .bg-gradient-card {
   background: var(--gradient-card);
+  backdrop-filter: blur(10px);
+}
+
+.btn-glass {
+  background: hsl(var(--glass-bg));
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid hsl(var(--glass-border));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-glass:hover {
+  background: hsl(var(--primary) / 10%);
+  transform: translateY(-2px);
+  box-shadow: var(--glass-shadow), 0 4px 20px hsl(var(--primary) / 25%);
+}
+
+.floating-card {
+  background: hsl(var(--card));
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid hsl(var(--border));
+  box-shadow: 
+    0 8px 32px hsl(var(--foreground) / 8%),
+    0 2px 8px hsl(var(--foreground) / 4%),
+    inset 0 1px 0 hsl(var(--background) / 80%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.floating-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 16px 64px hsl(var(--foreground) / 12%),
+    0 4px 16px hsl(var(--foreground) / 8%),
+    inset 0 1px 0 hsl(var(--background) / 80%);
 }

@@ -27,7 +27,7 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
   onComplete,
   onCancel
 }) => {
-  const { user } = useAuth();
+  const { user, getSupabaseUserId } = useAuth();
   const { toast } = useToast();
   
   const [questions, setQuestions] = useState<CourseQuestion[]>([]);
@@ -106,9 +106,9 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
         selectedAnswer: answer
       }));
 
-      // Submit to assessment service with totalModules
+      // Submit to assessment service with totalModules using Clerk user ID
       const result = await assessmentService.evaluateAndSaveAssessment(
-        user.id,
+        user.id, // Use Clerk user ID here - the service will handle UUID conversion
         courseId,
         courseName,
         assessmentAnswers,
@@ -140,7 +140,7 @@ const SimpleAssessment: React.FC<SimpleAssessmentProps> = ({
     try {
       setDownloadingCert(true);
       await certificateDownloadService.downloadCertificateForCourse(
-        user.id,
+        user.id, // Use Clerk user ID - the service will handle UUID conversion
         courseId,
         courseName
       );

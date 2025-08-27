@@ -43,56 +43,74 @@ const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
     <div className="space-y-6">
       {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="floating-card group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Interview Sessions</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 glass-morphism rounded-lg group-hover:scale-110 transition-transform">
+              <Target className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{interviewCount}</div>
-            <p className="text-xs text-muted-foreground">
-              +2 from last week
+            <div className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+              {interviewCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {interviewCount > 0 ? 'Great progress!' : 'Start your first interview'}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="floating-card group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 glass-morphism rounded-lg group-hover:scale-110 transition-transform">
+              <Calendar className="h-4 w-4 text-orange-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentStreak} days</div>
-            <p className="text-xs text-muted-foreground">
-              Keep it up! 🔥
+            <div className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+              {currentStreak} days
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {currentStreak > 0 ? 'Keep it up! 🔥' : 'Start building your streak'}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="floating-card group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Average Score</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 glass-morphism rounded-lg group-hover:scale-110 transition-transform">
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageScore}%</div>
-            <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-green-600 border-green-600">
-                +5% improvement
-              </Badge>
+            <div className="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+              {averageScore}%
+            </div>
+            <div className="flex items-center gap-1 mt-1">
+              {averageScore > 0 && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                  {averageScore >= 80 ? 'Excellent!' : averageScore >= 60 ? 'Good progress' : 'Keep improving'}
+                </Badge>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="floating-card group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Certificates Earned</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 glass-morphism rounded-lg group-hover:scale-110 transition-transform">
+              <Award className="h-4 w-4 text-yellow-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{certificateCount}</div>
-            <p className="text-xs text-muted-foreground">
-              2 more to unlock next tier
+            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-500 to-amber-500 bg-clip-text text-transparent">
+              {certificateCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {certificateCount > 0 ? 'Well earned!' : 'Complete courses to earn certificates'}
             </p>
           </CardContent>
         </Card>
@@ -100,10 +118,12 @@ const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+              <div className="p-2 glass-morphism rounded-lg">
+                <BarChart3 className="h-5 w-5 text-primary" />
+              </div>
               Performance Trend
             </CardTitle>
             <CardDescription>Your interview scores over the last 4 weeks</CardDescription>
@@ -111,26 +131,36 @@ const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={mockPerformanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '12px',
+                    backdropFilter: 'blur(20px)'
+                  }}
+                />
                 <Line 
                   type="monotone" 
                   dataKey="score" 
-                  stroke="#8B5CF6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={3}
+                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 6 }}
+                  activeDot={{ r: 8, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
+              <div className="p-2 glass-morphism rounded-lg">
+                <Target className="h-5 w-5 text-purple-500" />
+              </div>
               Skills Breakdown
             </CardTitle>
             <CardDescription>Your performance across different skill areas</CardDescription>
@@ -151,17 +181,27 @@ const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '12px',
+                    backdropFilter: 'blur(20px)'
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
-            <div className="grid grid-cols-2 gap-2 mt-4">
+            <div className="grid grid-cols-2 gap-3 mt-6">
               {mockSkillsData.map((skill, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm">
+                <div key={index} className="flex items-center gap-3 p-3 glass-morphism rounded-xl">
                   <div 
-                    className="w-3 h-3 rounded-full" 
+                    className="w-4 h-4 rounded-full shadow-sm" 
                     style={{ backgroundColor: skill.color }}
                   />
-                  <span>{skill.name}: {skill.value}%</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{skill.name}</p>
+                    <p className="text-xs text-muted-foreground">{skill.value}%</p>
+                  </div>
                 </div>
               ))}
             </div>

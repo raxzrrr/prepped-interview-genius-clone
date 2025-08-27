@@ -19,12 +19,14 @@ import {
 import { useSubscription } from '@/hooks/useSubscription';
 import { useInterviewUsage } from '@/hooks/useInterviewUsage';
 import { useCertificates } from '@/hooks/useCertificates';
+import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { hasProPlan } = useSubscription();
   const { canUseFreeInterview, usage } = useInterviewUsage();
   const { userCertificates } = useCertificates();
+  const analytics = useDashboardAnalytics();
   
   const isPro = hasProPlan();
   const canStartInterview = isPro || canUseFreeInterview();
@@ -56,22 +58,22 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/interviews')}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="floating-card cursor-pointer group" onClick={() => navigate('/interviews')}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Play className="h-5 w-5 text-blue-600" />
+                <div className="p-3 glass-morphism rounded-xl group-hover:scale-110 transition-transform">
+                  <Play className="h-6 w-6 text-primary" />
                 </div>
                 {canStartInterview && (
-                  <Badge variant="outline" className="text-green-600 border-green-600">
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                     Available
                   </Badge>
                 )}
               </div>
             </CardHeader>
             <CardContent>
-              <CardTitle className="text-lg mb-2">Start Interview</CardTitle>
+              <CardTitle className="text-lg mb-2 group-hover:text-primary transition-colors">Start Interview</CardTitle>
               <CardDescription>
                 {canStartInterview 
                   ? "Practice with AI-powered mock interviews"
@@ -81,49 +83,49 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/learning')}>
+          <Card className="floating-card cursor-pointer group" onClick={() => navigate('/learning')}>
             <CardHeader className="pb-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BookOpen className="h-5 w-5 text-green-600" />
+              <div className="p-3 glass-morphism rounded-xl group-hover:scale-110 transition-transform">
+                <BookOpen className="h-6 w-6 text-green-600" />
               </div>
             </CardHeader>
             <CardContent>
-              <CardTitle className="text-lg mb-2">Learning Hub</CardTitle>
+              <CardTitle className="text-lg mb-2 group-hover:text-green-600 transition-colors">Learning Hub</CardTitle>
               <CardDescription>
                 Access courses and improve your skills
               </CardDescription>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/certificates')}>
+          <Card className="floating-card cursor-pointer group" onClick={() => navigate('/certificates')}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Award className="h-5 w-5 text-yellow-600" />
+                <div className="p-3 glass-morphism rounded-xl group-hover:scale-110 transition-transform">
+                  <Award className="h-6 w-6 text-yellow-600" />
                 </div>
-                {userCertificates.length > 0 && (
-                  <Badge variant="outline">
-                    {userCertificates.length}
+                {analytics.certificateCount > 0 && (
+                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                    {analytics.certificateCount}
                   </Badge>
                 )}
               </div>
             </CardHeader>
             <CardContent>
-              <CardTitle className="text-lg mb-2">Certificates</CardTitle>
+              <CardTitle className="text-lg mb-2 group-hover:text-yellow-600 transition-colors">Certificates</CardTitle>
               <CardDescription>
                 View your earned certificates and achievements
               </CardDescription>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/reports')}>
+          <Card className="floating-card cursor-pointer group" onClick={() => navigate('/reports')}>
             <CardHeader className="pb-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
+              <div className="p-3 glass-morphism rounded-xl group-hover:scale-110 transition-transform">
+                <TrendingUp className="h-6 w-6 text-purple-600" />
               </div>
             </CardHeader>
             <CardContent>
-              <CardTitle className="text-lg mb-2">Progress Reports</CardTitle>
+              <CardTitle className="text-lg mb-2 group-hover:text-purple-600 transition-colors">Progress Reports</CardTitle>
               <CardDescription>
                 Track your interview performance and growth
               </CardDescription>
@@ -138,14 +140,16 @@ const Dashboard: React.FC = () => {
             <h2 className="text-xl font-semibold">Your Progress</h2>
           </div>
           <DashboardAnalytics 
-            interviewCount={usage?.usage_count || 0}
-            certificateCount={userCertificates.length}
+            interviewCount={analytics.interviewCount}
+            currentStreak={analytics.currentStreak}
+            averageScore={analytics.averageScore}
+            certificateCount={analytics.certificateCount}
           />
         </div>
 
         {/* Recent Activity & Quick Tips */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
@@ -154,19 +158,21 @@ const Dashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {usage?.last_interview_date ? (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                {analytics.lastInterviewDate ? (
+                  <div className="flex items-center justify-between p-4 glass-morphism rounded-xl">
                     <div>
                       <p className="font-medium">Last Interview Session</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(usage.last_interview_date).toLocaleDateString()}
+                        {new Date(analytics.lastInterviewDate).toLocaleDateString()}
                       </p>
                     </div>
-                    <Badge variant="outline">Completed</Badge>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    <Play className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <div className="p-4 glass-morphism rounded-2xl w-fit mx-auto mb-4">
+                      <Play className="h-8 w-8 opacity-50" />
+                    </div>
                     <p>No interviews completed yet</p>
                     <p className="text-sm">Start your first practice session!</p>
                   </div>
@@ -175,7 +181,7 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
@@ -183,18 +189,18 @@ const Dashboard: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                  <p className="font-medium text-blue-900">Practice regularly</p>
-                  <p className="text-sm text-blue-700">Consistent practice leads to better performance</p>
+              <div className="space-y-4">
+                <div className="p-4 glass-morphism rounded-xl border-l-4 border-blue-500">
+                  <p className="font-medium text-blue-900 dark:text-blue-100">Practice regularly</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-200">Consistent practice leads to better performance</p>
                 </div>
-                <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                  <p className="font-medium text-green-900">Review feedback</p>
-                  <p className="text-sm text-green-700">Learn from AI suggestions to improve faster</p>
+                <div className="p-4 glass-morphism rounded-xl border-l-4 border-green-500">
+                  <p className="font-medium text-green-900 dark:text-green-100">Review feedback</p>
+                  <p className="text-sm text-green-700 dark:text-green-200">Learn from AI suggestions to improve faster</p>
                 </div>
-                <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
-                  <p className="font-medium text-purple-900">Stay confident</p>
-                  <p className="text-sm text-purple-700">Confidence is key to interview success</p>
+                <div className="p-4 glass-morphism rounded-xl border-l-4 border-purple-500">
+                  <p className="font-medium text-purple-900 dark:text-purple-100">Stay confident</p>
+                  <p className="text-sm text-purple-700 dark:text-purple-200">Confidence is key to interview success</p>
                 </div>
               </div>
             </CardContent>
