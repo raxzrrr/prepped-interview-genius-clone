@@ -167,6 +167,57 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_reports: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      interview_resources: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_type: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_type?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_type?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       interview_sessions: {
         Row: {
           answers: Json | null
@@ -311,6 +362,69 @@ export type Database = {
         }
         Relationships: []
       }
+      user_course_certificates: {
+        Row: {
+          assessment_pass: boolean | null
+          certificate_generated: boolean | null
+          clerk_user_id: string
+          course_complete: boolean | null
+          course_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_pass?: boolean | null
+          certificate_generated?: boolean | null
+          clerk_user_id: string
+          course_complete?: boolean | null
+          course_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_pass?: boolean | null
+          certificate_generated?: boolean | null
+          clerk_user_id?: string
+          course_complete?: boolean | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_interview_usage: {
+        Row: {
+          created_at: string
+          free_interview_used: boolean | null
+          id: string
+          last_interview_date: string | null
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          free_interview_used?: boolean | null
+          id?: string
+          last_interview_date?: string | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          free_interview_used?: boolean | null
+          id?: string
+          last_interview_date?: string | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_learning: {
         Row: {
           assessment_attempted: boolean | null
@@ -360,6 +474,36 @@ export type Database = {
           id?: string
           progress_percentage?: number | null
           total_modules?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          created_at: string
+          file_path: string | null
+          id: string
+          metadata: Json | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path?: string | null
+          id?: string
+          metadata?: Json | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string | null
+          id?: string
+          metadata?: Json | null
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
